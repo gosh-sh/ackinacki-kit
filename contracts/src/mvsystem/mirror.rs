@@ -2,9 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use num_bigint::BigUint;
 use serde::Serialize;
 use serde_json::json;
+use shared::traits::guarded::AsyncGuarded;
+use shared::traits::guarded::AsyncGuardedMut;
+use tokio::sync::Mutex;
+use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
@@ -24,12 +29,14 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 
 #[derive(Debug)]
 pub struct Mirror {
+    context: Arc<ClientContext>,
+    address: String,
     abi: Abi,
-    account: Account,
+    account: Arc<Mutex<Account>>,
 }
 
 impl AccountAccessor for Mirror {
-    fn account(&self) -> &Account {
+    fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
@@ -42,19 +49,44 @@ impl AbiAccessor for Mirror {
 
 impl AddressAccessor for Mirror {
     fn address(&self) -> &str {
-        &self.account.address
+        &self.address
     }
 }
 
 impl ContextAccessor for Mirror {
-    fn context(&self) -> Arc<ClientContext> {
-        self.account.context.clone()
+    fn context(&self) -> &Arc<ClientContext> {
+        &self.context
     }
 }
 
 impl EncodeMessage for Mirror {}
 
 impl SendMessage for Mirror {}
+
+#[async_trait]
+impl AsyncGuarded<Account> for Mirror {
+    async fn async_guarded<F, T>(&self, action: F) -> T
+    where
+        F: FnOnce(&Account) -> T + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.lock().await;
+        action(&guard)
+    }
+}
+
+#[async_trait]
+impl AsyncGuardedMut<Account> for Mirror {
+    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
+        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.clone().lock_owned().await;
+        action(guard).await
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfDeployMultifactor {
@@ -108,7 +140,12 @@ impl Mirror {
             format!("0:2{index:063x}")
         };
 
-        Ok(Self { abi: Abi::Json(ABI.to_string()), account: Account::new(context, address) })
+        Ok(Self {
+            context: context.clone(),
+            address: address.clone(),
+            abi: Abi::Json(ABI.to_string()),
+            account: Arc::new(Mutex::new(Account::new(context, address))),
+        })
     }
 
     /// # Deploy multifactor account

@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+use shared::traits::guarded::AsyncGuarded;
+use shared::traits::guarded::AsyncGuardedMut;
+use tokio::sync::Mutex;
+use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
@@ -19,6 +24,7 @@ use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
@@ -27,12 +33,14 @@ const ABI: &str = include_str!("../../abi/mvsystem/PopitGame.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct Popitgame {
+    context: Arc<ClientContext>,
+    address: String,
     abi: Abi,
-    account: Account,
+    account: Arc<Mutex<Account>>,
 }
 
 impl AccountAccessor for Popitgame {
-    fn account(&self) -> &Account {
+    fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
@@ -45,21 +53,48 @@ impl AbiAccessor for Popitgame {
 
 impl AddressAccessor for Popitgame {
     fn address(&self) -> &str {
-        &self.account.address
+        &self.address
     }
 }
 
 impl ContextAccessor for Popitgame {
-    fn context(&self) -> Arc<ClientContext> {
-        self.account.context.clone()
+    fn context(&self) -> &Arc<ClientContext> {
+        &self.context
     }
 }
 
 impl EncodeMessage for Popitgame {}
 
+impl DecodeMessage for Popitgame {}
+
 impl Executor for Popitgame {}
 
 impl SendMessage for Popitgame {}
+
+#[async_trait]
+impl AsyncGuarded<Account> for Popitgame {
+    async fn async_guarded<F, T>(&self, action: F) -> T
+    where
+        F: FnOnce(&Account) -> T + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.lock().await;
+        action(&guard)
+    }
+}
+
+#[async_trait]
+impl AsyncGuardedMut<Account> for Popitgame {
+    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
+        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.clone().lock_owned().await;
+        action(guard).await
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ResultOfGetDetails {
@@ -109,7 +144,12 @@ pub struct ParamsOfEncodeWithdraw {
 
 impl Popitgame {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { abi: Abi::Json(ABI.to_string()), account: Account::new(context, address) }
+        Self {
+            context: context.clone(),
+            address: address.as_ref().to_string(),
+            abi: Abi::Json(ABI.to_string()),
+            account: Arc::new(Mutex::new(Account::new(context, address))),
+        }
     }
 
     pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
