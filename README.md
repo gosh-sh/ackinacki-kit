@@ -3,4 +3,4 @@
 Tools for Acki Nacki Network
 
 Now contains:
-- `ana_contracts` - wrapper over known contracts systems
+- `contracts` - wrapper over known contracts systems
