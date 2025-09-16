@@ -1,0 +1,266 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use tvm_client::abi::Abi;
+use tvm_client::abi::CallSet;
+use tvm_client::abi::Signer;
+use tvm_client::processing::ResultOfSendMessage;
+use tvm_client::ClientContext;
+
+use crate::account::Account;
+use crate::deserialize::deserialize_u128;
+use crate::deserialize::deserialize_u16;
+use crate::mvsystem::Popit;
+use crate::mvsystem::PopitCandidateWithMedia;
+use crate::mvsystem::PopitMedia;
+use crate::traits::AbiAccessor;
+use crate::traits::AccountAccessor;
+use crate::traits::AddressAccessor;
+use crate::traits::ContextAccessor;
+use crate::traits::EncodeMessage;
+use crate::traits::Executor;
+use crate::traits::SendMessage;
+
+const ABI: &str = include_str!("../../abi/mvsystem/PopCoinRoot.abi.json");
+
+#[derive(Debug, Clone)]
+pub struct PopcoinRoot {
+    abi: Abi,
+    account: Account,
+}
+
+impl AccountAccessor for PopcoinRoot {
+    fn account(&self) -> &Account {
+        &self.account
+    }
+}
+
+impl AbiAccessor for PopcoinRoot {
+    fn abi(&self) -> &Abi {
+        &self.abi
+    }
+}
+
+impl AddressAccessor for PopcoinRoot {
+    fn address(&self) -> &str {
+        &self.account.address
+    }
+}
+
+impl ContextAccessor for PopcoinRoot {
+    fn context(&self) -> Arc<ClientContext> {
+        self.account.context.clone()
+    }
+}
+
+impl EncodeMessage for PopcoinRoot {}
+
+impl Executor for PopcoinRoot {}
+
+impl SendMessage for PopcoinRoot {}
+
+#[derive(Debug, Deserialize)]
+pub struct ResultOfGetDetails {
+    pub name: String,
+    pub root: String,
+    #[serde(rename = "totalSupply", deserialize_with = "deserialize_u128")]
+    pub total_supply: u128,
+    #[serde(rename = "maxPopitIndex", deserialize_with = "deserialize_u16")]
+    pub max_popit_index: u16,
+    pub popits_value: HashMap<u16, Popit>,
+    pub popits_media: HashMap<u16, PopitMedia>,
+    #[serde(rename = "popits_candidate")]
+    pub popits_candidates: HashMap<String, PopitCandidateWithMedia>,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub rewards: u128,
+    #[serde(rename = "isReadyStatus")]
+    pub is_ready: bool,
+    #[serde(rename = "popitGameOwner")]
+    pub owner_popitgame_address: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfActivate {
+    #[serde(rename = "isOld")]
+    pub is_old: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfAddPopitCandidate {
+    #[serde(rename = "media")]
+    pub file_id: String,
+    #[serde(rename = "protopopit")]
+    pub proto_id: Option<u16>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfActivatePopitCandidate {
+    #[serde(rename = "id")]
+    pub candidate_key: String,
+    #[serde(rename = "media")]
+    pub file_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfDeletePopitCandidate {
+    #[serde(rename = "id")]
+    pub candidate_key: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfSetIsPublic {
+    #[serde(rename = "isPublic")]
+    pub is_public: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParamsOfSetPopitMedia {
+    #[serde(rename = "index")]
+    pub key: u16,
+    pub data: PopitMedia,
+}
+
+impl PopcoinRoot {
+    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self { abi: Abi::Json(ABI.to_string()), account: Account::new(context, address) }
+    }
+
+    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
+        let call_set =
+            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
+
+        let result = self.run_tvm(Some(call_set), Signer::None).await?;
+        match result.decoded {
+            Some(data) => match data.output {
+                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
+                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
+                None => anyhow::bail!("Empty decoded output"),
+            },
+            None => anyhow::bail!("Empty decoded result"),
+        }
+    }
+
+    /// # Set `public` flag for popcoin
+    ///
+    /// This flag controls who can add popits to popcoin (only owner or anyone)
+    ///
+    /// Original contract method: `setIsPublic`
+    ///
+    /// Should be signed with server keys
+    pub async fn set_is_public(
+        &self,
+        params: ParamsOfSetIsPublic,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setIsPublic".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set media for issued popit in popcoin
+    ///
+    /// Original contract method: `setPopitMedia`
+    ///
+    /// Should be signed with server keys
+    pub async fn set_popit_media(
+        &self,
+        params: ParamsOfSetPopitMedia,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setPopitMedia".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Activate popcoin
+    ///
+    /// Original contract method: `activate`
+    ///
+    /// Should be signed with server keys
+    pub async fn activate(
+        &self,
+        params: ParamsOfActivate,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "activate".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Add popit candidate to popcoin
+    ///
+    /// Original contract method: `addNewPopit`
+    ///
+    /// Should be signed with server keys
+    pub async fn add_popit_candidate(
+        &self,
+        params: ParamsOfAddPopitCandidate,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "addNewPopit".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Activate popit candidate
+    ///
+    /// Original contract method: `activatePopit`
+    ///
+    /// Should be signed with server keys
+    pub async fn activate_popit_candidate(
+        &self,
+        params: ParamsOfActivatePopitCandidate,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "activatePopit".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Delete popit candidate
+    ///
+    /// Original contract method: `deleteCandidate`
+    ///
+    /// Should be signed with server keys
+    pub async fn delete_popit_candidate(
+        &self,
+        params: ParamsOfDeletePopitCandidate,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "deleteCandidate".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Delete popcoin
+    ///
+    /// Original contract method: `destroy`
+    ///
+    /// Should be signed with server keys
+    pub async fn destroy(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet { function_name: "destroy".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+}
