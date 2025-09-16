@@ -1,0 +1,12 @@
+
+[package]
+name = "ackinacki-kit"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+contracts = ["dep_contracts"]
+
+[dependencies]
+dep_contracts = { path = "../contracts", package = "contracts", optional = true }

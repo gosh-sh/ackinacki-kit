@@ -1,6 +1,6 @@
 
 [package]
-name = "ana_contracts"
+name = "contracts"
 version.workspace = true
 edition.workspace = true
 
