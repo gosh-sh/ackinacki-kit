@@ -10,3 +10,4 @@ contracts = ["dep_contracts"]
 
 [dependencies]
 dep_contracts = { path = "../contracts", package = "contracts", optional = true }
+shared = { path = "../shared", package = "shared" }

@@ -2,9 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+use shared::traits::guarded::AsyncGuarded;
+use shared::traits::guarded::AsyncGuardedMut;
+use tokio::sync::Mutex;
+use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
@@ -20,6 +25,7 @@ use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 
@@ -27,12 +33,14 @@ const ABI: &str = include_str!("../../abi/mvsystem/MobileVerifiersContractRoot.a
 
 #[derive(Debug, Clone)]
 pub struct MobileVerifiersRoot {
+    context: Arc<ClientContext>,
+    address: String,
     abi: Abi,
-    account: Account,
+    account: Arc<Mutex<Account>>,
 }
 
 impl AccountAccessor for MobileVerifiersRoot {
-    fn account(&self) -> &Account {
+    fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
@@ -45,19 +53,46 @@ impl AbiAccessor for MobileVerifiersRoot {
 
 impl AddressAccessor for MobileVerifiersRoot {
     fn address(&self) -> &str {
-        &self.account.address
+        &self.address
     }
 }
 
 impl ContextAccessor for MobileVerifiersRoot {
-    fn context(&self) -> Arc<ClientContext> {
-        self.account.context.clone()
+    fn context(&self) -> &Arc<ClientContext> {
+        &self.context
     }
 }
 
 impl EncodeMessage for MobileVerifiersRoot {}
 
+impl DecodeMessage for MobileVerifiersRoot {}
+
 impl Executor for MobileVerifiersRoot {}
+
+#[async_trait]
+impl AsyncGuarded<Account> for MobileVerifiersRoot {
+    async fn async_guarded<F, T>(&self, action: F) -> T
+    where
+        F: FnOnce(&Account) -> T + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.lock().await;
+        action(&guard)
+    }
+}
+
+#[async_trait]
+impl AsyncGuardedMut<Account> for MobileVerifiersRoot {
+    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
+        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
+        T: Send + 'async_trait,
+    {
+        let guard = self.account.clone().lock_owned().await;
+        action(guard).await
+    }
+}
 
 #[derive(Debug)]
 pub struct ParamsOfGetIndexer {
@@ -125,12 +160,12 @@ pub struct ResultOfGetEpoch {
 
 impl MobileVerifiersRoot {
     pub fn new(context: Arc<ClientContext>) -> Self {
+        let address = "0:2222222222222222222222222222222222222222222222222222222222222222";
         Self {
+            context: context.clone(),
+            address: address.to_string(),
             abi: Abi::Json(ABI.to_string()),
-            account: Account::new(
-                context,
-                "0:2222222222222222222222222222222222222222222222222222222222222222",
-            ),
+            account: Arc::new(Mutex::new(Account::new(context, address))),
         }
     }
 

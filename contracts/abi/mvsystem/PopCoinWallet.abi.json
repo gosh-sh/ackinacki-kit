@@ -10,7 +10,8 @@
 				{"name":"GameCode","type":"cell"},
 				{"name":"value","type":"uint128"},
 				{"name":"popcoinroot","type":"address"},
-				{"name":"root_pubkey","type":"uint256"}
+				{"name":"root_pubkey","type":"uint256"},
+				{"name":"mbiCur","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -27,7 +28,18 @@
 			"name": "addValue",
 			"inputs": [
 				{"name":"id","type":"uint256"},
-				{"name":"value","type":"uint128"}
+				{"name":"value","type":"uint128"},
+				{"name":"mbiCur","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "addValuePopitGame",
+			"inputs": [
+				{"name":"id","type":"uint256"},
+				{"name":"value","type":"uint128"},
+				{"name":"mbiCur","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -128,6 +140,7 @@
 				{"name":"isPlay","type":"bool"},
 				{"name":"gameAddress","type":"address"},
 				{"name":"popits_candidate","type":"map(uint256,uint128)"},
+				{"name":"popits_mbi","type":"map(uint256,uint64)"},
 				{"name":"start_time","type":"uint64"}
 			]
 		},
@@ -154,11 +167,13 @@
 		{"init":false,"name":"_root","type":"address"},
 		{"init":false,"name":"_value","type":"uint128"},
 		{"init":false,"name":"_popits_candidate","type":"map(uint256,uint128)"},
+		{"init":false,"name":"_popits_mbi","type":"map(uint256,uint64)"},
 		{"init":false,"name":"_popitGame","type":"address"},
 		{"init":false,"name":"_isReady","type":"bool"},
 		{"init":false,"name":"_isPlay","type":"bool"},
 		{"init":false,"name":"_game","type":"address"},
 		{"init":false,"name":"_root_pubkey","type":"uint256"},
-		{"init":false,"name":"_start_time","type":"uint32"}
+		{"init":false,"name":"_start_time","type":"uint32"},
+		{"init":false,"name":"_mbiCurBase","type":"uint64"}
 	]
 }

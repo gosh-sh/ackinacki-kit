@@ -1,21 +1,21 @@
 
 [workspace]
 resolver = "3"
-members = ["contracts", "root"]
+members = ["contracts", "root", "shared"]
 
-package.version = "0.1.0"
+package.version = "0.1.1"
 package.edition = "2024"
 
 [workspace.dependencies]
-anyhow = "1.0.99"
-async-trait = "0.1.89"
-chrono = "0.4.42"
-hex = "0.4.3"
-num-bigint = "0.4.6"
-serde = { version = "1.0.225", features = ["derive"] }
-serde_json = "1.0.145"
-sha2 = "0.10.9"
-tokio = "1.47.1"
-tracing = "0.1.41"
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v2.21.2.an" }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v2.21.2.an", default-features = false, features = ["rustls-tls-webpki-roots", "std"] }
+anyhow = "1"
+async-trait = "0.1"
+chrono = "0.4"
+hex = "0.4"
+num-bigint = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+tokio = "1.47"
+tracing = "0.1"
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", rev = "884f9a6" }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", rev = "884f9a6", default-features = false, features = ["rustls-tls-webpki-roots", "std"] }
