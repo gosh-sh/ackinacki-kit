@@ -87,13 +87,22 @@ impl Account {
 
     pub async fn fetch(&mut self) -> anyhow::Result<()> {
         // Fetch account boc
-        let boc = tvm_client::account::get_account(
+        let get_account_result = tvm_client::account::get_account(
             self.context.clone(),
             ParamsOfGetAccount { address: self.address.clone() },
         )
-        .await
-        .map_err(|e| anyhow!("Fetch account `{}` ({e})", self.address))?
-        .boc;
+        .await;
+
+        let boc = match get_account_result {
+            Ok(result) => result.boc,
+            Err(e) => match e.code {
+                622 => {
+                    tracing::warn!(target: "ackinacki_kit", "Get account `{}` ({e})", self.address);
+                    return Ok(());
+                }
+                _ => anyhow::bail!("Get account `{}` ({e})", self.address),
+            },
+        };
 
         // Construct account from boc to get ecc balance
         let tvm_account = tvm_block::Account::construct_from_base64(&boc)

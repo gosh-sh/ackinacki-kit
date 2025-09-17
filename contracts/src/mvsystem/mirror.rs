@@ -122,7 +122,7 @@ pub struct ParamsOfDeployPopcoinRoot {
     pub popits_media: HashMap<u16, PopitMedia>,
     #[serde(rename = "isPublic")]
     pub is_public: bool,
-    pub description: Option<String>,
+    pub description: String,
     #[serde(rename = "popitGameOwner")]
     pub owner_popitgame_address: String,
 }
