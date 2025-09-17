@@ -14,6 +14,16 @@
 			]
 		},
 		{
+			"name": "addValuePopit",
+			"inputs": [
+				{"name":"name","type":"string"},
+				{"name":"id","type":"uint256"},
+				{"name":"value","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "popCoinRootDeployed",
 			"inputs": [
 				{"name":"name","type":"string"}
@@ -70,6 +80,15 @@
 		},
 		{
 			"name": "deployPopCoinWallet",
+			"inputs": [
+				{"name":"name","type":"string"},
+				{"name":"value","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployPopCoinWalletOldTransfer",
 			"inputs": [
 				{"name":"name","type":"string"},
 				{"name":"value","type":"uint128"}

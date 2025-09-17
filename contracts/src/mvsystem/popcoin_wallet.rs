@@ -123,6 +123,10 @@ pub struct ParamsOfAddPopitCandidate {
     /// Amount of popcoin that should be added
     #[serde(rename = "value")]
     pub amount: u128,
+
+    /// Mamaboard current level
+    #[serde(rename = "mbiCur")]
+    pub mbi_cur: u64,
 }
 
 #[derive(Debug, Serialize)]
