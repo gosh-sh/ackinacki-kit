@@ -14,11 +14,28 @@
 			]
 		},
 		{
+			"name": "setNewCode",
+			"inputs": [
+				{"name":"id","type":"uint8"},
+				{"name":"code","type":"cell"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setNewOwner",
+			"inputs": [
+				{"name":"owner","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "addValuePopit",
 			"inputs": [
 				{"name":"name","type":"string"},
 				{"name":"id","type":"uint256"},
-				{"name":"value","type":"uint128"}
+				{"name":"value","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -40,29 +57,6 @@
 			]
 		},
 		{
-			"name": "updateGameCodeForWallet",
-			"inputs": [
-				{"name":"name","type":"string"}
-			],
-			"outputs": [
-			]
-		},
-		{
-			"name": "updateGameCode",
-			"inputs": [
-			],
-			"outputs": [
-			]
-		},
-		{
-			"name": "setGameCode",
-			"inputs": [
-				{"name":"GameCode","type":"cell"}
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "setMbiCur",
 			"inputs": [
 				{"name":"mbiCur","type":"uint64"}
@@ -71,18 +65,10 @@
 			]
 		},
 		{
-			"name": "deployGame",
-			"inputs": [
-				{"name":"name","type":"string"}
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "deployPopCoinWallet",
 			"inputs": [
 				{"name":"name","type":"string"},
-				{"name":"value","type":"uint128"}
+				{"name":"value","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -91,7 +77,7 @@
 			"name": "deployPopCoinWalletOldTransfer",
 			"inputs": [
 				{"name":"name","type":"string"},
-				{"name":"value","type":"uint128"}
+				{"name":"value","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -109,6 +95,15 @@
 			"inputs": [
 				{"name":"value","type":"uint128"},
 				{"name":"to","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "updateCode",
+			"inputs": [
+				{"name":"newcode","type":"cell"},
+				{"name":"cell","type":"cell"}
 			],
 			"outputs": [
 			]

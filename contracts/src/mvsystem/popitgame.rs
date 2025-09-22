@@ -131,7 +131,7 @@ pub struct ParamsOfDeployPopcoinWallet {
     #[serde(rename = "name")]
     pub token_name: String,
     #[serde(rename = "value")]
-    pub amount: u128,
+    pub amount: u64,
 }
 
 #[derive(Debug, Serialize)]
