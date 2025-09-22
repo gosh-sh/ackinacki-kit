@@ -6,6 +6,7 @@ use sha2::Digest;
 use crate::deserialize::deserialize_option_u16;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
+use crate::deserialize::deserialize_u64;
 
 pub mod boost;
 pub mod indexer;
@@ -20,10 +21,10 @@ pub mod popitgame;
 pub struct Popit {
     #[serde(deserialize_with = "deserialize_u128")]
     pub rewards: u128,
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub value: u128,
-    #[serde(rename = "leftValue", deserialize_with = "deserialize_u128")]
-    pub value_left: u128,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub value: u64,
+    #[serde(rename = "leftRewards", deserialize_with = "deserialize_u128")]
+    pub rewards_left: u128,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,8 +57,8 @@ impl PopitMedia {
 pub struct PopitCandidateWithMedia {
     #[serde(rename = "media")]
     pub file_id: String,
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub value: u128,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub value: u64,
     #[serde(deserialize_with = "deserialize_option_u16")]
     pub protopopit: Option<u16>,
     #[serde(deserialize_with = "deserialize_u32")]

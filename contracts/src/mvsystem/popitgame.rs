@@ -131,7 +131,7 @@ pub struct ParamsOfDeployPopcoinWallet {
     #[serde(rename = "name")]
     pub token_name: String,
     #[serde(rename = "value")]
-    pub amount: u128,
+    pub amount: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -226,6 +226,27 @@ impl Popitgame {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployPopCoinWallet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Deploy popcoin wallet on popcoin transfer
+    ///
+    /// Original contract method: `deployPopCoinWalletOldTransfer`
+    ///
+    /// This method should be called when transferring popcoin from database to blockchain.
+    /// There is no `mbi_cur` check, so popcoin amount will be added to wallet with no rewards
+    ///
+    /// Should be signed with server keys
+    pub async fn deploy_popcoin_wallet_on_transfer(
+        &self,
+        params: ParamsOfDeployPopcoinWallet,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "deployPopCoinWalletOldTransfer".to_string(),
             header: None,
             input: Some(json!(params)),
         };
