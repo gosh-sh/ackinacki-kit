@@ -125,6 +125,7 @@ pub struct ParamsOfDeployMultifactor {
     pub pub_recovery_key_sig: String,
     pub root_provider_certificates: HashMap<String, String>,
     pub owner_pubkey: String,
+    pub mirror: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -17,8 +17,8 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
-use crate::deserialize::deserialize_u128;
-use crate::deserialize::deserialize_u128_map;
+use crate::deserialize::deserialize_u64;
+use crate::deserialize::deserialize_u64_map;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -102,16 +102,14 @@ pub struct ResultOfGetDetails {
     pub root_address: String,
     #[serde(rename = "owner")]
     pub multifactor_address: String,
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub value: u128,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub value: u64,
     #[serde(rename = "isReady")]
     pub is_ready: bool,
-    #[serde(rename = "isPlay")]
-    pub is_play: bool,
-    #[serde(rename = "gameAddress")]
-    pub game_address: String,
-    #[serde(rename = "popits_candidate", deserialize_with = "deserialize_u128_map")]
-    pub popits_candidates: HashMap<String, u128>,
+    #[serde(rename = "popits_candidate", deserialize_with = "deserialize_u64_map")]
+    pub popits_candidates: HashMap<String, u64>,
+    #[serde(rename = "popits_mbi", deserialize_with = "deserialize_u64_map")]
+    pub popits_mbi: HashMap<String, u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -122,7 +120,7 @@ pub struct ParamsOfAddPopitCandidate {
 
     /// Amount of popcoin that should be added
     #[serde(rename = "value")]
-    pub amount: u128,
+    pub amount: u64,
 
     /// Mamaboard current level
     #[serde(rename = "mbiCur")]
@@ -132,7 +130,7 @@ pub struct ParamsOfAddPopitCandidate {
 #[derive(Debug, Serialize)]
 pub struct ParamsOfAddValue {
     #[serde(rename = "value")]
-    pub amount: u128,
+    pub amount: u64,
 }
 
 #[derive(Debug, Serialize)]

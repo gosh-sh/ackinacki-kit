@@ -64,6 +64,21 @@ where
     Ok(result)
 }
 
+pub fn deserialize_u64_map<'de, D>(deserializer: D) -> Result<HashMap<String, u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_map: HashMap<String, String> = HashMap::deserialize(deserializer)?;
+    let mut result = HashMap::with_capacity(raw_map.len());
+
+    for (k, v) in raw_map {
+        let parsed = v.parse::<u64>().map_err(serde::de::Error::custom)?;
+        result.insert(k, parsed);
+    }
+
+    Ok(result)
+}
+
 pub fn deserialize_bigint<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
 where
     D: Deserializer<'de>,
