@@ -110,20 +110,20 @@ pub struct ParamsOfDeployMultifactor {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfDeployPopitgame {
-    #[serde(rename = "multifactor")]
+    #[serde(rename(serialize = "multifactor"))]
     pub multifactor_address: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfDeployPopcoinRoot {
     pub name: String,
-    #[serde(rename = "maxPopitIndex")]
+    #[serde(rename(serialize = "maxPopitIndex"))]
     pub max_popit_index: u16,
     pub popits_media: HashMap<u16, PopitMedia>,
-    #[serde(rename = "isPublic")]
+    #[serde(rename(serialize = "isPublic"))]
     pub is_public: bool,
     pub description: String,
-    #[serde(rename = "popitGameOwner")]
+    #[serde(rename(serialize = "popitGameOwner"))]
     pub owner_popitgame_address: String,
 }
 

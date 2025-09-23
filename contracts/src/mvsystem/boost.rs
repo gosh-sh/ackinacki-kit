@@ -103,7 +103,7 @@ pub struct ResultOfGetDetails {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfSetMbiCur {
-    #[serde(rename = "mbiCur")]
+    #[serde(rename(serialize = "mbiCur"))]
     pub mamaboard_max_seq_no: u64,
 }
 

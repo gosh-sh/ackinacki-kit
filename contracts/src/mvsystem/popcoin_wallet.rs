@@ -115,39 +115,39 @@ pub struct ResultOfGetDetails {
 #[derive(Debug, Serialize)]
 pub struct ParamsOfAddPopitCandidate {
     /// Key from popcoin candidates map
-    #[serde(rename = "id")]
+    #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
 
     /// Amount of popcoin that should be added
-    #[serde(rename = "value")]
+    #[serde(rename(serialize = "value"))]
     pub amount: u64,
 
     /// Mamaboard current level
-    #[serde(rename = "mbiCur")]
+    #[serde(rename(serialize = "mbiCur"))]
     pub mbi_cur: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfAddValue {
-    #[serde(rename = "value")]
+    #[serde(rename(serialize = "value"))]
     pub amount: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfEncodeActivatePopitCandidate {
     /// Key from wallet `popits_candidate` map
-    #[serde(rename = "id")]
+    #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
 
     /// Key from popcoin `popits_media` map
-    #[serde(rename = "indexRoot")]
+    #[serde(rename(serialize = "indexRoot"))]
     pub issued_key: u16,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfEncodeDeletePopitCandidate {
     /// Key from wallet `popits_candidate` map
-    #[serde(rename = "index")]
+    #[serde(rename(serialize = "index"))]
     pub candidate_key: String,
 }
 

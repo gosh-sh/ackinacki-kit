@@ -116,7 +116,7 @@ pub struct ResultOfGetDetails {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfGetPopcoinWallet {
-    #[serde(rename = "name")]
+    #[serde(rename(serialize = "name"))]
     pub token_name: String,
 }
 
@@ -128,17 +128,17 @@ pub struct ResultOfGetPopcoinWalletAddress {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfDeployPopcoinWallet {
-    #[serde(rename = "name")]
+    #[serde(rename(serialize = "name"))]
     pub token_name: String,
-    #[serde(rename = "value")]
+    #[serde(rename(serialize = "value"))]
     pub amount: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfEncodeWithdraw {
-    #[serde(rename = "to")]
+    #[serde(rename(serialize = "to"))]
     pub recipient: String,
-    #[serde(rename = "value")]
+    #[serde(rename(serialize = "value"))]
     pub amount: u128,
 }
 

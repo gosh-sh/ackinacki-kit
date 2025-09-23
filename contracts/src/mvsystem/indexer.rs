@@ -102,13 +102,13 @@ pub struct ResultOfGetDetails {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfSetOwner {
-    #[serde(rename = "wallet")]
+    #[serde(rename(serialize = "wallet"))]
     pub multifactor_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParamsOfDeployMultifactor {
-    #[serde(rename = "wallet")]
+    #[serde(rename(serialize = "wallet"))]
     pub multifactor_address: String,
     pub zkid: String,
     pub proof: String,
@@ -130,7 +130,7 @@ pub struct ParamsOfDeployMultifactor {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfEncodeSetOwner {
-    #[serde(rename = "wallet")]
+    #[serde(rename(serialize = "wallet"))]
     pub multifactor_address: String,
 }
 

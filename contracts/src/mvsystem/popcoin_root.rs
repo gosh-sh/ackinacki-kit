@@ -120,13 +120,13 @@ pub struct ResultOfGetDetails {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfActivate {
-    #[serde(rename = "isOld")]
+    #[serde(rename(serialize = "isOld"))]
     pub is_old: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfAddPopitCandidate {
-    #[serde(rename = "media")]
+    #[serde(rename(serialize = "media"))]
     pub file_id: String,
     #[serde(rename = "protopopit")]
     pub proto_id: Option<u16>,
@@ -134,27 +134,27 @@ pub struct ParamsOfAddPopitCandidate {
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfActivatePopitCandidate {
-    #[serde(rename = "id")]
+    #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
-    #[serde(rename = "media")]
+    #[serde(rename(serialize = "media"))]
     pub file_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfDeletePopitCandidate {
-    #[serde(rename = "id")]
+    #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfSetIsPublic {
-    #[serde(rename = "isPublic")]
+    #[serde(rename(serialize = "isPublic"))]
     pub is_public: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ParamsOfSetPopitMedia {
-    #[serde(rename = "index")]
+    #[serde(rename(serialize = "index"))]
     pub key: u16,
     pub data: PopitMedia,
 }

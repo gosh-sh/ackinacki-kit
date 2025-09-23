@@ -130,7 +130,7 @@ pub struct ParamsOfSubmitTransaction {
     pub value: u128,
     pub cc: HashMap<u32, u32>,
     pub bounce: bool,
-    #[serde(rename = "allBalance")]
+    #[serde(rename(serialize = "allBalance"))]
     pub all_balance: bool,
     pub epk_expire_at: u64,
     pub payload: String,
