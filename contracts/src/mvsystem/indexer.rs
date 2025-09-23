@@ -106,7 +106,7 @@ pub struct ParamsOfSetOwner {
     pub multifactor_address: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeployMultifactor {
     #[serde(rename = "wallet")]
     pub multifactor_address: String,
