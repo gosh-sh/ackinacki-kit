@@ -83,14 +83,6 @@
 			]
 		},
 		{
-			"name": "gameDestroyed",
-			"inputs": [
-				{"name":"name","type":"string"}
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "withdraw",
 			"inputs": [
 				{"name":"value","type":"uint128"},
@@ -170,8 +162,6 @@
 		{"init":false,"name":"_startTime","type":"uint32"},
 		{"init":false,"name":"_root_pubkey","type":"uint256"},
 		{"init":false,"name":"_boost","type":"address"},
-		{"init":false,"name":"_rewards","type":"uint128"},
-		{"init":false,"name":"_locked","type":"uint128"},
-		{"init":false,"name":"_countPlay","type":"uint128"}
+		{"init":false,"name":"_rewards","type":"uint128"}
 	]
 }

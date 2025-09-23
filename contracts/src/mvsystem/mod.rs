@@ -25,6 +25,8 @@ pub struct Popit {
     pub value: u64,
     #[serde(rename = "leftRewards", deserialize_with = "deserialize_u128")]
     pub rewards_left: u128,
+    #[serde(rename = "leftTaps", deserialize_with = "deserialize_u128")]
+    pub taps_left: u128,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
