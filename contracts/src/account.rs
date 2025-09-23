@@ -145,7 +145,7 @@ impl Account {
     pub async fn wait(&mut self, params: ParamsOfWaitAccount) -> anyhow::Result<()> {
         let mut attempts = 0;
         loop {
-            if attempts == params.attempts.unwrap_or_default() {
+            if attempts == params.attempts.unwrap_or(20) {
                 anyhow::bail!(
                     "Wait for account `{}` status `{:?}`. Max attempts reached.",
                     self.address,
@@ -160,7 +160,7 @@ impl Account {
 
             attempts += 1;
 
-            let timeout = params.attempts_timeout.unwrap_or_default();
+            let timeout = params.attempts_timeout.unwrap_or(1000);
             tokio::time::sleep(Duration::from_millis(timeout)).await;
         }
     }
