@@ -110,6 +110,8 @@ pub struct ResultOfGetDetails {
     pub popits_candidates: HashMap<String, u64>,
     #[serde(rename = "popits_mbi", deserialize_with = "deserialize_u64_map")]
     pub popits_mbi: HashMap<String, u64>,
+    #[serde(rename = "deployed", deserialize_with = "deserialize_u64")]
+    pub deployed_seq_no: u64,
 }
 
 #[derive(Debug, Serialize)]

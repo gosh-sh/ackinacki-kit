@@ -19,6 +19,7 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u16;
+use crate::deserialize::deserialize_u64;
 use crate::mvsystem::Popit;
 use crate::mvsystem::PopitCandidateWithMedia;
 use crate::mvsystem::PopitMedia;
@@ -116,6 +117,9 @@ pub struct ResultOfGetDetails {
     pub is_ready: bool,
     #[serde(rename = "popitGameOwner")]
     pub owner_popitgame_address: String,
+    pub description: String,
+    #[serde(rename = "deployed", deserialize_with = "deserialize_u64")]
+    pub deployed_seq_no: u64,
 }
 
 #[derive(Debug, Serialize)]
