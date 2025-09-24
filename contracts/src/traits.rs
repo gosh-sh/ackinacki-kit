@@ -49,6 +49,7 @@ pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
     }
 
     async fn is_deployed(&self) -> bool {
+        let _ = self.fetch_account().await;
         self.async_guarded(|account| account.is_deployed()).await
     }
 }
