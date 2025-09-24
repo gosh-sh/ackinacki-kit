@@ -260,6 +260,17 @@ impl PopcoinWallet {
         Ok(result.body)
     }
 
+    /// # Destroy account
+    ///
+    /// Original contract method: `destroyRoot`
+    ///
+    /// Should be signed with server keys
+    pub async fn destroy(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "destroyRoot".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Add amount of popcoin to this wallet (no rewards will be given)
     ///
     /// Original contract method: `addValueOld`
