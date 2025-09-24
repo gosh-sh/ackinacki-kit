@@ -81,6 +81,14 @@ impl Account {
         }
     }
 
+    fn reset(&mut self) {
+        self.boc = None;
+        self.data = None;
+        self.acc_type = AccountStatus::NonExist;
+        self.balance = None;
+        self.ecc = BTreeMap::new();
+    }
+
     pub fn is_deployed(&self) -> bool {
         self.acc_type == AccountStatus::Active
     }
@@ -98,6 +106,7 @@ impl Account {
             Err(e) => match e.code {
                 622 => {
                     tracing::warn!(target: "ackinacki_kit", "Get account `{}` ({e})", self.address);
+                    self.reset();
                     return Ok(());
                 }
                 _ => anyhow::bail!("Get account `{}` ({e})", self.address),
