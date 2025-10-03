@@ -207,7 +207,7 @@ pub struct ParamsOfUpdateZkId {
 pub struct ParamsOfSubmitTransaction {
     pub dest: String,
     pub value: u128,
-    pub cc: HashMap<u32, u32>,
+    pub cc: HashMap<u32, u64>,
     pub bounce: bool,
     #[serde(rename(serialize = "allBalance"))]
     pub all_balance: bool,
