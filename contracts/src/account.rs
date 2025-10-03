@@ -43,7 +43,7 @@ pub struct Account {
     pub data: Option<String>,
     pub balance: Option<BigInt>,
     pub acc_type: AccountStatus,
-    pub ecc: BTreeMap<u8, BigInt>,
+    pub ecc: BTreeMap<u32, BigInt>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,7 +138,7 @@ impl Account {
                 let mut map = BTreeMap::new();
                 balance
                     .other
-                    .iterate_with_keys::<u8, _>(|k, v| {
+                    .iterate_with_keys::<u32, _>(|k, v| {
                         map.insert(k, v.value().clone());
                         Ok(true)
                     })
@@ -189,7 +189,7 @@ mod tests {
 
     fn create_context() -> Arc<ClientContext> {
         let mut config = ClientConfig::default();
-        config.network.endpoints = Some(vec!["prenet.ackinacki.org".to_string()]);
+        config.network.endpoints = Some(vec!["shellnet.ackinacki.org".to_string()]);
 
         let context = ClientContext::new(config).expect("Create context");
         Arc::new(context)
@@ -240,5 +240,17 @@ mod tests {
             .await
             .inspect_err(|e| eprintln!("Wait account ({e})"));
         assert!(wait_result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_decode_account() {
+        let context = create_context();
+
+        // Wait for existing account
+        let mut account = Account::new(
+            context.clone(),
+            "0:269840b497d21dc35c73ccfd31158eade4245ba01230196842acd5f8f3655011",
+        );
+        account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e})")).unwrap();
     }
 }
