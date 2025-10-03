@@ -162,24 +162,6 @@ impl Indexer {
         }
     }
 
-    /// # Set indexer owner (multifactor) from root
-    ///
-    /// Original contract method: `setNewWalletRoot`
-    ///
-    /// Should be signed with root keys
-    pub async fn set_owner(
-        &self,
-        params: ParamsOfSetOwner,
-        signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "setNewWalletRoot".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// # Encode set indexer owner message
     ///
     /// Original contract method: `setNewWallet`
