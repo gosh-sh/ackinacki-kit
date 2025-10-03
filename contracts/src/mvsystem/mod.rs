@@ -66,3 +66,35 @@ pub struct PopitCandidateWithMedia {
     #[serde(deserialize_with = "deserialize_u32")]
     pub time: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(u8)]
+#[serde(from = "u8", into = "u8")]
+pub enum ContractIndex {
+    PopitGame = 1,
+    PopCoinWallet = 2,
+    PopCoinRoot = 4,
+    MvMultifactor = 5,
+    Indexer = 6,
+    Boost = 7,
+}
+
+impl From<u8> for ContractIndex {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => ContractIndex::PopitGame,
+            2 => ContractIndex::PopCoinWallet,
+            4 => ContractIndex::PopCoinRoot,
+            5 => ContractIndex::MvMultifactor,
+            6 => ContractIndex::Indexer,
+            7 => ContractIndex::Boost,
+            _ => panic!("Unknown allowed payload destination {value}"),
+        }
+    }
+}
+
+impl From<ContractIndex> for u8 {
+    fn from(value: ContractIndex) -> Self {
+        value as u8
+    }
+}

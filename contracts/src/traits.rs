@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
@@ -9,6 +10,7 @@ use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::DecodedMessageBody;
 use tvm_client::abi::DeploySet;
+use tvm_client::abi::ParamsOfDecodeAccountData;
 use tvm_client::abi::ParamsOfDecodeMessage;
 use tvm_client::abi::ParamsOfEncodeMessage;
 use tvm_client::abi::ParamsOfEncodeMessageBody;
@@ -56,6 +58,23 @@ pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
 
 pub trait ContextAccessor {
     fn context(&self) -> &Arc<ClientContext>;
+}
+
+pub trait DecodeAccountData<T: DeserializeOwned>: ContextAccessor + AbiAccessor {
+    fn decode_account_data(&self, data: impl AsRef<str>) -> anyhow::Result<T> {
+        let value = abi::decode_account_data(
+            self.context().clone(),
+            ParamsOfDecodeAccountData {
+                abi: self.abi().clone(),
+                data: data.as_ref().to_string(),
+                allow_partial: true,
+            },
+        )
+        .map_err(|e| anyhow!("Decode account data ({e:?})"))?
+        .data;
+
+        serde_json::from_value::<T>(value).map_err(|e| anyhow!("Deserialize account data ({e:?})"))
+    }
 }
 
 pub trait DecodeMessage: ContextAccessor + AbiAccessor {
