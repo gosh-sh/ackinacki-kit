@@ -198,6 +198,9 @@ pub struct ParamsOfUpdateZkId {
     pub header_base_64: String,
     pub owner_pubkey: String,
     pub root_provider_certificates: HashMap<String, String>,
+    pub jwk_update_key: String,
+    pub jwk_update_key_sig: String,
+    pub provider: String,
 }
 
 #[derive(Debug, Serialize)]
