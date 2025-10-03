@@ -107,14 +107,7 @@ pub struct ParamsOfDeployMultifactor {
     pub pub_recovery_key_sig: String,
     pub jwk_update_key: String,
     pub jwk_update_key_sig: String,
-    pub owner_pubkey: String,
     pub root_provider_certificates: HashMap<String, String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ParamsOfDeployPopitgame {
-    #[serde(rename(serialize = "multifactor"))]
-    pub multifactor_address: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -159,20 +152,6 @@ impl Mirror {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployMultifactor".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Deploy popitgame account
-    pub async fn deploy_popitgame(
-        &self,
-        params: ParamsOfDeployPopitgame,
-        signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "deployPopitGame".to_string(),
             header: None,
             input: Some(json!(params)),
         };

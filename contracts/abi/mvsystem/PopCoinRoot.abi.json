@@ -20,15 +20,6 @@
 			]
 		},
 		{
-			"name": "setNewCode",
-			"inputs": [
-				{"name":"id","type":"uint8"},
-				{"name":"code","type":"cell"}
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "setIsPublic",
 			"inputs": [
 				{"name":"isPublic","type":"bool"}
@@ -105,13 +96,6 @@
 			]
 		},
 		{
-			"name": "destroyUpgrade",
-			"inputs": [
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "mintValue",
 			"inputs": [
 				{"name":"owner","type":"address"},
@@ -166,10 +150,8 @@
 			]
 		},
 		{
-			"name": "updateCode",
+			"name": "destroyNode",
 			"inputs": [
-				{"name":"newcode","type":"cell"},
-				{"name":"cell","type":"cell"}
 			],
 			"outputs": [
 			]

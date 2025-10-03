@@ -69,7 +69,7 @@
 			]
 		},
 		{
-			"name": "setNewWalletRoot",
+			"name": "setNewWallet",
 			"inputs": [
 				{"name":"wallet","type":"address"}
 			],
@@ -77,9 +77,8 @@
 			]
 		},
 		{
-			"name": "setNewWallet",
+			"name": "destroyNode",
 			"inputs": [
-				{"name":"wallet","type":"address"}
 			],
 			"outputs": [
 			]
