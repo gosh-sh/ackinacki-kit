@@ -502,14 +502,6 @@
 			]
 		},
 		{
-			"name": "_start_point_jwk",
-			"inputs": [
-			],
-			"outputs": [
-				{"components":[{"name":"value0","type":"uint256"},{"components":[{"name":"modulus","type":"bytes"},{"name":"modulus_expire_at","type":"uint64"}],"name":"value1","type":"tuple"}],"name":"_start_point_jwk","type":"optional(tuple)"}
-			]
-		},
-		{
 			"name": "_zkid",
 			"inputs": [
 			],
@@ -606,6 +598,14 @@
 			]
 		},
 		{
+			"name": "_verification_key_index",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"_verification_key_index","type":"uint32"}
+			]
+		},
+		{
 			"name": "_wasm_hash",
 			"inputs": [
 			],
@@ -644,6 +644,7 @@
 		{"init":false,"name":"_min_value","type":"uint128"},
 		{"init":false,"name":"_max_cleanup_txns","type":"uint256"},
 		{"init":false,"name":"_force_remove_oldest","type":"bool"},
+		{"init":false,"name":"_verification_key_index","type":"uint32"},
 		{"init":false,"name":"_whiteListOfAddress","type":"map(address,bool)"},
 		{"init":false,"name":"_wasm_hash","type":"bytes"}
 	]
