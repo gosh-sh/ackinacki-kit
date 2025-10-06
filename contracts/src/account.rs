@@ -180,12 +180,16 @@ mod tests {
     use std::sync::Arc;
 
     use num_bigint::BigInt;
+    use shared::traits::guarded::AsyncGuarded;
     use tvm_client::ClientConfig;
     use tvm_client::ClientContext;
 
     use crate::account::Account;
     use crate::account::AccountStatus;
     use crate::account::ParamsOfWaitAccount;
+    use crate::mvsystem::mvmultifactor::MvMultifactor;
+    use crate::traits::AccountAccessor;
+    use crate::traits::DecodeAccountData;
 
     fn create_context() -> Arc<ClientContext> {
         let mut config = ClientConfig::default();
@@ -252,5 +256,24 @@ mod tests {
             "0:269840b497d21dc35c73ccfd31158eade4245ba01230196842acd5f8f3655011",
         );
         account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e})")).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_decode_multifactor_account_data() {
+        let context = create_context();
+
+        let mvmultifactor = MvMultifactor::new(
+            context,
+            "0:1bed4638a5a7d5b0906beab4e81db2b3a1cfed24f9496f1190779707201e2861",
+        );
+        let fetch = mvmultifactor.fetch_account().await;
+        assert!(fetch.is_ok());
+
+        let data = mvmultifactor.async_guarded(|account| account.data.clone()).await.unwrap();
+        let decoded = mvmultifactor
+            .decode_account_data(data)
+            .inspect_err(|e| eprintln!("Decode multifactor data ({e})"))
+            .unwrap();
+        assert_eq!(decoded.index_mod_4, "1");
     }
 }
