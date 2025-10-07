@@ -264,7 +264,7 @@ mod tests {
 
         let mvmultifactor = MvMultifactor::new(
             context,
-            "0:cb40e80ae77e611738e765cd3979ad438ec8beab1b7099784e161b5c3a71e6d5",
+            "0:372e7644281159ef3df9c7e06e5a247ea889986868c63909f069efc2a5250129",
         );
         let fetch = mvmultifactor.fetch_account().await;
         assert!(fetch.is_ok());
