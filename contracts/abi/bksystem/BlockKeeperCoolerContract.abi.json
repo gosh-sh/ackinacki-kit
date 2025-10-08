@@ -1,0 +1,88 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"waitStep","type":"uint64"},
+				{"name":"owner","type":"address"},
+				{"name":"root","type":"address"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"stake","type":"uint128"},
+				{"name":"isContinue","type":"bool"},
+				{"name":"stakeContinue","type":"uint128"},
+				{"name":"epochDurationContinue","type":"uint64"},
+				{"name":"waitStepContinue","type":"uint64"},
+				{"name":"bls_pubkeyContinue","type":"bytes"},
+				{"name":"signerIndexContinue","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licensesContinue","type":"tuple[]"},
+				{"name":"virtualStakeContinue","type":"optional(uint128)"},
+				{"name":"reward_sum_continue","type":"uint128"},
+				{"name":"myIp","type":"string"},
+				{"name":"unixtimeStart","type":"uint32"},
+				{"name":"sumReputationCoefContinue","type":"uint128"},
+				{"name":"nodeVersionContinue","type":"optional(string)"},
+				{"name":"slash_type","type":"optional(uint8)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "slash",
+			"inputs": [
+				{"name":"slash_type","type":"uint8"},
+				{"name":"isFromEpoch","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "touch",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getDetails",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"root","type":"address"},
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"seqNoFinish","type":"uint64"},
+				{"name":"owner","type":"address"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"NACKLBalance","type":"varuint32"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":true,"name":"_owner_pubkey","type":"uint256"},
+		{"init":false,"name":"_root","type":"address"},
+		{"init":true,"name":"_seqNoStart","type":"uint64"},
+		{"init":false,"name":"_seqNoFinish","type":"uint64"},
+		{"init":false,"name":"_owner","type":"address"},
+		{"init":false,"name":"_stake","type":"uint128"},
+		{"init":false,"name":"_signerIndex","type":"uint16"},
+		{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"init":false,"name":"_licenses","type":"tuple[]"}
+	]
+}

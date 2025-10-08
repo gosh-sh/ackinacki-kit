@@ -104,49 +104,49 @@ pub struct JwkData {
 }
 
 #[derive(Debug, Clone)]
-pub struct MvMultifactor {
+pub struct Multifactor {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for MvMultifactor {
+impl AccountAccessor for Multifactor {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for MvMultifactor {
+impl AbiAccessor for Multifactor {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for MvMultifactor {
+impl AddressAccessor for Multifactor {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for MvMultifactor {
+impl ContextAccessor for Multifactor {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl DecodeAccountData<AccountData> for MvMultifactor {}
+impl DecodeAccountData<AccountData> for Multifactor {}
 
-impl EncodeMessage for MvMultifactor {}
+impl EncodeMessage for Multifactor {}
 
-impl DecodeMessage for MvMultifactor {}
+impl DecodeMessage for Multifactor {}
 
-impl Executor for MvMultifactor {}
+impl Executor for Multifactor {}
 
-impl SendMessage for MvMultifactor {}
+impl SendMessage for Multifactor {}
 
 #[async_trait]
-impl AsyncGuarded<Account> for MvMultifactor {
+impl AsyncGuarded<Account> for Multifactor {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T + Send + 'async_trait,
@@ -158,7 +158,7 @@ impl AsyncGuarded<Account> for MvMultifactor {
 }
 
 #[async_trait]
-impl AsyncGuardedMut<Account> for MvMultifactor {
+impl AsyncGuardedMut<Account> for Multifactor {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
@@ -311,7 +311,7 @@ pub struct ParamsOfCleanWhitelist {
     pub epk_expire_at: u64,
 }
 
-impl MvMultifactor {
+impl Multifactor {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),
@@ -612,5 +612,34 @@ impl MvMultifactor {
         };
 
         self.send_message(Some(call_set), None, signer).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use shared::traits::guarded::AsyncGuarded;
+
+    use crate::mvsystem::multifactor::Multifactor;
+    use crate::tests::create_context;
+    use crate::traits::AccountAccessor;
+    use crate::traits::DecodeAccountData;
+
+    #[tokio::test]
+    async fn test_decode_account_data() {
+        let context = create_context();
+
+        let multifactor = Multifactor::new(
+            context,
+            "0:372e7644281159ef3df9c7e06e5a247ea889986868c63909f069efc2a5250129",
+        );
+        let fetch = multifactor.fetch_account().await;
+        assert!(fetch.is_ok());
+
+        let data = multifactor.async_guarded(|account| account.data.clone()).await.unwrap();
+        let decoded = multifactor
+            .decode_account_data(data)
+            .inspect_err(|e| eprintln!("Decode multifactor data ({e})"))
+            .unwrap();
+        assert_eq!(decoded.index_mod_4, "1");
     }
 }

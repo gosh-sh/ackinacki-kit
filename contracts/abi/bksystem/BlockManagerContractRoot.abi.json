@@ -1,0 +1,176 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"licenseBMRoot","type":"address"},
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"waitStep","type":"uint64"},
+				{"name":"reward_adjustment","type":"uint128"},
+				{"name":"walletTouch","type":"uint8"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setConfig",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"waitStep","type":"uint64"},
+				{"name":"reward_period","type":"uint32"},
+				{"name":"min_reward_period","type":"uint32"},
+				{"name":"calc_reward_num","type":"uint32"},
+				{"name":"walletTouch","type":"uint8"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setConfigNode",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"waitStep","type":"uint64"},
+				{"name":"reward_period","type":"uint32"},
+				{"name":"min_reward_period","type":"uint32"},
+				{"name":"calc_reward_num","type":"uint32"},
+				{"name":"walletTouch","type":"uint8"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "closeRoot",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setNewCode",
+			"inputs": [
+				{"name":"id","type":"uint8"},
+				{"name":"code","type":"cell"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "increaseBM",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployAckiNackiBlockManagerNodeWallet",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"signerPubkey","type":"uint256"},
+				{"name":"whiteListLicense","type":"map(uint256,bool)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "slashed",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"isWorking","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getReward",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"sign_pubkey","type":"uint256"},
+				{"name":"wallet_address","type":"address"},
+				{"name":"rewarded","type":"uint32"},
+				{"name":"startBM","type":"uint32"},
+				{"name":"isEnd","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getAckiNackiBlockManagerNodeWalletAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+				{"name":"wallet","type":"address"}
+			]
+		},
+		{
+			"name": "getAckiNackiBlockManagerNodeWalletCode",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"data","type":"cell"}
+			]
+		},
+		{
+			"name": "getCodes",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"code","type":"map(uint8,cell)"}
+			]
+		},
+		{
+			"name": "getDetails",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"slash_sum","type":"uint128"},
+				{"name":"numberOfActiveBlockManagers","type":"uint128"},
+				{"name":"numberOfActiveBlockManagersAtEpochStart","type":"uint128"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":false,"name":"_code","type":"map(uint8,cell)"},
+		{"init":false,"name":"_licenseBMRoot","type":"address"},
+		{"init":false,"name":"_numberOfActiveBlockManagers","type":"uint128"},
+		{"init":false,"name":"_owner_wallet","type":"optional(address)"},
+		{"init":false,"name":"_networkStart","type":"uint32"},
+		{"init":false,"name":"_epochDuration","type":"uint64"},
+		{"init":false,"name":"_waitStep","type":"uint64"},
+		{"init":false,"name":"_prevEpochDuration","type":"uint32"},
+		{"init":false,"name":"_epochStart","type":"uint32"},
+		{"init":false,"name":"_epochEnd","type":"uint64"},
+		{"init":false,"name":"_numberOfActiveBlockManagersAtEpochStart","type":"uint128"},
+		{"init":false,"name":"_numberOfActiveBlockManagersAtPrevEpochStart","type":"uint128"},
+		{"init":false,"name":"_reward_adjustment","type":"uint128"},
+		{"init":false,"name":"_reward_adjustment_prev_epoch","type":"uint128"},
+		{"init":false,"name":"_reward_last_time","type":"uint32"},
+		{"init":false,"name":"_min_reward_period","type":"uint32"},
+		{"init":false,"name":"_reward_period","type":"uint32"},
+		{"init":false,"name":"_calc_reward_num","type":"uint32"},
+		{"init":false,"name":"_reward_sum","type":"uint128"},
+		{"init":false,"name":"_slash_sum","type":"uint128"},
+		{"init":false,"name":"_reward_sum_prev_epoch","type":"uint128"},
+		{"init":false,"name":"_is_close_owner","type":"bool"},
+		{"init":false,"name":"_walletTouch","type":"uint8"}
+	]
+}

@@ -18,7 +18,7 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_u32;
 use crate::mvsystem::indexer::Indexer;
-use crate::mvsystem::mvmultifactor::MvMultifactor;
+use crate::mvsystem::multifactor::Multifactor;
 use crate::mvsystem::popcoin_root::PopcoinRoot;
 use crate::mvsystem::popitgame::Popitgame;
 use crate::traits::AbiAccessor;
@@ -175,7 +175,7 @@ impl MobileVerifiersRoot {
     pub async fn get_mv_multifactor(
         &self,
         params: ParamsOfGetMvMultifactor,
-    ) -> anyhow::Result<MvMultifactor> {
+    ) -> anyhow::Result<Multifactor> {
         let call_set = CallSet {
             function_name: "getMvMultifactorAddress".to_string(),
             header: None,
@@ -188,7 +188,7 @@ impl MobileVerifiersRoot {
                 Some(value) => {
                     let decoded = serde_json::from_value::<ResultOfGetMvMultifactorAddress>(value)
                         .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(MvMultifactor::new(self.context().clone(), decoded.address))
+                    Ok(Multifactor::new(self.context().clone(), decoded.address))
                 }
                 None => anyhow::bail!("Empty decoded output"),
             },
