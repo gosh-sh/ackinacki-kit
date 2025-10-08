@@ -28,7 +28,7 @@ use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Boost.abi.json");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Boost {
     context: Arc<ClientContext>,
     address: String,
@@ -93,7 +93,7 @@ impl AsyncGuardedMut<Account> for Boost {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetDetails {
     #[serde(rename = "mbiCur", deserialize_with = "deserialize_u64")]
     pub mamaboard_max_seq_no: u64,
@@ -101,7 +101,7 @@ pub struct ResultOfGetDetails {
     pub multifactor_address: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSetMbiCur {
     #[serde(rename(serialize = "mbiCur"))]
     pub mamaboard_max_seq_no: u64,

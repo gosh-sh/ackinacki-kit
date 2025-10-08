@@ -94,63 +94,63 @@ impl AsyncGuardedMut<Account> for MobileVerifiersRoot {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamsOfGetIndexer {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetIndexerAddress {
     #[serde(rename = "indexerAddress")]
     pub address: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamsOfGetMvMultifactor {
     pub public: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetMvMultifactorAddress {
     #[serde(rename = "mvMultifactorAddress")]
     pub address: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamsOfGetPopitgame {
     pub multifactor_address: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct ResultOfGetPopitgameAddress {
     #[serde(rename = "popitGameAddress")]
     pub address: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamsOfGetPopcoinRoot {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetPopcoinRootAddress {
     #[serde(rename = "popCoinRootAddress")]
     address: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetIndexerCode {
     #[serde(rename = "data")]
     pub code: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetCodes {
     #[serde(rename = "code")]
     pub codes: HashMap<u8, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetEpoch {
     #[serde(rename = "epochStart", deserialize_with = "deserialize_u32")]
     pub start: u32,

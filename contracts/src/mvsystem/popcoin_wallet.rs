@@ -95,7 +95,7 @@ impl AsyncGuardedMut<Account> for PopcoinWallet {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetDetails {
     pub name: String,
     #[serde(rename = "popcoinroot")]
@@ -114,7 +114,7 @@ pub struct ResultOfGetDetails {
     pub deployed_seq_no: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAddPopitCandidate {
     /// Key from popcoin candidates map
     #[serde(rename(serialize = "id"))]
@@ -129,13 +129,13 @@ pub struct ParamsOfAddPopitCandidate {
     pub mbi_cur: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAddValue {
     #[serde(rename(serialize = "value"))]
     pub amount: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeActivatePopitCandidate {
     /// Key from wallet `popits_candidate` map
     #[serde(rename(serialize = "id"))]
@@ -146,7 +146,7 @@ pub struct ParamsOfEncodeActivatePopitCandidate {
     pub issued_key: u16,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeDeletePopitCandidate {
     /// Key from wallet `popits_candidate` map
     #[serde(rename(serialize = "index"))]

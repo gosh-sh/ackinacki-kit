@@ -28,7 +28,7 @@ use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Indexer.abi.json");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Indexer {
     context: Arc<ClientContext>,
     address: String,
@@ -93,14 +93,14 @@ impl AsyncGuardedMut<Account> for Indexer {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetDetails {
     pub name: String,
     #[serde(rename = "wallet")]
     pub multifactor_address: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSetOwner {
     #[serde(rename(serialize = "wallet"))]
     pub multifactor_address: String,
@@ -131,7 +131,7 @@ pub struct ParamsOfDeployMultifactor {
     pub mirror: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeSetOwner {
     #[serde(rename(serialize = "wallet"))]
     pub multifactor_address: String,
