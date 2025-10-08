@@ -1,0 +1,447 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"BlockKeeperPreEpochCode","type":"cell"},
+				{"name":"AckiNackiBlockKeeperNodeWalletCode","type":"cell"},
+				{"name":"BlockKeeperEpochCode","type":"cell"},
+				{"name":"BlockKeeperEpochCoolerCode","type":"cell"},
+				{"name":"BlockKeeperEpochProxyListCode","type":"cell"},
+				{"name":"BLSKeyCode","type":"cell"},
+				{"name":"SignerIndexCode","type":"cell"},
+				{"name":"LicenseCode","type":"cell"},
+				{"name":"epochDuration","type":"uint128"},
+				{"name":"freeLicense","type":"uint32"},
+				{"name":"whiteListLicense","type":"map(uint256,bool)"},
+				{"name":"licenseRoot","type":"address"},
+				{"name":"stakesCnt","type":"uint8"},
+				{"name":"walletTouch","type":"uint8"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setSigningPubkey",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setLockToStake",
+			"inputs": [
+				{"name":"license_number","type":"uint256"},
+				{"name":"lock","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setLockToStakeByWallet",
+			"inputs": [
+				{"name":"license_number","type":"uint256"},
+				{"name":"lock","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "removeLicense",
+			"inputs": [
+				{"name":"license_number","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setLicenseWhiteList",
+			"inputs": [
+				{"name":"whiteListLicense","type":"map(uint256,bool)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "addLicense",
+			"inputs": [
+				{"name":"license_number","type":"uint256"},
+				{"name":"reputationTime","type":"uint128"},
+				{"name":"last_touch","type":"uint64"},
+				{"name":"isPrivileged","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "addBalance",
+			"inputs": [
+				{"name":"license_number","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deleteLicense",
+			"inputs": [
+				{"name":"license_number","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setLockStake",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"stake","type":"uint256"},
+				{"name":"bls_key","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deleteLockStake",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"bls_key","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "slash",
+			"inputs": [
+				{"name":"slash_type","type":"uint8"},
+				{"name":"bls_key","type":"bytes"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "updateLockStake",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"seqNoFinish","type":"uint64"},
+				{"name":"stake","type":"uint256"},
+				{"name":"bls_key","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "stakeNotAccepted",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "stakeNotAcceptedContinue",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "tryCooler",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "sendBlockKeeperRequestWithStake",
+			"inputs": [
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"varuint32"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "sendBlockKeeperRequestWithCancelStakeContinue",
+			"inputs": [
+				{"name":"seqNoStartOld","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "cancelContinueStake",
+			"inputs": [
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"bls_key","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "sendBlockKeeperRequestWithStakeContinue",
+			"inputs": [
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"varuint32"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployPreEpochContract",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"walletTouch","type":"uint8"},
+				{"name":"epochCliff","type":"uint64"},
+				{"name":"waitStep","type":"uint64"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployBlockKeeperContractContinue",
+			"inputs": [
+				{"name":"walletTouch","type":"uint8"},
+				{"name":"seqNoStartold","type":"uint64"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "continueStakeNotAccept",
+			"inputs": [
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"bls_key","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "continueStakeAccept",
+			"inputs": [
+				{"name":"seqNoStartOld","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployBlockKeeperContractContinueAfterDestroy",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"waitStep","type":"uint64"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"signerIndex","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses_continue","type":"tuple[]"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"myIp","type":"string"},
+				{"name":"reputationCoef","type":"uint128"},
+				{"name":"delta_time","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "updateLockStakeCooler",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"seqNoFinish","type":"uint64"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"isContinue","type":"bool"},
+				{"name":"addReputationTime","type":"uint32"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "unlockStakeCooler",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"stake","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "slashCooler",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"slash_type","type":"uint8"},
+				{"name":"slash_stake","type":"uint128"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"isFromEpoch","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "slashStake",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"slash_type","type":"uint8"},
+				{"name":"slash_stake","type":"uint256"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses","type":"tuple[]"},
+				{"name":"isContinue","type":"bool"},
+				{"name":"bls_key_continue","type":"bytes"},
+				{"name":"signerIndex_continue","type":"uint16"},
+				{"components":[{"name":"num","type":"uint256"},{"name":"stake","type":"uint128"}],"name":"licenses_continue","type":"tuple[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "withdrawToken",
+			"inputs": [
+				{"name":"license_number","type":"uint256"},
+				{"name":"value","type":"varuint32"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "withdrawWalletToken",
+			"inputs": [
+				{"name":"to","type":"address"},
+				{"name":"value","type":"varuint32"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "resetWallet",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getDetails",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"signerPubkey","type":"uint256"},
+				{"name":"root","type":"address"},
+				{"name":"balance","type":"uint256"},
+				{"components":[{"name":"stake","type":"uint256"},{"name":"seqNoStart","type":"uint64"},{"name":"seqNoFinish","type":"uint64"},{"name":"bls_key","type":"bytes"},{"name":"status","type":"uint8"},{"name":"signerIndex","type":"uint16"}],"name":"activeStakes","type":"map(uint256,tuple)"},
+				{"name":"stakesCnt","type":"uint8"},
+				{"components":[{"name":"reputationTime","type":"uint128"},{"name":"status","type":"uint8"},{"name":"isPrivileged","type":"bool"},{"name":"stakeController","type":"optional(address)"},{"name":"last_touch","type":"uint64"},{"name":"balance","type":"uint128"},{"name":"lockStake","type":"uint128"},{"name":"lockContinue","type":"uint128"},{"name":"lockCooler","type":"uint128"},{"name":"isLockToStake","type":"bool"},{"name":"coolerCount","type":"uint32"},{"name":"isLockToStakeByWallet","type":"bool"},{"name":"isLockBecauseOfSlashing","type":"bool"}],"name":"licenses","type":"map(uint256,tuple)"},
+				{"name":"epochDuration","type":"uint128"},
+				{"name":"whiteListLicense","type":"map(uint256,bool)"}
+			]
+		},
+		{
+			"name": "getEpochAddress",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"epochAddress","type":"optional(address)"}
+			]
+		},
+		{
+			"name": "getSumBalanceForStake",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"sumBalance","type":"uint128"}
+			]
+		},
+		{
+			"name": "getProxyListAddr",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"address"}
+			]
+		},
+		{
+			"name": "getProxyListCodeHash",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"uint256"}
+			]
+		},
+		{
+			"name": "getProxyListCode",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"cell"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":false,"name":"_code","type":"map(uint8,cell)"},
+		{"init":true,"name":"_owner_pubkey","type":"uint256"},
+		{"init":false,"name":"_root","type":"address"},
+		{"components":[{"name":"stake","type":"uint256"},{"name":"seqNoStart","type":"uint64"},{"name":"seqNoFinish","type":"uint64"},{"name":"bls_key","type":"bytes"},{"name":"status","type":"uint8"},{"name":"signerIndex","type":"uint16"}],"init":false,"name":"_activeStakes","type":"map(uint256,tuple)"},
+		{"init":false,"name":"_stakesCnt","type":"uint8"},
+		{"init":false,"name":"_isContinue","type":"bool"},
+		{"components":[{"name":"reputationTime","type":"uint128"},{"name":"status","type":"uint8"},{"name":"isPrivileged","type":"bool"},{"name":"stakeController","type":"optional(address)"},{"name":"last_touch","type":"uint64"},{"name":"balance","type":"uint128"},{"name":"lockStake","type":"uint128"},{"name":"lockContinue","type":"uint128"},{"name":"lockCooler","type":"uint128"},{"name":"isLockToStake","type":"bool"},{"name":"coolerCount","type":"uint32"},{"name":"isLockToStakeByWallet","type":"bool"},{"name":"isLockBecauseOfSlashing","type":"bool"}],"init":false,"name":"_licenses","type":"map(uint256,tuple)"},
+		{"init":false,"name":"_licenses_count","type":"uint128"},
+		{"init":false,"name":"_epochDuration","type":"uint128"},
+		{"init":false,"name":"_freeLicense","type":"uint32"},
+		{"init":false,"name":"_isWaitStake","type":"bool"},
+		{"init":false,"name":"_balance","type":"uint128"},
+		{"init":false,"name":"_whiteListLicense","type":"map(uint256,bool)"},
+		{"init":false,"name":"_licenseRoot","type":"address"},
+		{"init":false,"name":"_isSlashing","type":"bool"},
+		{"init":false,"name":"_walletLastTouch","type":"uint64"},
+		{"init":false,"name":"_signing_pubkey","type":"uint256"},
+		{"init":false,"name":"_walletTouch","type":"uint8"}
+	]
+}

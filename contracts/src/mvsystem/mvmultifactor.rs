@@ -614,3 +614,32 @@ impl MvMultifactor {
         self.send_message(Some(call_set), None, signer).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use shared::traits::guarded::AsyncGuarded;
+
+    use crate::mvsystem::mvmultifactor::MvMultifactor;
+    use crate::tests::create_context;
+    use crate::traits::AccountAccessor;
+    use crate::traits::DecodeAccountData;
+
+    #[tokio::test]
+    async fn test_decode_account_data() {
+        let context = create_context();
+
+        let mvmultifactor = MvMultifactor::new(
+            context,
+            "0:372e7644281159ef3df9c7e06e5a247ea889986868c63909f069efc2a5250129",
+        );
+        let fetch = mvmultifactor.fetch_account().await;
+        assert!(fetch.is_ok());
+
+        let data = mvmultifactor.async_guarded(|account| account.data.clone()).await.unwrap();
+        let decoded = mvmultifactor
+            .decode_account_data(data)
+            .inspect_err(|e| eprintln!("Decode multifactor data ({e})"))
+            .unwrap();
+        assert_eq!(decoded.index_mod_4, "1");
+    }
+}

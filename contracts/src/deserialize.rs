@@ -6,6 +6,14 @@ use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 
+pub fn deserialize_u8<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    serde_json::from_str::<u8>(&s).map_err(Error::custom)
+}
+
 pub fn deserialize_u16<'de, D>(deserializer: D) -> Result<u16, D::Error>
 where
     D: Deserializer<'de>,

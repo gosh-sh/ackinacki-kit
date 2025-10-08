@@ -1,0 +1,446 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"licenseRoot","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "closeRoot",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setConfig",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"minBlockKeepers","type":"uint128"},
+				{"name":"isNeedNumberOfActiveBlockKeepers","type":"bool"},
+				{"name":"needNumberOfActiveBlockKeepers","type":"uint128"},
+				{"name":"walletTouch","type":"uint8"},
+				{"name":"nlinit","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setConfigNode",
+			"inputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"minBlockKeepers","type":"uint128"},
+				{"name":"isNeedNumberOfActiveBlockKeepers","type":"bool"},
+				{"name":"needNumberOfActiveBlockKeepers","type":"uint128"},
+				{"name":"walletTouch","type":"uint8"},
+				{"name":"nlinit","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deployAckiNackiBlockKeeperNodeWallet",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"whiteListLicense","type":"map(uint256,bool)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "coolerSlash",
+			"inputs": [
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "decreaseStakes",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"slash_stake","type":"uint128"},
+				{"name":"rep_coef","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "increaseActiveBlockKeeperNumber",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"stake","type":"uint128"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "receiveBlockKeeperRequestWithStakeFromWallet",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"is_min","type":"bool"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isBLSAccepted",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"uint128"},
+				{"name":"isNotOk","type":"bool"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isSignerIndexAccepted",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"uint128"},
+				{"name":"isNotOk","type":"bool"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "receiveBlockKeeperRequestWithStakeFromWalletContinue",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"is_min","type":"bool"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"seqNoFinish","type":"uint64"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isBLSAcceptedContinue",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"uint128"},
+				{"name":"isNotOk","type":"bool"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isSignerIndexContinue",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"bls_pubkey","type":"bytes"},
+				{"name":"stake","type":"uint128"},
+				{"name":"isNotOk","type":"bool"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setNewCode",
+			"inputs": [
+				{"name":"id","type":"uint8"},
+				{"name":"code","type":"cell"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "decreaseActiveBlockKeeper",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"seqNoStart","type":"uint64"},
+				{"name":"stake","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"gparam","type":"uint256"},
+				{"name":"isSlash","type":"bool"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getBlockKeeperCoolerAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStart","type":"uint64"}
+			],
+			"outputs": [
+				{"name":"value0","type":"address"}
+			]
+		},
+		{
+			"name": "getAckiNackiBlockKeeperNodeWalletAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+				{"name":"wallet","type":"address"}
+			]
+		},
+		{
+			"name": "getAckiNackiBlockKeeperNodeWalletCode",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"data","type":"cell"}
+			]
+		},
+		{
+			"name": "getBlockKeeperEpochCode",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"epochCode","type":"cell"}
+			]
+		},
+		{
+			"name": "getBlockKeeperEpochAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStart","type":"uint64"}
+			],
+			"outputs": [
+				{"name":"epochAddress","type":"address"}
+			]
+		},
+		{
+			"name": "getBlockKeeperPreEpochAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStart","type":"uint64"}
+			],
+			"outputs": [
+				{"name":"preEpochAddress","type":"address"}
+			]
+		},
+		{
+			"name": "getDetails",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"minStake","type":"uint128"},
+				{"name":"numberOfActiveBlockKeepers","type":"uint128"}
+			]
+		},
+		{
+			"name": "getEpochCodeHash",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"epochCodeHash","type":"uint256"}
+			]
+		},
+		{
+			"name": "getPreEpochCodeHash",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"preEpochCodeHash","type":"uint256"}
+			]
+		},
+		{
+			"name": "getRewardOut",
+			"inputs": [
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"gparam","type":"uint256"},
+				{"name":"stake","type":"uint128"}
+			],
+			"outputs": [
+				{"name":"reward","type":"uint128"}
+			]
+		},
+		{
+			"name": "getProxyListCode",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"code","type":"cell"}
+			]
+		},
+		{
+			"name": "getProxyListAddress",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+				{"name":"proxyAddress","type":"address"}
+			]
+		},
+		{
+			"name": "getRewardNow",
+			"inputs": [
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"stake","type":"uint128"}
+			],
+			"outputs": [
+				{"name":"reward","type":"uint128"}
+			]
+		},
+		{
+			"name": "getMinStakeNow",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"minstake","type":"uint128"}
+			]
+		},
+		{
+			"name": "getMaxStakeNow",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"maxstake","type":"uint128"}
+			]
+		},
+		{
+			"name": "getConfig",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"epochDuration","type":"uint64"},
+				{"name":"epochCliff","type":"uint64"},
+				{"name":"waitStep","type":"uint64"}
+			]
+		},
+		{
+			"name": "getSignerIndexAddress",
+			"inputs": [
+				{"name":"index","type":"uint16"}
+			],
+			"outputs": [
+				{"name":"signerIndex","type":"address"}
+			]
+		},
+		{
+			"name": "getMinStakeOut",
+			"inputs": [
+				{"name":"reward_sum","type":"uint128"},
+				{"name":"timeEpochStart","type":"uint128"},
+				{"name":"numberOfActiveBlockKeepersAtBlockStart","type":"uint128"},
+				{"name":"needNumberOfActiveBlockKeepers","type":"uint128"}
+			],
+			"outputs": [
+				{"name":"minstake","type":"uint128"}
+			]
+		},
+		{
+			"name": "getBLSIndexAddress",
+			"inputs": [
+				{"name":"bls_key","type":"bytes"}
+			],
+			"outputs": [
+				{"name":"blsAddress","type":"address"}
+			]
+		},
+		{
+			"name": "getCodes",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"code","type":"map(uint8,cell)"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		},
+		{
+			"name": "_notion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"_notion","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":false,"name":"_notion","type":"string"},
+		{"init":false,"name":"_code","type":"map(uint8,cell)"},
+		{"init":false,"name":"_epochDuration","type":"uint64"},
+		{"init":false,"name":"_epochCliff","type":"uint64"},
+		{"init":false,"name":"_waitStep","type":"uint64"},
+		{"init":false,"name":"_minBlockKeepers","type":"uint128"},
+		{"init":false,"name":"_totalStake","type":"uint256"},
+		{"init":false,"name":"_licenseRoot","type":"address"},
+		{"init":false,"name":"_walletTouch","type":"uint8"},
+		{"init":false,"name":"_networkStart","type":"uint32"},
+		{"init":false,"name":"_numberOfActiveBlockKeepers","type":"uint128"},
+		{"init":false,"name":"_block_seqno","type":"uint32"},
+		{"init":false,"name":"_numberOfActiveBlockKeepersAtBlockStart","type":"uint128"},
+		{"init":false,"name":"_needNumberOfActiveBlockKeepers","type":"uint128"},
+		{"init":false,"name":"_isNeedNumberOfActiveBlockKeepers","type":"bool"},
+		{"init":false,"name":"_reward_sum","type":"uint128"},
+		{"init":false,"name":"_slash_sum","type":"uint128"},
+		{"init":false,"name":"_nlinit","type":"uint128"},
+		{"init":false,"name":"_mbkOld","type":"uint128"},
+		{"init":false,"name":"_is_close_owner","type":"bool"},
+		{"init":false,"name":"_Gparam","type":"uint256"},
+		{"init":false,"name":"_REMparam","type":"uint256"},
+		{"init":false,"name":"_Bparam","type":"uint32"}
+	]
+}

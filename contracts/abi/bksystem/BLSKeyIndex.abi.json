@@ -1,0 +1,89 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"wallet","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isBLSKeyAccept",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"stake","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isBLSKeyAcceptContinue",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"signerIndex","type":"uint16"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"stake","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "destroyRoot",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "destroy",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getReadyStatus",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"ready","type":"bool"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":true,"name":"_root","type":"address"},
+		{"init":true,"name":"_bls","type":"bytes"},
+		{"init":false,"name":"_wallet","type":"address"},
+		{"init":false,"name":"_ready","type":"bool"}
+	]
+}

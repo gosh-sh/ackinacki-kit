@@ -1,0 +1,82 @@
+{
+	"ABI version": 2,
+	"version": "2.4",
+	"header": ["pubkey", "time", "expire"],
+	"functions": [
+		{
+			"name": "constructor",
+			"inputs": [
+				{"name":"wallet","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isSignerIndexAccept",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"blsKey","type":"bytes"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"rep_coef","type":"uint128"},
+				{"name":"stake","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"myIp","type":"string"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "isSignerIndexAcceptContinue",
+			"inputs": [
+				{"name":"wallet","type":"address"},
+				{"name":"blsKey","type":"bytes"},
+				{"name":"pubkey","type":"uint256"},
+				{"name":"seqNoStartOld","type":"uint64"},
+				{"name":"stake","type":"uint128"},
+				{"name":"virtualStake","type":"optional(uint128)"},
+				{"name":"ProxyList","type":"map(uint8,string)"},
+				{"name":"sumReputationCoef","type":"uint128"},
+				{"name":"nodeVersion","type":"optional(string)"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "destroy",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getReadyStatus",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"ready","type":"bool"}
+			]
+		},
+		{
+			"name": "getVersion",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"string"},
+				{"name":"value1","type":"string"}
+			]
+		}
+	],
+	"events": [
+	],
+	"fields": [
+		{"init":true,"name":"_pubkey","type":"uint256"},
+		{"init":false,"name":"_timestamp","type":"uint64"},
+		{"init":false,"name":"_constructorFlag","type":"bool"},
+		{"init":true,"name":"_signerIndex","type":"uint16"},
+		{"init":true,"name":"_root","type":"address"},
+		{"init":false,"name":"_wallet","type":"address"},
+		{"init":false,"name":"_ready","type":"bool"}
+	]
+}
