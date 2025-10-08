@@ -11,11 +11,11 @@ use crate::deserialize::deserialize_u64;
 pub mod boost;
 pub mod indexer;
 pub mod mirror;
-pub mod mobile_verifiers_root;
-pub mod mvmultifactor;
+pub mod multifactor;
 pub mod popcoin_root;
 pub mod popcoin_wallet;
 pub mod popitgame;
+pub mod root;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Popit {
