@@ -96,7 +96,7 @@ impl AsyncGuardedMut<Account> for Popitgame {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetDetails {
     #[serde(rename = "owner")]
     pub multifactor_address: String,
@@ -114,19 +114,19 @@ pub struct ResultOfGetDetails {
     pub min_stake: u128,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetPopcoinWallet {
     #[serde(rename(serialize = "name"))]
     pub token_name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetPopcoinWalletAddress {
     #[serde(rename = "popCoinWalletAddress")]
     pub address: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeployPopcoinWallet {
     #[serde(rename(serialize = "name"))]
     pub token_name: String,
@@ -134,7 +134,7 @@ pub struct ParamsOfDeployPopcoinWallet {
     pub amount: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeWithdraw {
     #[serde(rename(serialize = "to"))]
     pub recipient: String,

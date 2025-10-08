@@ -99,7 +99,7 @@ impl AsyncGuardedMut<Account> for PopcoinRoot {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetDetails {
     pub name: String,
     pub root: String,
@@ -122,13 +122,13 @@ pub struct ResultOfGetDetails {
     pub deployed_seq_no: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfActivate {
     #[serde(rename(serialize = "isOld"))]
     pub is_old: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAddPopitCandidate {
     #[serde(rename(serialize = "media"))]
     pub file_id: String,
@@ -136,7 +136,7 @@ pub struct ParamsOfAddPopitCandidate {
     pub proto_id: Option<u16>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfActivatePopitCandidate {
     #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
@@ -144,19 +144,19 @@ pub struct ParamsOfActivatePopitCandidate {
     pub file_id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeletePopitCandidate {
     #[serde(rename(serialize = "id"))]
     pub candidate_key: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSetIsPublic {
     #[serde(rename(serialize = "isPublic"))]
     pub is_public: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSetPopitMedia {
     #[serde(rename(serialize = "index"))]
     pub key: u16,

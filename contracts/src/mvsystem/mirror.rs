@@ -27,7 +27,7 @@ use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Mirror {
     context: Arc<ClientContext>,
     address: String,
@@ -88,7 +88,7 @@ impl AsyncGuardedMut<Account> for Mirror {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeployMultifactor {
     pub name: String,
     pub zkid: String,
@@ -110,7 +110,7 @@ pub struct ParamsOfDeployMultifactor {
     pub root_provider_certificates: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeployPopcoinRoot {
     pub name: String,
     #[serde(rename(serialize = "maxPopitIndex"))]

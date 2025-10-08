@@ -17,7 +17,7 @@ pub mod popcoin_root;
 pub mod popcoin_wallet;
 pub mod popitgame;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Popit {
     #[serde(deserialize_with = "deserialize_u128")]
     pub rewards: u128,
@@ -29,7 +29,7 @@ pub struct Popit {
     pub taps_left: u128,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PopitMedia {
     pub id: String,
     #[serde(rename = "media")]
@@ -55,7 +55,7 @@ impl PopitMedia {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PopitCandidateWithMedia {
     #[serde(rename = "media")]
     pub file_id: String,

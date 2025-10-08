@@ -31,7 +31,7 @@ use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mvmultifactor.abi.json");
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountData {
     #[serde(alias = "_candidate_new_owner_pubkey_and_expiration")]
     pub candidate_new_owner_pubkey_and_expiration: Option<HashMap<String, String>>,
@@ -97,7 +97,7 @@ pub struct AccountData {
     pub white_list_of_address: HashMap<String, bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwkData {
     pub modulus: String,
     pub modulus_expire_at: String,
@@ -170,7 +170,7 @@ impl AsyncGuardedMut<Account> for MvMultifactor {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAddZkpFactor {
     pub proof: String,
     pub epk: String,
@@ -178,12 +178,12 @@ pub struct ParamsOfAddZkpFactor {
     pub header_base_64: String,
     pub epk_expire_at: i64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfAddZkpFactor {
     pub success: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfUpdateZkId {
     pub zkid: String,
     pub proof: String,
@@ -203,7 +203,7 @@ pub struct ParamsOfUpdateZkId {
     pub provider: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSubmitTransaction {
     pub dest: String,
     pub value: u128,
@@ -229,71 +229,71 @@ impl Default for ParamsOfSubmitTransaction {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetEpkExpire {
     pub epk: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetEpkExpire {
     #[serde(rename = "value0", deserialize_with = "deserialize_u64")]
     pub epk_expire_at: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetZkpEphemeralPublicKeys {
     #[serde(rename = "value0")]
     pub keys: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAddJwkModulus {
     pub root_cert_sn: String,
     pub lv_kid: String,
     pub tls_data: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfChangeSeedPhrase {
     pub epk_expire_at: u64,
     pub new_owner_pubkey: String,
     pub new_owner_pubkey_sig: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfAcceptCandidateSeedPhrase {
     pub new_owner_pubkey: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeleteCandidateSeedPhrase {
     pub epk_expire_at: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfUpdateRecoveryPhrase {
     pub new_pub_recovery_key: String,
     pub new_pub_recovery_key_sig: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeleteZKPFactorByItself {
     pub epk_expire_at: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfUpdateJwkUpdateKey {
     pub new_jwk_update_key: String,
     pub new_jwk_update_key_sig: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeleteJwkModulusByFactor {
     pub epk_expire_at: u64,
     pub kid: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfUpdateWhitelist {
     pub epk_expire_at: u64,
     /// Destination contract enum
@@ -306,7 +306,7 @@ pub struct ParamsOfUpdateWhitelist {
     pub mirror_index: u128,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfCleanWhitelist {
     pub epk_expire_at: u64,
 }
