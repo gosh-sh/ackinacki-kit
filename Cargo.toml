@@ -3,12 +3,13 @@
 resolver = "3"
 members = ["contracts", "root", "shared"]
 
-package.version = "0.2.1"
+package.version = "0.2.2"
 package.edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1"
 async-trait = "0.1"
+base64 = "0.22.1"
 chrono = "0.4"
 hex = "0.4"
 num-bigint = "0.4"
