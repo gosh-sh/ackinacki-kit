@@ -7,6 +7,7 @@ use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u8;
 
 pub mod bk_wallet;
+pub mod reputation;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Stake {
