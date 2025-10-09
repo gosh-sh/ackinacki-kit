@@ -126,7 +126,7 @@ impl AsyncGuardedMut<Account> for ReputationCoefficientCalculator {
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfCalculate {
     #[serde(rename(serialize = "reptime"))]
-    reputation_time: u128,
+    pub reputation_time: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
