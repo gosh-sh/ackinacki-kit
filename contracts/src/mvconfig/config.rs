@@ -93,7 +93,7 @@ impl AsyncGuardedMut<Account> for MobileVerifiersConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSetConfig {
     #[serde(rename(serialize = "MBNLst"))]
-    pub mbn_list: u64,
+    pub mbn_list: Vec<u64>,
 }
 
 impl MobileVerifiersConfig {
