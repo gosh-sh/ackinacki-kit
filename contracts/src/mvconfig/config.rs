@@ -97,10 +97,11 @@ pub struct ParamsOfSetConfig {
 }
 
 impl MobileVerifiersConfig {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(context: Arc<ClientContext>) -> Self {
+        let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: address.to_string(),
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         }
