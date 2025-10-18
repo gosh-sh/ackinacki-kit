@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -14,10 +13,7 @@ use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
-use crate::bksystem::LicenseData;
-use crate::bksystem::Stake;
 use crate::deserialize::deserialize_u128;
-use crate::deserialize::deserialize_u8;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -25,46 +21,46 @@ use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 
-const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockKeeperNodeWallet.abi.json");
+const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockManagerNodeWallet.abi.json");
 
 #[derive(Debug, Clone)]
-pub struct BlockKeeperWallet {
+pub struct BlockManagerWallet {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for BlockKeeperWallet {
+impl AccountAccessor for BlockManagerWallet {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for BlockKeeperWallet {
+impl AbiAccessor for BlockManagerWallet {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for BlockKeeperWallet {
+impl AddressAccessor for BlockManagerWallet {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for BlockKeeperWallet {
+impl ContextAccessor for BlockManagerWallet {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl EncodeMessage for BlockKeeperWallet {}
+impl EncodeMessage for BlockManagerWallet {}
 
-impl Executor for BlockKeeperWallet {}
+impl Executor for BlockManagerWallet {}
 
 #[async_trait]
-impl AsyncGuarded<Account> for BlockKeeperWallet {
+impl AsyncGuarded<Account> for BlockManagerWallet {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T + Send + 'async_trait,
@@ -76,7 +72,7 @@ impl AsyncGuarded<Account> for BlockKeeperWallet {
 }
 
 #[async_trait]
-impl AsyncGuardedMut<Account> for BlockKeeperWallet {
+impl AsyncGuardedMut<Account> for BlockManagerWallet {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
@@ -91,22 +87,16 @@ impl AsyncGuardedMut<Account> for BlockKeeperWallet {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetDetails {
     pub pubkey: String,
-    #[serde(rename = "signerPubkey")]
-    pub signer_pubkey: String,
     pub root: String,
     pub balance: String,
-    #[serde(rename = "activeStakes")]
-    pub active_stakes: HashMap<String, Stake>,
-    #[serde(rename = "stakesCnt", deserialize_with = "deserialize_u8")]
-    pub stakes_cnt: u8,
-    pub licenses: HashMap<String, LicenseData>,
-    #[serde(rename = "epochDuration", deserialize_with = "deserialize_u128")]
-    pub epoch_duration: u128,
-    #[serde(rename = "whiteListLicense")]
-    pub whitelist_license: HashMap<String, bool>,
+    pub license_num: Option<String>,
+    #[serde(rename = "minstake", deserialize_with = "deserialize_u128")]
+    pub min_stake: u128,
+    #[serde(rename = "signerPubkey")]
+    pub signer_pubkey: String,
 }
 
-impl BlockKeeperWallet {
+impl BlockManagerWallet {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),
@@ -134,20 +124,20 @@ impl BlockKeeperWallet {
 
 #[cfg(test)]
 mod tests {
-    use crate::bksystem::bk_wallet::BlockKeeperWallet;
+    use crate::bksystem::bm_wallet::BlockManagerWallet;
     use crate::tests::create_context;
 
     #[tokio::test]
     async fn test_get_details() {
         let context = create_context();
 
-        let bk_wallet = BlockKeeperWallet::new(
+        let bm_wallet = BlockManagerWallet::new(
             context,
-            "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
+            "0:0e4e5c47410d8d4e06e7be27f5a9f09e26d50852d2eaaa0c11a3d69552de0ef3",
         );
 
         let details =
-            bk_wallet.get_details().await.inspect_err(|e| eprintln!("Get BK wallet details ({e})"));
+            bm_wallet.get_details().await.inspect_err(|e| eprintln!("Get BM wallet details ({e})"));
         assert!(details.is_ok());
     }
 }
