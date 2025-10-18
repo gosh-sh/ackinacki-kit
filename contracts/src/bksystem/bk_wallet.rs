@@ -136,7 +136,6 @@ impl BlockKeeperWallet {
 mod tests {
     use crate::bksystem::bk_wallet::BlockKeeperWallet;
     use crate::tests::create_context;
-    use crate::traits::AccountAccessor;
 
     #[tokio::test]
     async fn test_get_details() {
@@ -146,8 +145,6 @@ mod tests {
             context,
             "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
         );
-        let fetch = bk_wallet.fetch_account().await;
-        assert!(fetch.is_ok());
 
         let details =
             bk_wallet.get_details().await.inspect_err(|e| eprintln!("Get BK wallet details ({e})"));

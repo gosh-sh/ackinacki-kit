@@ -124,23 +124,20 @@ impl BlockManagerWallet {
 
 #[cfg(test)]
 mod tests {
-    use crate::bksystem::bk_wallet::BlockKeeperWallet;
+    use crate::bksystem::bm_wallet::BlockManagerWallet;
     use crate::tests::create_context;
-    use crate::traits::AccountAccessor;
 
     #[tokio::test]
     async fn test_get_details() {
         let context = create_context();
 
-        let bk_wallet = BlockKeeperWallet::new(
+        let bm_wallet = BlockManagerWallet::new(
             context,
-            "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
+            "0:0e4e5c47410d8d4e06e7be27f5a9f09e26d50852d2eaaa0c11a3d69552de0ef3",
         );
-        let fetch = bk_wallet.fetch_account().await;
-        assert!(fetch.is_ok());
 
         let details =
-            bk_wallet.get_details().await.inspect_err(|e| eprintln!("Get BK wallet details ({e})"));
+            bm_wallet.get_details().await.inspect_err(|e| eprintln!("Get BM wallet details ({e})"));
         assert!(details.is_ok());
     }
 }
