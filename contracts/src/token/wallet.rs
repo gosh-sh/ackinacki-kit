@@ -27,50 +27,50 @@ use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
 
-const ABI: &str = include_str!("../../abi/token/RootToken.abi.json");
+const ABI: &str = include_str!("../../abi/token/TokenWallet.abi.json");
 
 #[derive(Debug, Clone)]
-pub struct RootToken {
+pub struct TokenWallet {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for RootToken {
+impl AccountAccessor for TokenWallet {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for RootToken {
+impl AbiAccessor for TokenWallet {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for RootToken {
+impl AddressAccessor for TokenWallet {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for RootToken {
+impl ContextAccessor for TokenWallet {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl EncodeMessage for RootToken {}
+impl EncodeMessage for TokenWallet {}
 
-impl DecodeMessage for RootToken {}
+impl DecodeMessage for TokenWallet {}
 
-impl Executor for RootToken {}
+impl Executor for TokenWallet {}
 
-impl SendMessage for RootToken {}
+impl SendMessage for TokenWallet {}
 
 #[async_trait]
-impl AsyncGuarded<Account> for RootToken {
+impl AsyncGuarded<Account> for TokenWallet {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T + Send + 'async_trait,
@@ -82,7 +82,7 @@ impl AsyncGuarded<Account> for RootToken {
 }
 
 #[async_trait]
-impl AsyncGuardedMut<Account> for RootToken {
+impl AsyncGuardedMut<Account> for TokenWallet {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
@@ -160,7 +160,7 @@ pub struct ParamsOfDeployTransaction {
     pub to_withdraw: Option<String>,
 }
 
-impl RootToken {
+impl TokenWallet {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),

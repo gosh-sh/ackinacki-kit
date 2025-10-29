@@ -29,47 +29,47 @@ use crate::traits::SendMessage;
 const ABI: &str = include_str!("../../abi/token/RootToken.abi.json");
 
 #[derive(Debug, Clone)]
-pub struct RootToken {
+pub struct TokenRoot {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for RootToken {
+impl AccountAccessor for TokenRoot {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for RootToken {
+impl AbiAccessor for TokenRoot {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for RootToken {
+impl AddressAccessor for TokenRoot {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for RootToken {
+impl ContextAccessor for TokenRoot {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl EncodeMessage for RootToken {}
+impl EncodeMessage for TokenRoot {}
 
-impl DecodeMessage for RootToken {}
+impl DecodeMessage for TokenRoot {}
 
-impl Executor for RootToken {}
+impl Executor for TokenRoot {}
 
-impl SendMessage for RootToken {}
+impl SendMessage for TokenRoot {}
 
 #[async_trait]
-impl AsyncGuarded<Account> for RootToken {
+impl AsyncGuarded<Account> for TokenRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T + Send + 'async_trait,
@@ -81,7 +81,7 @@ impl AsyncGuarded<Account> for RootToken {
 }
 
 #[async_trait]
-impl AsyncGuardedMut<Account> for RootToken {
+impl AsyncGuardedMut<Account> for TokenRoot {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
@@ -121,7 +121,7 @@ pub struct ParamsOfDeployWallet {
     pub owner_address: String,
 }
 
-impl RootToken {
+impl TokenRoot {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),
