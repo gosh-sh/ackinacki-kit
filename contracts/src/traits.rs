@@ -186,37 +186,6 @@ pub trait Executor: EncodeMessage + AccountAccessor {
 
         tvm::run_tvm(self.context().clone(), params).await.map_err(|e| anyhow!("Run tvm ({e:?})"))
     }
-
-    async fn run_tvm_opt(
-        &self,
-        call_set: Option<CallSet>,
-        signer: Signer,
-    ) -> anyhow::Result<Option<ResultOfRunTvm>> {
-        self.fetch_account()
-            .await
-            .map_err(|e| anyhow!("Fetch account `{}` ({e})", self.address()))?;
-
-        let account = self.async_guarded(|account| account.clone()).await;
-        if !account.is_deployed() {
-            return Ok(None);
-        }
-
-        let encode_message_result = self.encode_message(call_set, None, signer).await?;
-        let params = ParamsOfRunTvm {
-            message: encode_message_result.message.clone(),
-            account: account.boc.unwrap(),
-            execution_options: None,
-            abi: Some(self.abi().clone()),
-            boc_cache: None,
-            return_updated_account: None,
-        };
-
-        let res = tvm::run_tvm(self.context().clone(), params)
-            .await
-            .map_err(|e| anyhow!("Run tvm ({e:?})"))?;
-
-        Ok(Some(res))
-    }
 }
 
 async fn process_message_callback(event: ProcessingEvent) {
