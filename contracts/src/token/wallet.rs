@@ -16,6 +16,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::deserialize::deserialize_option_u128;
 use crate::deserialize::deserialize_u128;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
@@ -95,30 +96,68 @@ impl AsyncGuardedMut<Account> for RootToken {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetDetails {
-    pub name: String,
+    pub root: String,
+    pub owner: String,
     #[serde(deserialize_with = "deserialize_u128")]
-    pub decimals: u128,
-    pub deployer: String,
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub minted: u128,
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub burned: u128,
-    #[serde(rename = "mintDisabled")]
-    pub mint_disabled: bool,
-    #[serde(rename = "ownerPubkey")]
-    pub owner_pubkey: String,
+    pub balance: u128,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResultOfGetWalletAddress {
-    #[serde(rename = "walletAddress")]
-    pub wallet_address: String,
+#[repr(u8)]
+#[serde(from = "u8", into = "u8")]
+pub enum TransactionType {
+    Transfer = 1,
+    Burn = 2,
+    Destroy = 3,
+    Withdraw = 4,
+}
+
+impl From<u8> for TransactionType {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => TransactionType::Transfer,
+            2 => TransactionType::Burn,
+            3 => TransactionType::Destroy,
+            4 => TransactionType::Withdraw,
+
+            _ => panic!("Unknown allowed payload destination {value}"),
+        }
+    }
+}
+
+impl From<TransactionType> for u8 {
+    fn from(value: TransactionType) -> Self {
+        value as u8
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParamsOfGetTransactionAddress {
+    #[serde(rename(serialize = "transactionType"))]
+    pub transaction_type: TransactionType,
+    #[serde(deserialize_with = "deserialize_option_u128")]
+    pub value: Option<u128>,
+    #[serde(rename = "destinationOwner")]
+    pub destination_owner: Option<String>,
+    #[serde(rename = "toWithdraw")]
+    pub to_withdraw: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResultOfGetTransactionAddress {
+    #[serde(rename = "transactionAddress")]
+    pub transaction_address: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ParamsOfDeployWallet {
-    #[serde(rename(serialize = "owner"))]
-    pub owner_address: String,
+pub struct ParamsOfDeployTransaction {
+    #[serde(rename(serialize = "transactionType"))]
+    pub transaction_type: TransactionType,
+    #[serde(deserialize_with = "deserialize_option_u128")]
+    pub value: Option<u128>,
+    #[serde(rename = "destinationOwner")]
+    pub destination_owner: Option<String>,
+    #[serde(rename = "toWithdraw")]
+    pub to_withdraw: Option<String>,
 }
 
 impl RootToken {
@@ -146,14 +185,20 @@ impl RootToken {
         }
     }
 
-    pub async fn get_wallet_address(&self) -> anyhow::Result<ResultOfGetWalletAddress> {
-        let call_set =
-            CallSet { function_name: "getWalletAddress".to_string(), header: None, input: None };
+    pub async fn get_transaction_address(
+        &self,
+        params: ParamsOfGetTransactionAddress,
+    ) -> anyhow::Result<ResultOfGetTransactionAddress> {
+        let call_set = CallSet {
+            function_name: "getTransactionAddress".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
 
         let result = self.run_tvm(Some(call_set), Signer::None).await?;
         match result.decoded {
             Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetWalletAddress>(value)
+                Some(value) => serde_json::from_value::<ResultOfGetTransactionAddress>(value)
                     .map_err(|e| anyhow!("Deserialize output ({e})")),
                 None => anyhow::bail!("Empty decoded output"),
             },
@@ -161,13 +206,13 @@ impl RootToken {
         }
     }
 
-    pub async fn deploy_wallet(
+    pub async fn deploy_transaction(
         &self,
-        params: ParamsOfDeployWallet,
+        params: ParamsOfDeployTransaction,
         signer: Signer,
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "deployWallet".to_string(),
+            function_name: "deployTransaction".to_string(),
             header: None,
             input: Some(json!(params)),
         };

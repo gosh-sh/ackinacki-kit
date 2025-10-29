@@ -57,6 +57,17 @@ where
     serde_json::from_str::<u128>(&s).map_err(Error::custom)
 }
 
+pub fn deserialize_option_u128<'de, D>(deserializer: D) -> Result<Option<u128>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        Some(s) => s.parse::<u128>().map(Some).map_err(serde::de::Error::custom),
+        None => Ok(None),
+    }
+}
+
 pub fn deserialize_u128_map<'de, D>(deserializer: D) -> Result<HashMap<String, u128>, D::Error>
 where
     D: Deserializer<'de>,
