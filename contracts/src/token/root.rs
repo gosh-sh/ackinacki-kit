@@ -110,6 +110,12 @@ pub struct ResultOfGetDetails {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParamsOfGetWalletAddress {
+    #[serde(rename = "walletOwner")]
+    pub owner_address: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetWalletAddress {
     #[serde(rename = "walletAddress")]
     pub wallet_address: String,
@@ -146,9 +152,15 @@ impl TokenRoot {
         }
     }
 
-    pub async fn get_wallet_address(&self) -> anyhow::Result<ResultOfGetWalletAddress> {
-        let call_set =
-            CallSet { function_name: "getWalletAddress".to_string(), header: None, input: None };
+    pub async fn get_wallet_address(
+        &self,
+        params: ParamsOfGetWalletAddress,
+    ) -> anyhow::Result<ResultOfGetWalletAddress> {
+        let call_set = CallSet {
+            function_name: "getWalletAddress".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
 
         let result = self.run_tvm(Some(call_set), Signer::None).await?;
         match result.decoded {
