@@ -170,18 +170,25 @@ impl TokenWallet {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
+    pub async fn get_details(&self) -> anyhow::Result<Option<ResultOfGetDetails>> {
         let call_set =
             CallSet { function_name: "getDetails".to_string(), header: None, input: None };
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
+        let result = self.run_tvm_opt(Some(call_set), Signer::None).await?;
+        match result {
+            Some(result) => match result.decoded {
+                Some(data) => match data.output {
+                    Some(value) => {
+                        let details = serde_json::from_value::<ResultOfGetDetails>(value)
+                            .map_err(|e| anyhow!("Deserialize output ({e})"))?;
+
+                        Ok(Some(details))
+                    }
+                    None => anyhow::bail!("Empty decoded output"),
+                },
+                None => anyhow::bail!("Empty decoded result"),
             },
-            None => anyhow::bail!("Empty decoded result"),
+            None => Ok(None),
         }
     }
 
