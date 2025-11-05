@@ -110,6 +110,7 @@ pub enum TransactionType {
     Burn = 2,
     Destroy = 3,
     Withdraw = 4,
+    SetSubscriber = 5,
 }
 
 impl From<u8> for TransactionType {
@@ -142,6 +143,52 @@ pub struct ParamsOfGetTransactionAddress {
     #[serde(rename = "toWithdraw")]
     pub to_withdraw: Option<String>,
 }
+#[derive(Debug, Clone)]
+pub enum Transaction {
+    Transfer { value: u128, destination_owner: String },
+    Burn { value: u128 },
+    Withdraw { value: u128, to_withdraw: String },
+    SetSubscriber { destination_owner: Option<String> },
+    Destroy,
+}
+
+impl From<Transaction> for ParamsOfGetTransactionAddress {
+    fn from(tx: Transaction) -> Self {
+        match tx {
+            Transaction::Transfer { value, destination_owner } => Self {
+                transaction_type: TransactionType::Transfer,
+                value: Some(value),
+                destination_owner: Some(destination_owner),
+                to_withdraw: None,
+            },
+            Transaction::Burn { value } => Self {
+                transaction_type: TransactionType::Burn,
+                value: Some(value),
+                destination_owner: None,
+                to_withdraw: None,
+            },
+            Transaction::Withdraw { value, to_withdraw } => Self {
+                transaction_type: TransactionType::Withdraw,
+                value: Some(value),
+                destination_owner: None,
+                to_withdraw: Some(to_withdraw),
+            },
+            Transaction::SetSubscriber { destination_owner } => Self {
+                transaction_type: TransactionType::SetSubscriber,
+                value: None,
+                destination_owner,
+                to_withdraw: None,
+            },
+            Transaction::Destroy => Self {
+                transaction_type: TransactionType::Destroy,
+                value: None,
+                destination_owner: None,
+                to_withdraw: None,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetTransactionAddress {
     #[serde(rename = "transactionAddress")]
@@ -158,6 +205,43 @@ pub struct ParamsOfDeployTransaction {
     pub destination_owner: Option<String>,
     #[serde(rename = "toWithdraw")]
     pub to_withdraw: Option<String>,
+}
+
+impl From<Transaction> for ParamsOfDeployTransaction {
+    fn from(tx: Transaction) -> Self {
+        match tx {
+            Transaction::Transfer { value, destination_owner } => Self {
+                transaction_type: TransactionType::Transfer,
+                value: Some(value),
+                destination_owner: Some(destination_owner),
+                to_withdraw: None,
+            },
+            Transaction::Burn { value } => Self {
+                transaction_type: TransactionType::Burn,
+                value: Some(value),
+                destination_owner: None,
+                to_withdraw: None,
+            },
+            Transaction::Withdraw { value, to_withdraw } => Self {
+                transaction_type: TransactionType::Withdraw,
+                value: Some(value),
+                destination_owner: None,
+                to_withdraw: Some(to_withdraw),
+            },
+            Transaction::SetSubscriber { destination_owner } => Self {
+                transaction_type: TransactionType::SetSubscriber,
+                value: None,
+                destination_owner,
+                to_withdraw: None,
+            },
+            Transaction::Destroy => Self {
+                transaction_type: TransactionType::Destroy,
+                value: None,
+                destination_owner: None,
+                to_withdraw: None,
+            },
+        }
+    }
 }
 
 impl TokenWallet {
