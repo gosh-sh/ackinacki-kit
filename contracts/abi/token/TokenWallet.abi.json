@@ -43,6 +43,13 @@
 			]
 		},
 		{
+			"name": "sendData",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "acceptTransaction",
 			"inputs": [
 				{"name":"transactionType","type":"uint8"},
@@ -79,7 +86,8 @@
 			"outputs": [
 				{"name":"root","type":"address"},
 				{"name":"owner","type":"address"},
-				{"name":"balance","type":"uint128"}
+				{"name":"balance","type":"uint128"},
+				{"name":"subscriber","type":"optional(address)"}
 			]
 		},
 		{
@@ -102,6 +110,7 @@
 		{"init":true,"name":"_owner","type":"address"},
 		{"init":false,"name":"_walletCode","type":"cell"},
 		{"init":false,"name":"_transactionCode","type":"cell"},
+		{"init":false,"name":"_subscriber","type":"optional(address)"},
 		{"init":false,"name":"_balance","type":"uint128"}
 	]
 }

@@ -60,6 +60,14 @@
 			]
 		},
 		{
+			"name": "getSetSubscriberData",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"subscriber","type":"optional(address)"}
+			]
+		},
+		{
 			"name": "getVersion",
 			"inputs": [
 			],
