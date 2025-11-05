@@ -86,7 +86,14 @@
 			"outputs": [
 				{"name":"root","type":"address"},
 				{"name":"owner","type":"address"},
-				{"name":"balance","type":"uint128"},
+				{"name":"balance","type":"uint128"}
+			]
+		},
+		{
+			"name": "getSubscriber",
+			"inputs": [
+			],
+			"outputs": [
 				{"name":"subscriber","type":"optional(address)"}
 			]
 		},
