@@ -1,5 +1,5 @@
 ABI_DST_DIR ?= ./contracts/abi
-ABI_SRC_SUBDIR := mvconfig mvsystem bksystem
+ABI_SRC_SUBDIR := mvconfig mvsystem bksystem token
 
 .PHONY: copy-abi
 copy-abi:
