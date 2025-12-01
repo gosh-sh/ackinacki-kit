@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use num_bigint::BigInt;
 use serde::Deserialize;
 use serde::Serialize;
-use tvm_block::Deserializable;
+// use tvm_block::Deserializable;
 use tvm_client::account::ParamsOfGetAccount;
 use tvm_client::boc::ParamsOfParse;
 use tvm_client::ClientContext;
@@ -114,8 +114,8 @@ impl Account {
         };
 
         // Construct account from boc to get ecc balance
-        let tvm_account = tvm_block::Account::construct_from_base64(&boc)
-            .map_err(|e| anyhow!("Construct account `{}` from boc ({e})", self.address))?;
+        // let tvm_account = tvm_block::Account::construct_from_base64(&boc)
+        //     .map_err(|e| anyhow!("Construct account `{}` from boc ({e})", self.address))?;
 
         // Parse account boc
         let parsed = tvm_client::boc::parse_account(
@@ -133,20 +133,21 @@ impl Account {
         self.data = deserialized.data;
         self.acc_type = deserialized.acc_type;
         self.balance = deserialized.balance;
-        self.ecc = match tvm_account.balance() {
-            Some(balance) => {
-                let mut map = BTreeMap::new();
-                balance
-                    .other
-                    .iterate_with_keys::<u32, _>(|k, v| {
-                        map.insert(k, v.value().clone());
-                        Ok(true)
-                    })
-                    .map_err(|e| anyhow!("Iterate account `{}` currency ({e})", self.address))?;
-                map
-            }
-            None => BTreeMap::new(),
-        };
+        self.ecc = BTreeMap::new();
+        // self.ecc = match tvm_account.balance() {
+        //     Some(balance) => {
+        //         let mut map = BTreeMap::new();
+        //         balance
+        //             .other
+        //             .iterate_with_keys::<u32, _>(|k, v| {
+        //                 map.insert(k, v.value().clone());
+        //                 Ok(true)
+        //             })
+        //             .map_err(|e| anyhow!("Iterate account `{}` currency ({e})", self.address))?;
+        //         map
+        //     }
+        //     None => BTreeMap::new(),
+        // };
 
         Ok(())
     }

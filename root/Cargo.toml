@@ -9,5 +9,5 @@ default = []
 contracts = ["dep_contracts"]
 
 [dependencies]
-dep_contracts = { path = "../contracts", package = "contracts", optional = true }
+dep_contracts = { path = "../contracts", package = "contracts", optional = true, default-features = false }
 shared = { path = "../shared", package = "shared" }
