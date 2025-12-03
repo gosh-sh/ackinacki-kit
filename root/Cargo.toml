@@ -6,10 +6,10 @@ edition.workspace = true
 
 [features]
 default = []
-contracts = ["dep_contracts"]
+contracts = ["dep:contracts"]
 wasm = ["tvm_client/wasm_web"]
 
 [dependencies]
-dep_contracts = { path = "../contracts", package = "contracts", optional = true, default-features = false }
+contracts = { path = "../contracts", package = "contracts", optional = true, default-features = false }
 shared = { path = "../shared", package = "shared" }
 tvm_client.workspace = true
