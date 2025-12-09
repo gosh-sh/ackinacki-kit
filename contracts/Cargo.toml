@@ -7,7 +7,7 @@ edition.workspace = true
 [features]
 default = []
 contracts = []
-wasm = ["tvm_client/wasm_web", "dep:gloo-timers"]
+wasm = ["tvm_client/wasm_web", "dep:gloo-timers", "shared/wasm"]
 
 [dependencies]
 anyhow.workspace = true
@@ -19,7 +19,7 @@ num-bigint.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-shared = { path = "../shared" }
+shared = { path = "../shared", default-features = false }
 tokio.workspace = true
 tracing.workspace = true
 tvm_block.workspace = true
