@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use num_bigint::BigInt;
@@ -170,9 +169,23 @@ impl Account {
             attempts += 1;
 
             let timeout = params.attempts_timeout.unwrap_or(1000);
-            tokio::time::sleep(Duration::from_millis(timeout)).await;
+            sleep_ms(timeout).await;
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn sleep_ms(ms: u64) {
+    use gloo_timers::future::TimeoutFuture;
+    // gloo принимает u32
+    TimeoutFuture::new(ms as u32).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn sleep_ms(ms: u64) {
+    use tokio::time::sleep;
+    use tokio::time::Duration;
+    sleep(Duration::from_millis(ms)).await;
 }
 
 #[cfg(test)]

@@ -19,3 +19,4 @@ tokio.workspace = true
 tracing.workspace = true
 tvm_block.workspace = true
 tvm_client.workspace = true
+gloo-timers = { version = "0.3", features = ["futures"] }
