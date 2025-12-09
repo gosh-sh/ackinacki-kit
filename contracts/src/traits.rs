@@ -38,7 +38,8 @@ pub trait AbiAccessor {
     fn abi(&self) -> &Abi;
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
     fn account(&self) -> &Arc<Mutex<Account>>;
 
@@ -93,7 +94,8 @@ pub trait DecodeMessage: ContextAccessor + AbiAccessor {
     }
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
     async fn encode_message(
         &self,
@@ -136,7 +138,8 @@ pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
     }
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait SendMessage: EncodeMessage {
     async fn send_message(
         &self,
@@ -158,7 +161,8 @@ pub trait SendMessage: EncodeMessage {
     }
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait Executor: EncodeMessage + AccountAccessor {
     async fn run_tvm(
         &self,
