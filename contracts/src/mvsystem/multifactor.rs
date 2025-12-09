@@ -145,7 +145,8 @@ impl Executor for Multifactor {}
 
 impl SendMessage for Multifactor {}
 
-#[async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AsyncGuarded<Account> for Multifactor {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
