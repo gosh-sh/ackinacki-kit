@@ -38,7 +38,8 @@ pub struct ReputationCoefficientCalculator {
     account: Arc<Mutex<Account>>,
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AccountAccessor for ReputationCoefficientCalculator {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
@@ -98,25 +99,27 @@ impl EncodeMessage for ReputationCoefficientCalculator {}
 
 impl Executor for ReputationCoefficientCalculator {}
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuarded<Account> for ReputationCoefficientCalculator {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T + 'async_trait,
+        T: 'async_trait,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
+#[cfg_attr(feature = "wasm", async_trait(?Send))]
+#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuardedMut<Account> for ReputationCoefficientCalculator {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + 'async_trait,
+        Fut: Future<Output = anyhow::Result<T>> + 'async_trait,
+        T: 'async_trait,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
