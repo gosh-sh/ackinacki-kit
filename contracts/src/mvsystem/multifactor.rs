@@ -311,6 +311,16 @@ pub struct ParamsOfCleanWhitelist {
     pub epk_expire_at: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetForceRemoveOldest {
+    pub flag: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetWasmHash {
+    pub wasm_hash: String,
+}
+
 impl Multifactor {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
@@ -607,6 +617,44 @@ impl Multifactor {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cleanWhiteList".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set _force_remove_oldest flag
+    ///
+    /// Original contract method: `setForceRemoveOldest`
+    ///
+    /// Should be signed by owner keys
+    pub async fn set_force_remove_oldest(
+        &self,
+        params: ParamsOfSetForceRemoveOldest,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setForceRemoveOldest".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set _wasm_hash value
+    ///
+    /// Original contract method: `setWasmHash`
+    ///
+    /// Should be signed by owner keys
+    pub async fn set_wasm_hash(
+        &self,
+        params: ParamsOfSetWasmHash,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setWasmHash".to_string(),
             header: None,
             input: Some(json!(params)),
         };
