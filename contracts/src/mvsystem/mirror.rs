@@ -214,4 +214,19 @@ impl Mirror {
         };
         self.send_message(Some(call_set), None, signer).await
     }
+
+    /// # Encode deploy miner message
+    ///
+    /// Original contract method: `deployMiner`
+    pub async fn set_owner_public_message(&self) -> anyhow::Result<String> {
+        let call_set =
+            CallSet { function_name: "deployMiner".to_string(), header: None, input: None };
+
+        let result = self
+            .encode_message_body(call_set, true, Signer::None)
+            .await
+            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+
+        Ok(result.body)
+    }
 }

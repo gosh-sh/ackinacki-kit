@@ -179,6 +179,11 @@ pub struct VerifySessionInterval {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfEncodeSetOwnerPublic {
+    public: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSubmitSession {
     #[serde(rename(serialize = "easyNumber"))]
     pub easy_count: u64,
@@ -234,6 +239,28 @@ impl Miner {
             },
             None => anyhow::bail!("Empty decoded result"),
         }
+    }
+
+    /// # Encode set owner public key message
+    /// This key is used to sign messages for miner
+    ///
+    /// Original contract method: `setOwnerPubkey`
+    pub async fn set_owner_public_message(
+        &self,
+        params: ParamsOfEncodeSetOwnerPublic,
+    ) -> anyhow::Result<String> {
+        let call_set = CallSet {
+            function_name: "setOwnerPubkey".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        let result = self
+            .encode_message_body(call_set, true, Signer::None)
+            .await
+            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+
+        Ok(result.body)
     }
 
     /// # Send merkle tree root and total leaves count
