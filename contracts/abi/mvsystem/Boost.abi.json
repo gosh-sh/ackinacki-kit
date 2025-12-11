@@ -72,6 +72,7 @@
 		{"init":true,"name":"_popitGame","type":"address"},
 		{"init":false,"name":"_root","type":"address"},
 		{"init":false,"name":"_mbiCur","type":"uint64"},
-		{"init":false,"name":"_rootPubkey","type":"uint256"}
+		{"init":false,"name":"_rootPubkey","type":"uint256"},
+		{"init":false,"name":"_miner","type":"address"}
 	]
 }

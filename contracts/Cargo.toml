@@ -6,7 +6,6 @@ edition.workspace = true
 
 [features]
 default = []
-contracts = []
 wasm = ["tvm_client/wasm_web", "dep:gloo-timers", "shared/wasm"]
 
 [dependencies]

@@ -9,8 +9,8 @@ default = []
 contracts = ["dep:contracts"]
 wasm = [
     "tvm_client/wasm_web",
-    "contracts/wasm",
-    "shared/wasm"
+    "shared/wasm",
+    "contracts?/wasm"
 ]
 
 [dependencies]

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use num_bigint::BigUint;
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
@@ -17,12 +18,14 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::mvsystem::miner::Miner;
 use crate::mvsystem::PopitMedia;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
+use crate::traits::Executor;
 use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
@@ -60,6 +63,8 @@ impl ContextAccessor for Mirror {
 }
 
 impl EncodeMessage for Mirror {}
+
+impl Executor for Mirror {}
 
 impl SendMessage for Mirror {}
 
@@ -125,6 +130,18 @@ pub struct ParamsOfDeployPopcoinRoot {
     pub owner_popitgame_address: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetMinerAddress {
+    #[serde(rename(serialize = "multifactor"))]
+    pub multifactor_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetMinerAddress {
+    #[serde(rename = "multifactor")]
+    pub address: String,
+}
+
 impl Mirror {
     pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> anyhow::Result<Self> {
         let public = {
@@ -144,6 +161,30 @@ impl Mirror {
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         })
+    }
+
+    /// # Get miner
+    ///
+    /// Original contract method: `getMinerAddress`
+    pub async fn get_miner(&self, params: ParamsOfGetMinerAddress) -> anyhow::Result<Miner> {
+        let call_set = CallSet {
+            function_name: "getMinerAddress".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        let result = self.run_tvm(Some(call_set), Signer::None).await?;
+        match result.decoded {
+            Some(data) => match data.output {
+                Some(value) => {
+                    let decoded = serde_json::from_value::<ResultOfGetMinerAddress>(value)
+                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
+                    Ok(Miner::new(self.context.clone(), decoded.address))
+                }
+                None => anyhow::bail!("Empty decoded output"),
+            },
+            None => anyhow::bail!("Empty decoded result"),
+        }
     }
 
     /// # Deploy multifactor account

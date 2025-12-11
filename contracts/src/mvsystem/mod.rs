@@ -9,7 +9,9 @@ use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
 
 pub mod boost;
+pub mod game_root;
 pub mod indexer;
+pub mod miner;
 pub mod mirror;
 pub mod multifactor;
 pub mod popcoin_root;
@@ -77,6 +79,8 @@ pub enum ContractIndex {
     MvMultifactor = 5,
     Indexer = 6,
     Boost = 7,
+    Miner = 8,
+    Mirror = 9,
 }
 
 impl From<u8> for ContractIndex {
@@ -88,6 +92,8 @@ impl From<u8> for ContractIndex {
             5 => ContractIndex::MvMultifactor,
             6 => ContractIndex::Indexer,
             7 => ContractIndex::Boost,
+            8 => ContractIndex::Miner,
+            9 => ContractIndex::Mirror,
             _ => panic!("Unknown allowed payload destination {value}"),
         }
     }

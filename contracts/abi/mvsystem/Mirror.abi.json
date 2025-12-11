@@ -7,6 +7,7 @@
 			"name": "constructor",
 			"inputs": [
 				{"name":"root","type":"address"},
+				{"name":"minerRoot","type":"address"},
 				{"name":"index","type":"uint128"},
 				{"name":"rootPubkey","type":"uint256"}
 			],
@@ -121,6 +122,22 @@
 			]
 		},
 		{
+			"name": "deployMiner",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "getMinerAddress",
+			"inputs": [
+				{"name":"multifactor","type":"address"}
+			],
+			"outputs": [
+				{"name":"miner","type":"address"}
+			]
+		},
+		{
 			"name": "getVersion",
 			"inputs": [
 			],
@@ -131,14 +148,50 @@
 		}
 	],
 	"events": [
+		{
+			"name": "MultifactorDeployed",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"},
+				{"name":"multifactor","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "PopitGameDeployed",
+			"inputs": [
+				{"name":"multifactor","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "PopCoinRootDeployed",
+			"inputs": [
+				{"name":"name","type":"string"},
+				{"name":"popitGameOwner","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "MinerDeployed",
+			"inputs": [
+				{"name":"multifactor","type":"address"}
+			],
+			"outputs": [
+			]
+		}
 	],
 	"fields": [
 		{"init":true,"name":"_pubkey","type":"uint256"},
 		{"init":false,"name":"_timestamp","type":"uint64"},
 		{"init":false,"name":"_constructorFlag","type":"bool"},
 		{"init":false,"name":"_root","type":"address"},
+		{"init":false,"name":"_minerRoot","type":"address"},
 		{"init":false,"name":"_index","type":"uint128"},
 		{"init":false,"name":"_rootPubkey","type":"uint256"},
-		{"init":false,"name":"_code","type":"map(uint8,cell)"}
+		{"init":false,"name":"_code","type":"map(uint8,cell)"},
+		{"init":false,"name":"_mobileVerifiersContractGameRoot","type":"address"}
 	]
 }
