@@ -6,7 +6,7 @@ edition.workspace = true
 
 [features]
 default = []
-wasm = ["tvm_client/wasm_web", "dep:gloo-timers", "shared/wasm"]
+wasm = ["dep:gloo-timers"]
 
 [dependencies]
 anyhow.workspace = true
