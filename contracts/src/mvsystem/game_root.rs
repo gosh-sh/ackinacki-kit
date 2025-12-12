@@ -119,7 +119,7 @@ pub struct ResultOfGetCellForBoost {
 
 impl MobileVerifiersGameRoot {
     pub fn new(context: Arc<ClientContext>) -> Self {
-        let address = "0:2222222222222222222222222222222222222222222222222222222222222222";
+        let address = "0:0505050505050505050505050505050505050505050505050505050505050505";
         Self {
             context: context.clone(),
             address: address.to_string(),

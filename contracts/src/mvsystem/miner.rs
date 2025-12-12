@@ -18,7 +18,9 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_option_u64;
 use crate::deserialize::deserialize_u128;
+use crate::deserialize::deserialize_u128_vec;
 use crate::deserialize::deserialize_u64;
+use crate::deserialize::deserialize_u64_vec;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -115,7 +117,7 @@ pub struct ResultOfGetDetails {
     pub mbi_cur: Option<u64>,
 
     #[serde(rename = "owner_pubkey")]
-    pub owner_public: String,
+    pub owner_public: Option<String>,
 
     #[serde(rename = "epochStart", deserialize_with = "deserialize_u64")]
     pub epoch_start: u64,
@@ -123,20 +125,20 @@ pub struct ResultOfGetDetails {
     #[serde(rename = "epochStartOld", deserialize_with = "deserialize_u64")]
     pub old_epoch_start: u64,
 
-    #[serde(rename = "oldTaps", deserialize_with = "deserialize_u128")]
-    pub old_taps: u128,
+    #[serde(rename = "oldTaps", deserialize_with = "deserialize_u128_vec")]
+    pub old_taps: Vec<u128>,
 
     #[serde(rename = "oldTapsSize", deserialize_with = "deserialize_u128")]
     pub old_taps_size: u128,
 
-    #[serde(rename = "oldMbiCurTaps", deserialize_with = "deserialize_u64")]
-    pub old_mbi_cur_taps: u64,
+    #[serde(rename = "oldMbiCurTaps", deserialize_with = "deserialize_u64_vec")]
+    pub old_mbi_cur_taps: Vec<u64>,
 
-    #[serde(rename = "taps", deserialize_with = "deserialize_u128")]
-    pub taps: u128,
+    #[serde(rename = "taps", deserialize_with = "deserialize_u128_vec")]
+    pub taps: Vec<u128>,
 
-    #[serde(rename = "mbiCurTaps", deserialize_with = "deserialize_u64")]
-    pub mbi_cur_taps: u64,
+    #[serde(rename = "mbiCurTaps", deserialize_with = "deserialize_u64_vec")]
+    pub mbi_cur_taps: Vec<u64>,
 
     #[serde(rename = "tapsSize", deserialize_with = "deserialize_u128")]
     pub taps_size: u128,
@@ -172,15 +174,16 @@ pub struct ResultOfGetDetails {
 #[allow(dead_code)]
 pub struct VerifySessionInterval {
     #[serde(rename = "first", deserialize_with = "deserialize_u64")]
-    start: u64,
+    pub start: u64,
 
     #[serde(rename = "second", deserialize_with = "deserialize_u64")]
-    end: u64,
+    pub end: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeSetOwnerPublic {
-    public: String,
+    #[serde(rename(serialize = "pubkey"))]
+    pub public: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

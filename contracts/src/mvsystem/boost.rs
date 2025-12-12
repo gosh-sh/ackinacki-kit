@@ -109,6 +109,13 @@ pub struct ParamsOfSetMbiCur {
     pub mamaboard_max_seq_no: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfUpdateCode {
+    #[serde(rename(serialize = "newcode"))]
+    pub code: String,
+    pub cell: String,
+}
+
 impl Boost {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
@@ -146,6 +153,24 @@ impl Boost {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setMbiCur".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Update code
+    ///
+    /// Original contract method: `updateCode`
+    ///
+    /// Should be signed with root keys
+    pub async fn update_code(
+        &self,
+        params: ParamsOfUpdateCode,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "updateCode".to_string(),
             header: None,
             input: Some(json!(params)),
         };

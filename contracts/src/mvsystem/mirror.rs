@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -34,6 +35,7 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 pub struct Mirror {
     context: Arc<ClientContext>,
     address: String,
+    index: u128,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -138,7 +140,7 @@ pub struct ParamsOfGetMinerAddress {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetMinerAddress {
-    #[serde(rename = "multifactor")]
+    #[serde(rename = "miner")]
     pub address: String,
 }
 
@@ -150,17 +152,23 @@ impl Mirror {
             BigUint::from_bytes_be(&bytes)
         };
 
-        let address = {
-            let index = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
-            format!("0:2{index:063x}")
+        let index = {
+            let number = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
+            number.to_u64().map(|v| v as u128).ok_or_else(|| anyhow!("Convert index to u64"))?
         };
+        let address = format!("0:2{index:063x}");
 
         Ok(Self {
             context: context.clone(),
             address: address.clone(),
+            index,
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         })
+    }
+
+    pub fn index(&self) -> u128 {
+        self.index
     }
 
     /// # Get miner
@@ -218,7 +226,7 @@ impl Mirror {
     /// # Encode deploy miner message
     ///
     /// Original contract method: `deployMiner`
-    pub async fn set_owner_public_message(&self) -> anyhow::Result<String> {
+    pub async fn deploy_miner_message(&self) -> anyhow::Result<String> {
         let call_set =
             CallSet { function_name: "deployMiner".to_string(), header: None, input: None };
 

@@ -45,7 +45,7 @@
 				{"name":"easyNumber","type":"uint64"},
 				{"name":"tapNumber","type":"uint64"},
 				{"name":"workerId","type":"uint64"},
-				{"name":"data","type":"cell"}
+				{"name":"data","type":"bytes"}
 			],
 			"outputs": [
 			]
@@ -68,7 +68,7 @@
 		{
 			"name": "acceptTap",
 			"inputs": [
-				{"name":"verifyData","type":"cell"},
+				{"name":"verifyData","type":"bytes"},
 				{"name":"eventAddrSuccess","type":"address[]"},
 				{"name":"eventCellSuccess","type":"cell[]"},
 				{"name":"eventAddrFailed","type":"address[]"},
@@ -102,9 +102,22 @@
 				{"name":"epochBigStart","type":"uint64"},
 				{"name":"seed","type":"uint256"},
 				{"name":"seedNext","type":"uint256"},
-				{"name":"commitData","type":"optional(cell)"},
+				{"name":"commitData","type":"optional(bytes)"},
 				{"name":"blockLimitData","type":"optional(uint64)"},
-				{"components":[{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value0","type":"tuple"},{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value1","type":"tuple"}],"name":"commitInterval","type":"optional(tuple)"}
+				{"components":[{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value0","type":"tuple"},{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value1","type":"tuple"}],"name":"commitInterval","type":"optional(tuple)"},
+				{"name":"easyComplexity","type":"uint32"},
+				{"name":"hardComplexity","type":"uint32"}
+			]
+		},
+		{
+			"name": "decodeResult",
+			"inputs": [
+				{"name":"result","type":"cell"}
+			],
+			"outputs": [
+				{"name":"isSuccess","type":"uint8"},
+				{"name":"isCorrectTap","type":"uint8"},
+				{"name":"miningDur","type":"uint32"}
 			]
 		},
 		{
@@ -201,7 +214,7 @@
 		{"init":false,"name":"_epochBigStart","type":"uint64"},
 		{"init":false,"name":"_seed","type":"uint256"},
 		{"init":false,"name":"_seedNext","type":"uint256"},
-		{"init":false,"name":"_commitData","type":"optional(cell)"},
+		{"init":false,"name":"_commitData","type":"optional(bytes)"},
 		{"init":false,"name":"_commitTaps","type":"uint128"},
 		{"init":false,"name":"_blockLimitData","type":"optional(uint64)"},
 		{"components":[{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value0","type":"tuple"},{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value1","type":"tuple"}],"init":false,"name":"_commitInterval","type":"optional(tuple)"},

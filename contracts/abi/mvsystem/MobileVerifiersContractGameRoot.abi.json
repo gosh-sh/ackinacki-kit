@@ -6,6 +6,7 @@
 		{
 			"name": "constructor",
 			"inputs": [
+				{"name":"rootPubkey","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -110,7 +111,7 @@
 		{"init":false,"name":"_constructorFlag","type":"bool"},
 		{"init":false,"name":"_code","type":"map(uint8,cell)"},
 		{"init":false,"name":"_epochStart","type":"uint64"},
-		{"init":false,"name":"_tapData","type":"map(uint64,uint64[])"},
+		{"components":[{"name":"tapData","type":"uint64[]"},{"name":"basicReward","type":"uint128"}],"init":false,"name":"_tapData","type":"map(uint64,tuple)"},
 		{"init":false,"name":"_tapDataSize","type":"uint128"},
 		{"init":false,"name":"_reward_sum","type":"uint128"},
 		{"init":false,"name":"_reward_adjustment","type":"uint128"},
@@ -119,6 +120,7 @@
 		{"init":false,"name":"_reward_period","type":"uint32"},
 		{"init":false,"name":"_calc_reward_num","type":"uint32"},
 		{"init":false,"name":"_networkStart","type":"uint32"},
+		{"init":false,"name":"_basicReward","type":"uint128"},
 		{"init":false,"name":"_rootPubkey","type":"uint256"},
 		{"init":false,"name":"_easyComplexity","type":"uint32"},
 		{"init":false,"name":"_hardComplexity","type":"uint32"}

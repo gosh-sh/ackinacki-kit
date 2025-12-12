@@ -94,6 +94,21 @@ where
     Ok(result)
 }
 
+pub fn deserialize_u128_vec<'de, D>(deserializer: D) -> Result<Vec<u128>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_vec: Vec<String> = Vec::deserialize(deserializer)?;
+    let mut result = Vec::with_capacity(raw_vec.len());
+
+    for v in raw_vec {
+        let parsed = v.parse::<u128>().map_err(serde::de::Error::custom)?;
+        result.push(parsed);
+    }
+
+    Ok(result)
+}
+
 pub fn deserialize_u64_map<'de, D>(deserializer: D) -> Result<HashMap<String, u64>, D::Error>
 where
     D: Deserializer<'de>,
@@ -104,6 +119,21 @@ where
     for (k, v) in raw_map {
         let parsed = v.parse::<u64>().map_err(serde::de::Error::custom)?;
         result.insert(k, parsed);
+    }
+
+    Ok(result)
+}
+
+pub fn deserialize_u64_vec<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_vec: Vec<String> = Vec::deserialize(deserializer)?;
+    let mut result = Vec::with_capacity(raw_vec.len());
+
+    for v in raw_vec {
+        let parsed = v.parse::<u64>().map_err(serde::de::Error::custom)?;
+        result.push(parsed);
     }
 
     Ok(result)

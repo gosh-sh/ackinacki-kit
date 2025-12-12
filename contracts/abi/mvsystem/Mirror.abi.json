@@ -191,7 +191,6 @@
 		{"init":false,"name":"_minerRoot","type":"address"},
 		{"init":false,"name":"_index","type":"uint128"},
 		{"init":false,"name":"_rootPubkey","type":"uint256"},
-		{"init":false,"name":"_code","type":"map(uint8,cell)"},
-		{"init":false,"name":"_mobileVerifiersContractGameRoot","type":"address"}
+		{"init":false,"name":"_code","type":"map(uint8,cell)"}
 	]
 }
