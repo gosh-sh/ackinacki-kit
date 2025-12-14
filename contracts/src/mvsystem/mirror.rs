@@ -19,7 +19,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
-use crate::mvsystem::miner::Miner;
+use crate::mvsystem::miner::contract::Miner;
 use crate::mvsystem::PopitMedia;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;

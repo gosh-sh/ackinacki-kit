@@ -21,6 +21,7 @@ use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_vec;
 use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u64_vec;
+use crate::mvsystem::miner::SessionInterval;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -30,7 +31,7 @@ use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
 
-const ABI: &str = include_str!("../../abi/mvsystem/Miner.abi.json");
+const ABI: &str = include_str!("../../../abi/mvsystem/Miner.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct Miner {
@@ -167,17 +168,7 @@ pub struct ResultOfGetDetails {
     pub block_limit_data: Option<String>,
 
     #[serde(rename = "commitInterval")]
-    pub verify_session_interval: Option<(VerifySessionInterval, VerifySessionInterval)>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code)]
-pub struct VerifySessionInterval {
-    #[serde(rename = "first", deserialize_with = "deserialize_u64")]
-    pub start: u64,
-
-    #[serde(rename = "second", deserialize_with = "deserialize_u64")]
-    pub end: u64,
+    pub verify_session_interval: Option<(SessionInterval, SessionInterval)>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -29,6 +29,7 @@ use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::account::ParamsOfWaitAccount;
+use crate::event::Event;
 
 pub trait AddressAccessor {
     fn address(&self) -> &str;
@@ -190,6 +191,12 @@ pub trait Executor: EncodeMessage + AccountAccessor {
 
         tvm::run_tvm(self.context().clone(), params).await.map_err(|e| anyhow!("Run tvm ({e:?})"))
     }
+}
+
+pub trait FromEvent {
+    fn from_event(event: &Event, contract: &impl DecodeMessage) -> anyhow::Result<Self>
+    where
+        Self: Sized;
 }
 
 async fn process_message_callback(event: ProcessingEvent) {
