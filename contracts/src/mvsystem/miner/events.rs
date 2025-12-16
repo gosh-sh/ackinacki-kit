@@ -17,6 +17,8 @@ pub enum MinerEvent {
     SessionInterval = 5,
     SeedUpdated = 6,
     ComplexityUpdated = 7,
+    SessionAccepted = 100,
+    SessionRejected = 101,
 }
 
 impl TryFrom<String> for MinerEvent {
@@ -30,6 +32,8 @@ impl TryFrom<String> for MinerEvent {
             5 => MinerEvent::SessionInterval,
             6 => MinerEvent::SeedUpdated,
             7 => MinerEvent::ComplexityUpdated,
+            100 => MinerEvent::SessionAccepted,
+            101 => MinerEvent::SessionRejected,
             _ => anyhow::bail!("Unknown miner event `{cleaned}`"),
         };
         Ok(event)
@@ -42,10 +46,18 @@ impl Display for MinerEvent {
     }
 }
 
+impl MinerEvent {
+    pub fn to_address(&self) -> String {
+        format!("0:{:064x}", *self as u128)
+    }
+}
+
 pub enum DecodedMinerEvent {
     SessionInterval { event: Event, kind: MinerEvent, data: SessionIntervalData },
     SeedUpdated { event: Event, kind: MinerEvent, data: SeedUpdatedData },
     ComplexityUpdated { event: Event, kind: MinerEvent, data: ComplexityUpdatedData },
+    SessionAccepted { event: Event, kind: MinerEvent, data: SessionAcceptedData },
+    SessionRejected { event: Event, kind: MinerEvent, data: SessionRejectedData },
 }
 
 impl FromEvent for DecodedMinerEvent {
@@ -79,6 +91,24 @@ impl FromEvent for DecodedMinerEvent {
                 })?;
                 Ok(DecodedMinerEvent::ComplexityUpdated { event: event.clone(), kind, data })
             }
+            MinerEvent::SessionAccepted => {
+                let decoded = event
+                    .decode::<SessionAcceptedData>(contract)
+                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let data = decoded.ok_or_else(|| {
+                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                })?;
+                Ok(DecodedMinerEvent::SessionAccepted { event: event.clone(), kind, data })
+            }
+            MinerEvent::SessionRejected => {
+                let decoded = event
+                    .decode::<SessionRejectedData>(contract)
+                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let data = decoded.ok_or_else(|| {
+                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                })?;
+                Ok(DecodedMinerEvent::SessionRejected { event: event.clone(), kind, data })
+            }
         }
     }
 }
@@ -107,4 +137,20 @@ pub struct SessionIntervalData {
 
     #[serde(rename = "workerId", deserialize_with = "deserialize_u64")]
     pub worker_id: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SessionAcceptedData {
+    pub data: String,
+
+    #[serde(rename = "wasmResult")]
+    pub wasm_result: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SessionRejectedData {
+    pub data: String,
+
+    #[serde(rename = "wasmResult")]
+    pub wasm_result: String,
 }

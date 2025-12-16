@@ -130,6 +130,14 @@
 			]
 		},
 		{
+			"name": "_lastWasm",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"_lastWasm","type":"bytes"}
+			]
+		},
+		{
 			"name": "_wasm_hash",
 			"inputs": [
 			],
@@ -220,6 +228,7 @@
 		{"components":[{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value0","type":"tuple"},{"components":[{"name":"first","type":"uint64"},{"name":"second","type":"uint64"}],"name":"value1","type":"tuple"}],"init":false,"name":"_commitInterval","type":"optional(tuple)"},
 		{"init":false,"name":"_easyComplexity","type":"uint32"},
 		{"init":false,"name":"_hardComplexity","type":"uint32"},
+		{"init":false,"name":"_lastWasm","type":"bytes"},
 		{"init":false,"name":"_wasm_hash","type":"bytes"}
 	]
 }
