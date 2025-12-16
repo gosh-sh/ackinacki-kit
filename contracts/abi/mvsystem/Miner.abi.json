@@ -66,13 +66,20 @@
 			]
 		},
 		{
+			"name": "getReward",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "acceptTap",
 			"inputs": [
 				{"name":"verifyData","type":"bytes"},
 				{"name":"eventAddrSuccess","type":"address[]"},
-				{"name":"eventCellSuccess","type":"cell[]"},
+				{"name":"eventCellSuccess","type":"bytes[]"},
 				{"name":"eventAddrFailed","type":"address[]"},
-				{"name":"eventCellFailed","type":"cell[]"}
+				{"name":"eventCellFailed","type":"bytes[]"}
 			],
 			"outputs": [
 			]
@@ -150,8 +157,8 @@
 		{
 			"name": "TapSucceed",
 			"inputs": [
-				{"name":"data","type":"cell"},
-				{"name":"wasmResult","type":"cell"}
+				{"name":"data","type":"bytes"},
+				{"name":"wasmResult","type":"bytes"}
 			],
 			"outputs": [
 			]
@@ -159,8 +166,8 @@
 		{
 			"name": "TapFailed",
 			"inputs": [
-				{"name":"data","type":"cell"},
-				{"name":"wasmResult","type":"cell"}
+				{"name":"data","type":"bytes"},
+				{"name":"wasmResult","type":"bytes"}
 			],
 			"outputs": [
 			]

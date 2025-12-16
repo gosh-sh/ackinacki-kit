@@ -257,6 +257,15 @@ impl Miner {
         Ok(result.body)
     }
 
+    /// # Collect existing rewards
+    ///
+    /// Original contract method: `getReward`
+    pub async fn get_reward(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "getReward".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Send merkle tree root and total leaves count
     ///
     /// Original contract method: `setCommitData`

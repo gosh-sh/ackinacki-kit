@@ -42,7 +42,7 @@ impl TryFrom<String> for MinerEvent {
 
 impl Display for MinerEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ":{}", hex::encode((*self as u128).to_be_bytes()))
+        write!(f, ":{:064x}", *self as u128)
     }
 }
 

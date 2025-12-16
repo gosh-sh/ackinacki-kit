@@ -120,7 +120,6 @@
 		{"init":false,"name":"_code","type":"map(uint8,cell)"},
 		{"init":false,"name":"_epochStart","type":"uint64"},
 		{"components":[{"name":"tapData","type":"uint64[]"},{"name":"basicReward","type":"uint128"}],"init":false,"name":"_tapData","type":"map(uint64,tuple)"},
-		{"init":false,"name":"_tapDataSize","type":"uint128"},
 		{"init":false,"name":"_reward_sum","type":"uint128"},
 		{"init":false,"name":"_reward_adjustment","type":"uint128"},
 		{"init":false,"name":"_reward_last_time","type":"uint32"},
