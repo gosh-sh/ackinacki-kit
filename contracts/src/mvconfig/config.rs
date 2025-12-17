@@ -98,6 +98,12 @@ pub struct ParamsOfSetConfig {
     pub mbn_list: Vec<u64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetRootPublic {
+    #[serde(rename(serialize = "pubkey"))]
+    pub public: String,
+}
+
 impl MobileVerifiersConfig {
     pub fn new(context: Arc<ClientContext>) -> Self {
         let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -107,6 +113,24 @@ impl MobileVerifiersConfig {
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         }
+    }
+
+    /// # Set root public key
+    ///
+    /// Original contract method: `setPubkeyRoot`
+    ///
+    /// Should be signed with root keys
+    pub async fn set_root_public(
+        &self,
+        params: ParamsOfSetRootPublic,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setPubkeyRoot".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Set config
