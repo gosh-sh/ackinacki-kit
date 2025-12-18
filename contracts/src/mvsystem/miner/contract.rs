@@ -26,6 +26,7 @@ use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
@@ -68,6 +69,8 @@ impl ContextAccessor for Miner {
 impl EncodeMessage for Miner {}
 
 impl DecodeMessage for Miner {}
+
+impl DecodeAccountData<serde_json::Value> for Miner {}
 
 impl Executor for Miner {}
 

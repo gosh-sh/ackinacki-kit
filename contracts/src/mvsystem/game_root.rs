@@ -19,6 +19,7 @@ use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
@@ -60,6 +61,8 @@ impl ContextAccessor for MobileVerifiersGameRoot {
 impl EncodeMessage for MobileVerifiersGameRoot {}
 
 impl DecodeMessage for MobileVerifiersGameRoot {}
+
+impl DecodeAccountData<serde_json::Value> for MobileVerifiersGameRoot {}
 
 impl Executor for MobileVerifiersGameRoot {}
 
