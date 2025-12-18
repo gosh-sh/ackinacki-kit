@@ -6,15 +6,6 @@
 		{
 			"name": "constructor",
 			"inputs": [
-				{"name":"rootPubkey","type":"uint256"}
-			],
-			"outputs": [
-			]
-		},
-		{
-			"name": "setNewPubkey",
-			"inputs": [
-				{"name":"pubkey","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -156,7 +147,6 @@
 		{"init":false,"name":"_reward_period","type":"uint32"},
 		{"init":false,"name":"_calc_reward_num","type":"uint32"},
 		{"init":false,"name":"_networkStart","type":"uint32"},
-		{"init":false,"name":"_rootPubkey","type":"uint256"},
 		{"init":false,"name":"_easyComplexity","type":"uint32"},
 		{"init":false,"name":"_hardComplexity","type":"uint32"}
 	]
