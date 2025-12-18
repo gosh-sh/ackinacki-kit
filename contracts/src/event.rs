@@ -44,7 +44,7 @@ pub async fn query_events(
     order: Option<Vec<OrderBy>>,
     limit: Option<u32>,
 ) -> anyhow::Result<Vec<Event>> {
-    net::query_collection(
+    let events = net::query_collection(
         context,
         ParamsOfQueryCollection {
             collection: "messages".to_string(),
@@ -60,5 +60,10 @@ pub async fn query_events(
     .iter()
     .map(|row| serde_json::from_value::<Event>(row.clone()))
     .collect::<Result<Vec<Event>, _>>()
-    .map_err(|e| anyhow!("Deserialize events ({e})"))
+    .map_err(|e| anyhow!("Deserialize events ({e})"))?
+    .into_iter()
+    .filter(|event| event.dst.starts_with(":"))
+    .collect::<Vec<_>>();
+
+    Ok(events)
 }
