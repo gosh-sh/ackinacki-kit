@@ -71,6 +71,15 @@
 			]
 		},
 		{
+			"name": "updateCode",
+			"inputs": [
+				{"name":"newcode","type":"cell"},
+				{"name":"cell","type":"cell"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "getCellForBoost",
 			"inputs": [
 				{"name":"wallet","type":"address"},
@@ -82,6 +91,26 @@
 			],
 			"outputs": [
 				{"name":"value0","type":"cell"}
+			]
+		},
+		{
+			"name": "calculateTaps",
+			"inputs": [
+				{"name":"tapSum","type":"uint128"},
+				{"name":"commitTaps","type":"uint128"},
+				{"name":"mining_dur","type":"uint128"},
+				{"name":"modified_tap_rem_q40","type":"uint128"},
+				{"name":"miningDurSum","type":"uint128"},
+				{"name":"modifiedTapSum","type":"uint128"},
+				{"name":"tapSum5m","type":"uint128"}
+			],
+			"outputs": [
+				{"name":"rtapCoef","type":"uint128"},
+				{"name":"rmodified_tap_rem_q40","type":"uint128"},
+				{"name":"rminingDurSum","type":"uint128"},
+				{"name":"rmodifiedTapSum","type":"uint128"},
+				{"name":"rtapSum5m","type":"uint128"},
+				{"name":"rtapSum","type":"uint128"}
 			]
 		},
 		{
