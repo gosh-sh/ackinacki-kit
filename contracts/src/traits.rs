@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
@@ -39,8 +38,6 @@ pub trait AbiAccessor {
     fn abi(&self) -> &Abi;
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
     fn account(&self) -> &Arc<Mutex<Account>>;
 
@@ -95,8 +92,6 @@ pub trait DecodeMessage: ContextAccessor + AbiAccessor {
     }
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
     async fn encode_message(
         &self,
@@ -139,8 +134,6 @@ pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
     }
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait SendMessage: EncodeMessage {
     async fn send_message(
         &self,
@@ -162,8 +155,6 @@ pub trait SendMessage: EncodeMessage {
     }
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 pub trait Executor: EncodeMessage + AccountAccessor {
     async fn run_tvm(
         &self,

@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use base64::Engine;
 use serde::Deserialize;
 use serde::Serialize;
@@ -38,8 +37,6 @@ pub struct ReputationCoefficientCalculator {
     account: Arc<Mutex<Account>>,
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AccountAccessor for ReputationCoefficientCalculator {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
@@ -99,30 +96,26 @@ impl EncodeMessage for ReputationCoefficientCalculator {}
 
 impl Executor for ReputationCoefficientCalculator {}
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuarded<Account> for ReputationCoefficientCalculator {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + 'async_trait,
-        T: 'async_trait,
+        F: FnOnce(&Account) -> T,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuardedMut<Account> for ReputationCoefficientCalculator {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    fn async_guarded_mut<F, Fut, T>(&self, action: F) -> impl Future<Output = anyhow::Result<T>>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + 'async_trait,
-        T: 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
-        let guard = self.account.clone().lock_owned().await;
-        action(guard).await
+        async {
+            let guard = self.account.clone().lock_owned().await;
+            action(guard).await
+        }
     }
 }
 

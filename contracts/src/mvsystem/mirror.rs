@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
@@ -70,27 +69,23 @@ impl Executor for Mirror {}
 
 impl SendMessage for Mirror {}
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuarded<Account> for Mirror {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + 'async_trait,
-        T: 'async_trait,
+        F: FnOnce(&Account) -> T,
+
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[cfg_attr(feature = "wasm", async_trait(?Send))]
-#[cfg_attr(not(feature = "wasm"), async_trait)]
 impl AsyncGuardedMut<Account> for Mirror {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + 'async_trait,
-        T: 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
+
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await

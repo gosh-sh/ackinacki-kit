@@ -10,5 +10,4 @@ wasm = []
 
 [dependencies]
 anyhow.workspace = true
-async-trait.workspace = true
 tokio.workspace = true

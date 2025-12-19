@@ -18,5 +18,5 @@ serde_json = "1.0"
 sha2 = "0.10"
 tokio = { version = "1.48", features = ["rt", "macros", "sync"] }
 tracing = "0.1"
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v2.23.4.an" }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "feature/wasm-web", default-features = false }
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "feature/wasm-web-2" }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "feature/wasm-web-2" }
