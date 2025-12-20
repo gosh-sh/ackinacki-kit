@@ -29,7 +29,7 @@ sha2.workspace = true
 tokio = { workspace = true, optional = true }
 tracing.workspace = true
 
-tvm_block = { workspace = true }
+tvm_block.workspace = true
 tvm_client = { workspace = true, optional = true }
 
-shared = { path = "../shared", default-features = false }
+shared = { path = "../shared", optional = true, default-features = false }
