@@ -73,16 +73,13 @@ impl AsyncGuarded<Account> for BlockKeeperWallet {
 }
 
 impl AsyncGuardedMut<Account> for BlockKeeperWallet {
-
-    fn async_guarded_mut<F, Fut, T>(&self, action: F) -> impl Future<Output=anyhow::Result<T>>
+    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
     {
-        async {
-            let guard = self.account.clone().lock_owned().await;
-            action(guard).await
-        }
+        let guard = self.account.clone().lock_owned().await;
+        action(guard).await
     }
 }
 
