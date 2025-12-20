@@ -5,15 +5,8 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["tvm_client/default", "tokio/full"]
-wasm = [
-    "dep:gloo-timers",
-    "tvm_block/gosh",
-    "tvm_client/wasm_web",
-    "tokio/sync",
-    "tokio/rt",
-    "tokio/macros",
-]
+default = ["tokio/full", "tvm_client/default", "shared/default"]
+wasm = ["dep:gloo-timers", "tokio/sync", "tvm_client/wasm_web", "shared/wasm"]
 
 [dependencies]
 anyhow.workspace = true
