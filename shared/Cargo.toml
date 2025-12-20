@@ -5,9 +5,9 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = []
-wasm = []
+default = ["tokio/full"]
+wasm = ["tokio/sync"]
 
 [dependencies]
 anyhow.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, optional = true }
