@@ -18,9 +18,9 @@ use crate::account::Account;
 use crate::deserialize::deserialize_option_u64;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_vec;
+use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u64_vec;
-use crate::mvsystem::miner::SessionInterval;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -75,7 +75,6 @@ impl Executor for Miner {}
 
 impl SendMessage for Miner {}
 
-
 impl AsyncGuarded<Account> for Miner {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
@@ -85,7 +84,6 @@ impl AsyncGuarded<Account> for Miner {
         action(&guard)
     }
 }
-
 
 impl AsyncGuardedMut<Account> for Miner {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
@@ -162,11 +160,11 @@ pub struct ResultOfGetDetails {
     #[serde(rename = "commitData")]
     pub submit_session_data: Option<String>,
 
-    #[serde(rename = "blockLimitData")]
-    pub block_limit_data: Option<String>,
+    #[serde(rename = "easyComplexity", deserialize_with = "deserialize_u32")]
+    pub easy_complexity: u32,
 
-    #[serde(rename = "commitInterval")]
-    pub verify_session_interval: Option<(SessionInterval, SessionInterval)>,
+    #[serde(rename = "hardComplexity", deserialize_with = "deserialize_u32")]
+    pub hard_complexity: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -277,6 +275,15 @@ impl Miner {
             header: None,
             input: Some(json!(params)),
         };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Cancel submitted session data
+    ///
+    /// Original contract method: `cancelCommitData`
+    pub async fn cancel_session(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "cancelCommitData".to_string(), header: None, input: None };
         self.send_message(Some(call_set), None, signer).await
     }
 
