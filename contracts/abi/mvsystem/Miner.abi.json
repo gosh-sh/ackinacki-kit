@@ -42,6 +42,7 @@
 		{
 			"name": "setCommitData",
 			"inputs": [
+				{"name":"id","type":"uint256"},
 				{"name":"easyNumber","type":"uint64"},
 				{"name":"tapNumber","type":"uint64"},
 				{"name":"workerId","type":"uint64"},
@@ -53,6 +54,7 @@
 		{
 			"name": "cancelCommitData",
 			"inputs": [
+				{"name":"id","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -60,7 +62,16 @@
 		{
 			"name": "setOwnerPubkey",
 			"inputs": [
+				{"name":"id","type":"uint256"},
 				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "deleteOwnerPubkey",
+			"inputs": [
+				{"name":"id","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -68,6 +79,7 @@
 		{
 			"name": "getReward",
 			"inputs": [
+				{"name":"id","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -75,6 +87,7 @@
 		{
 			"name": "acceptTap",
 			"inputs": [
+				{"name":"id","type":"uint256"},
 				{"name":"verifyData","type":"bytes"},
 				{"name":"eventAddrSuccess","type":"address[]"},
 				{"name":"eventCellSuccess","type":"bytes[]"},
@@ -114,7 +127,7 @@
 				{"name":"popitGame","type":"address"},
 				{"name":"boost","type":"address"},
 				{"name":"mbiCur","type":"optional(uint64)"},
-				{"name":"owner_pubkey","type":"optional(uint256)"},
+				{"name":"owner_pubkey","type":"map(uint256,uint256)"},
 				{"name":"epochStart","type":"uint64"},
 				{"name":"epochStartOld","type":"uint64"},
 				{"name":"oldTaps","type":"uint128[]"},
@@ -214,7 +227,8 @@
 		{"init":false,"name":"_boost","type":"address"},
 		{"init":false,"name":"_root","type":"address"},
 		{"init":false,"name":"_mbiCur","type":"optional(uint64)"},
-		{"init":false,"name":"_owner_pubkey","type":"optional(uint256)"},
+		{"init":false,"name":"_owner_pubkey","type":"map(uint256,uint256)"},
+		{"init":false,"name":"_owner_pubkey_size","type":"uint32"},
 		{"init":false,"name":"_epochStart","type":"uint64"},
 		{"init":false,"name":"_epochStartOld","type":"uint64"},
 		{"init":false,"name":"_oldTaps","type":"uint128[]"},

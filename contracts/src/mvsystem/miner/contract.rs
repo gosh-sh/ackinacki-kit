@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -114,7 +115,7 @@ pub struct ResultOfGetDetails {
     pub mbi_cur: Option<u64>,
 
     #[serde(rename = "owner_pubkey")]
-    pub owner_public: Option<String>,
+    pub owner_public: HashMap<String, String>,
 
     #[serde(rename = "epochStart", deserialize_with = "deserialize_u64")]
     pub epoch_start: u64,
@@ -169,12 +170,24 @@ pub struct ResultOfGetDetails {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfEncodeSetOwnerPublic {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
+
     #[serde(rename(serialize = "pubkey"))]
     pub public: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfEncodeRemoveOwnerPublic {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSubmitSession {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
+
     #[serde(rename(serialize = "easyNumber"))]
     pub easy_count: u64,
 
@@ -188,7 +201,16 @@ pub struct ParamsOfSubmitSession {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfCancelSession {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfVerifySession {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
+
     #[serde(rename(serialize = "verifyData"))]
     pub data: String,
 
@@ -203,6 +225,12 @@ pub struct ParamsOfVerifySession {
 
     #[serde(rename(serialize = "eventCellFailed"))]
     pub error_event_data: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetReward {
+    #[serde(rename(serialize = "id"))]
+    pub app_id: String,
 }
 
 impl Miner {
@@ -253,12 +281,41 @@ impl Miner {
         Ok(result.body)
     }
 
+    /// # Encode remove owner public key message
+    /// This key is used to sign messages for miner
+    ///
+    /// Original contract method: `deleteOwnerPubkey`
+    pub async fn remove_owner_public_message(
+        &self,
+        params: ParamsOfEncodeRemoveOwnerPublic,
+    ) -> anyhow::Result<String> {
+        let call_set = CallSet {
+            function_name: "deleteOwnerPubkey".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        let result = self
+            .encode_message_body(call_set, true, Signer::None)
+            .await
+            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+
+        Ok(result.body)
+    }
+
     /// # Collect existing rewards
     ///
     /// Original contract method: `getReward`
-    pub async fn get_reward(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "getReward".to_string(), header: None, input: None };
+    pub async fn get_reward(
+        &self,
+        params: ParamsOfGetReward,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "getReward".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
         self.send_message(Some(call_set), None, signer).await
     }
 
@@ -281,9 +338,16 @@ impl Miner {
     /// # Cancel submitted session data
     ///
     /// Original contract method: `cancelCommitData`
-    pub async fn cancel_session(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "cancelCommitData".to_string(), header: None, input: None };
+    pub async fn cancel_session(
+        &self,
+        params: ParamsOfCancelSession,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelCommitData".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
         self.send_message(Some(call_set), None, signer).await
     }
 
