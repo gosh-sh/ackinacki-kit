@@ -24,6 +24,7 @@ use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
+use crate::traits::VersionAccessor;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Boost.abi.json");
 
@@ -58,6 +59,8 @@ impl ContextAccessor for Boost {
         &self.context
     }
 }
+
+impl VersionAccessor for Boost {}
 
 impl EncodeMessage for Boost {}
 
@@ -107,14 +110,6 @@ pub struct ParamsOfUpdateCode {
     #[serde(rename(serialize = "newcode"))]
     pub code: String,
     pub cell: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ResultOfGetVersion {
-    #[serde(rename = "value0")]
-    pub version: String,
-    #[serde(rename = "value1")]
-    pub contract_name: String,
 }
 
 impl Boost {
@@ -176,20 +171,5 @@ impl Boost {
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
-    }
-
-    pub async fn get_version(&self) -> anyhow::Result<ResultOfGetVersion> {
-        let call_set =
-            CallSet { function_name: "getVersion".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetVersion>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
     }
 }

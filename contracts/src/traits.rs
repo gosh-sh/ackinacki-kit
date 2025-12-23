@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
@@ -197,6 +198,33 @@ pub trait Executor: EncodeMessage + AccountAccessor {
             tvm::run_tvm(self.context().clone(), params)
                 .await
                 .map_err(|e| anyhow!("Run tvm ({e:?})"))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetVersion {
+    #[serde(rename = "value0")]
+    pub version: String,
+    #[serde(rename = "value1")]
+    pub contract_name: String,
+}
+
+pub trait VersionAccessor: Executor {
+    fn get_version(&self) -> impl Future<Output = anyhow::Result<ResultOfGetVersion>> {
+        async {
+            let call_set =
+                CallSet { function_name: "getVersion".to_string(), header: None, input: None };
+
+            let result = self.run_tvm(Some(call_set), Signer::None).await?;
+            match result.decoded {
+                Some(data) => match data.output {
+                    Some(value) => serde_json::from_value::<ResultOfGetVersion>(value)
+                        .map_err(|e| anyhow!("Deserialize output ({})", e)),
+                    None => anyhow::bail!("Empty decoded output"),
+                },
+                None => anyhow::bail!("Empty decoded result"),
+            }
         }
     }
 }
