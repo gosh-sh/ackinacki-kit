@@ -23,7 +23,7 @@ use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 
-const ABI: &str = include_str!("../../abi/mvsystem/MobileVerifiersContractGameRoot.abi.json");
+const ABI: &str = include_str!("../../../abi/mvsystem/MobileVerifiersContractGameRoot.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct MobileVerifiersGameRoot {
