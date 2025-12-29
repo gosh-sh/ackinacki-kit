@@ -27,6 +27,7 @@ use crate::traits::SendMessage;
 use crate::traits::VersionAccessor;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Boost.abi.json");
+const ABI_1_0_1: &str = include_str!("../../abi/mvsystem/Boost_1.0.1.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct Boost {
@@ -113,13 +114,34 @@ pub struct ParamsOfUpdateCode {
 }
 
 impl Boost {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self {
+    pub async fn new(
+        context: Arc<ClientContext>,
+        address: impl AsRef<str>,
+    ) -> anyhow::Result<Self> {
+        let version = {
+            let instance = Self {
+                context: context.clone(),
+                address: address.as_ref().to_string(),
+                abi: Abi::Json(ABI.to_string()),
+                account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+            };
+            instance
+                .get_version()
+                .await
+                .map_err(|e| anyhow!("Get boost `{}` version ({e})", address.as_ref()))?
+        };
+
+        let abi = match version.version.as_str() {
+            "1.0.1" => ABI_1_0_1,
+            _ => ABI,
+        };
+
+        Ok(Self {
             context: context.clone(),
             address: address.as_ref().to_string(),
-            abi: Abi::Json(ABI.to_string()),
+            abi: Abi::Json(abi.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
-        }
+        })
     }
 
     pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
