@@ -12,6 +12,7 @@ use crate::traits::DecodeMessage;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Event {
+    pub id: String,
     pub src: String,
     pub dst: String,
     pub created_at: u64,
