@@ -49,7 +49,7 @@ pub async fn query_events(
         ParamsOfQueryCollection {
             collection: "messages".to_string(),
             filter,
-            result: "src dst created_at boc".to_string(),
+            result: "id src dst created_at boc".to_string(),
             order,
             limit,
         },
