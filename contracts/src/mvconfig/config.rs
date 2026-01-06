@@ -1,6 +1,4 @@
 use std::sync::Arc;
-
-use async_trait::async_trait;
 use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
@@ -65,25 +63,21 @@ impl Executor for MobileVerifiersConfig {}
 
 impl SendMessage for MobileVerifiersConfig {}
 
-#[async_trait]
 impl AsyncGuarded<Account> for MobileVerifiersConfig {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
 impl AsyncGuardedMut<Account> for MobileVerifiersConfig {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -96,6 +90,12 @@ pub struct ParamsOfSetConfig {
     pub mbn_list: Vec<u64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetRootPublic {
+    #[serde(rename(serialize = "pubkey"))]
+    pub public: String,
+}
+
 impl MobileVerifiersConfig {
     pub fn new(context: Arc<ClientContext>) -> Self {
         let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -105,6 +105,24 @@ impl MobileVerifiersConfig {
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         }
+    }
+
+    /// # Set root public key
+    ///
+    /// Original contract method: `setPubkeyRoot`
+    ///
+    /// Should be signed with root keys
+    pub async fn set_root_public(
+        &self,
+        params: ParamsOfSetRootPublic,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setPubkeyRoot".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Set config

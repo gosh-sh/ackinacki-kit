@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use serde::Deserialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
@@ -59,25 +58,21 @@ impl EncodeMessage for BlockManagerWallet {}
 
 impl Executor for BlockManagerWallet {}
 
-#[async_trait]
 impl AsyncGuarded<Account> for BlockManagerWallet {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
 impl AsyncGuardedMut<Account> for BlockManagerWallet {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await

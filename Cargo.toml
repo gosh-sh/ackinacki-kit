@@ -3,7 +3,7 @@
 resolver = "3"
 members = ["contracts", "root", "shared"]
 
-package.version = "0.3.3"
+package.version = "0.4.0"
 package.edition = "2024"
 
 [workspace.dependencies]
@@ -16,7 +16,8 @@ num-bigint = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
-tokio = "1.48"
+tokio = { version = "1", default-features = false }
 tracing = "0.1"
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v2.23.4.an" }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v2.23.4.an", default-features = false, features = ["rustls-tls-webpki-roots", "std"] }
+
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "feature/wasm-web-2", default-features = false }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "feature/wasm-web-2", default-features = false }

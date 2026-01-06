@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use serde::Deserialize;
+use serde::Serialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
@@ -13,95 +13,97 @@ use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
-use crate::bksystem::LicenseData;
-use crate::bksystem::Stake;
-use crate::deserialize::deserialize_u128;
-use crate::deserialize::deserialize_u8;
+use crate::deserialize::deserialize_u64;
+use crate::token::wallet::TransactionType;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::SendMessage;
 
-const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockKeeperNodeWallet.abi.json");
+const ABI: &str = include_str!("../../abi/token/Transaction.abi.json");
 
 #[derive(Debug, Clone)]
-pub struct BlockKeeperWallet {
+pub struct TokenTransaction {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for BlockKeeperWallet {
+impl AccountAccessor for TokenTransaction {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for BlockKeeperWallet {
+impl AbiAccessor for TokenTransaction {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for BlockKeeperWallet {
+impl AddressAccessor for TokenTransaction {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for BlockKeeperWallet {
+impl ContextAccessor for TokenTransaction {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl EncodeMessage for BlockKeeperWallet {}
+impl EncodeMessage for TokenTransaction {}
 
-impl Executor for BlockKeeperWallet {}
+impl DecodeMessage for TokenTransaction {}
 
-impl AsyncGuarded<Account> for BlockKeeperWallet {
+impl Executor for TokenTransaction {}
+
+impl SendMessage for TokenTransaction {}
+
+impl AsyncGuarded<Account> for TokenTransaction {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
+
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-impl AsyncGuardedMut<Account> for BlockKeeperWallet {
+impl AsyncGuardedMut<Account> for TokenTransaction {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
+
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetDetails {
-    pub pubkey: String,
-    #[serde(rename = "signerPubkey")]
-    pub signer_pubkey: String,
-    pub root: String,
-    pub balance: String,
-    #[serde(rename = "activeStakes")]
-    pub active_stakes: HashMap<String, Stake>,
-    #[serde(rename = "stakesCnt", deserialize_with = "deserialize_u8")]
-    pub stakes_cnt: u8,
-    pub licenses: HashMap<String, LicenseData>,
-    #[serde(rename = "epochDuration", deserialize_with = "deserialize_u128")]
-    pub epoch_duration: u128,
-    #[serde(rename = "whiteListLicense")]
-    pub whitelist_license: HashMap<String, bool>,
+    pub wallet: String,
+    pub data: String,
+    #[serde(rename = "transactionType")]
+    pub transaction_type: TransactionType,
+    #[serde(rename = "seqnoDestroy", deserialize_with = "deserialize_u64")]
+    pub seqno_destroy: u64,
+    #[serde(rename = "ownerAddress")]
+    pub owner_address: String,
+    #[serde(rename = "dataHash")]
+    pub data_hash: String,
 }
 
-impl BlockKeeperWallet {
+impl TokenTransaction {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),
@@ -119,30 +121,10 @@ impl BlockKeeperWallet {
         match result.decoded {
             Some(data) => match data.output {
                 Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
+                    .map_err(|e| anyhow!("Deserialize output ({e})")),
                 None => anyhow::bail!("Empty decoded output"),
             },
             None => anyhow::bail!("Empty decoded result"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::bksystem::bk_wallet::BlockKeeperWallet;
-    use crate::tests::create_context;
-
-    #[tokio::test]
-    async fn test_get_details() {
-        let context = create_context();
-
-        let bk_wallet = BlockKeeperWallet::new(
-            context,
-            "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
-        );
-
-        let details =
-            bk_wallet.get_details().await.inspect_err(|e| eprintln!("Get BK wallet details ({e})"));
-        assert!(details.is_ok());
     }
 }

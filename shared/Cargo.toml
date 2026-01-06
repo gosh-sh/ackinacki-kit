@@ -4,7 +4,10 @@ name = "shared"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["tokio/full"]
+wasm = ["tokio/sync"]
+
 [dependencies]
 anyhow.workspace = true
-async-trait.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, optional = true }

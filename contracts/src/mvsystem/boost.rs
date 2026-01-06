@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -25,8 +24,10 @@ use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
+use crate::traits::VersionAccessor;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Boost.abi.json");
+const ABI_1_0_1: &str = include_str!("../../abi/mvsystem/Boost_1.0.1.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct Boost {
@@ -60,6 +61,8 @@ impl ContextAccessor for Boost {
     }
 }
 
+impl VersionAccessor for Boost {}
+
 impl EncodeMessage for Boost {}
 
 impl DecodeMessage for Boost {}
@@ -68,25 +71,21 @@ impl Executor for Boost {}
 
 impl SendMessage for Boost {}
 
-#[async_trait]
 impl AsyncGuarded<Account> for Boost {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
 impl AsyncGuardedMut<Account> for Boost {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -107,14 +106,42 @@ pub struct ParamsOfSetMbiCur {
     pub mamaboard_max_seq_no: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfUpdateCode {
+    #[serde(rename(serialize = "newcode"))]
+    pub code: String,
+    pub cell: String,
+}
+
 impl Boost {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self {
+    pub async fn new(
+        context: Arc<ClientContext>,
+        address: impl AsRef<str>,
+    ) -> anyhow::Result<Self> {
+        let version = {
+            let instance = Self {
+                context: context.clone(),
+                address: address.as_ref().to_string(),
+                abi: Abi::Json(ABI.to_string()),
+                account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+            };
+            instance
+                .get_version()
+                .await
+                .map_err(|e| anyhow!("Get boost `{}` version ({e})", address.as_ref()))?
+        };
+
+        let abi = match version.version.as_str() {
+            "1.0.1" => ABI_1_0_1,
+            _ => ABI,
+        };
+
+        Ok(Self {
             context: context.clone(),
             address: address.as_ref().to_string(),
-            abi: Abi::Json(ABI.to_string()),
+            abi: Abi::Json(abi.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
-        }
+        })
     }
 
     pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
@@ -144,6 +171,24 @@ impl Boost {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setMbiCur".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Update code
+    ///
+    /// Original contract method: `updateCode`
+    ///
+    /// Should be signed with root keys
+    pub async fn update_code(
+        &self,
+        params: ParamsOfUpdateCode,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "updateCode".to_string(),
             header: None,
             input: Some(json!(params)),
         };

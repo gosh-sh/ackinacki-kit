@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -16,6 +15,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::deserialize::deserialize_u128;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -25,63 +25,65 @@ use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::SendMessage;
 
-const ABI: &str = include_str!("../../abi/mvsystem/Indexer.abi.json");
+const ABI: &str = include_str!("../../abi/token/RootToken.abi.json");
 
 #[derive(Debug, Clone)]
-pub struct Indexer {
+pub struct TokenRoot {
     context: Arc<ClientContext>,
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
-impl AccountAccessor for Indexer {
+impl AccountAccessor for TokenRoot {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 }
 
-impl AbiAccessor for Indexer {
+impl AbiAccessor for TokenRoot {
     fn abi(&self) -> &Abi {
         &self.abi
     }
 }
 
-impl AddressAccessor for Indexer {
+impl AddressAccessor for TokenRoot {
     fn address(&self) -> &str {
         &self.address
     }
 }
 
-impl ContextAccessor for Indexer {
+impl ContextAccessor for TokenRoot {
     fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 }
 
-impl EncodeMessage for Indexer {}
+impl EncodeMessage for TokenRoot {}
 
-impl DecodeMessage for Indexer {}
+impl DecodeMessage for TokenRoot {}
 
-impl Executor for Indexer {}
+impl Executor for TokenRoot {}
 
-impl SendMessage for Indexer {}
+impl SendMessage for TokenRoot {}
 
-impl AsyncGuarded<Account> for Indexer {
+impl AsyncGuarded<Account> for TokenRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
+
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-impl AsyncGuardedMut<Account> for Indexer {
+impl AsyncGuardedMut<Account> for TokenRoot {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
+
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -91,48 +93,38 @@ impl AsyncGuardedMut<Account> for Indexer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultOfGetDetails {
     pub name: String,
-    #[serde(rename = "wallet")]
-    pub multifactor_address: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ParamsOfSetOwner {
-    #[serde(rename(serialize = "wallet"))]
-    pub multifactor_address: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub decimals: u128,
+    pub deployer: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub minted: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub burned: u128,
+    #[serde(rename = "mintDisabled")]
+    pub mint_disabled: bool,
+    #[serde(rename = "ownerPubkey")]
+    pub owner_pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ParamsOfDeployMultifactor {
-    #[serde(rename(serialize = "wallet"))]
-    pub multifactor_address: String,
-    pub zkid: String,
-    pub proof: String,
-    pub epk: String,
-    pub epk_sig: String,
-    pub epk_expire_at: u64,
-    pub jwk_modulus: String,
-    pub kid: String,
-    pub jwk_modulus_expire_at: u64,
-    pub index_mod_4: u8,
-    pub iss_base_64: String,
-    pub provider: String,
-    pub header_base_64: String,
-    pub pub_recovery_key: String,
-    pub pub_recovery_key_sig: String,
-    pub jwk_update_key: String,
-    pub jwk_update_key_sig: String,
-    pub root_provider_certificates: HashMap<String, String>,
-    pub owner_pubkey: String,
-    pub mirror: String,
+pub struct ParamsOfGetWalletAddress {
+    #[serde(rename = "walletOwner")]
+    pub owner_address: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResultOfGetWalletAddress {
+    #[serde(rename = "walletAddress")]
+    pub wallet_address: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ParamsOfEncodeSetOwner {
-    #[serde(rename(serialize = "wallet"))]
-    pub multifactor_address: String,
+pub struct ParamsOfDeployWallet {
+    #[serde(rename(serialize = "owner"))]
+    pub owner_address: String,
 }
 
-impl Indexer {
+impl TokenRoot {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
             context: context.clone(),
@@ -157,43 +149,34 @@ impl Indexer {
         }
     }
 
-    /// # Encode set indexer owner message
-    ///
-    /// Original contract method: `setNewWallet`
-    ///
-    /// Should be sent from current owner multifactor
-    pub async fn set_owner_message(
+    pub async fn get_wallet_address(
         &self,
-        params: ParamsOfEncodeSetOwner,
-    ) -> anyhow::Result<String> {
+        params: ParamsOfGetWalletAddress,
+    ) -> anyhow::Result<ResultOfGetWalletAddress> {
         let call_set = CallSet {
-            function_name: "setNewWallet".to_string(),
+            function_name: "getWalletAddress".to_string(),
             header: None,
             input: Some(json!(params)),
         };
 
-        let result = self
-            .encode_message_body(call_set, true, Signer::None)
-            .await
-            .map_err(|e| anyhow!("Encode message body ({e})"))?;
-
-        Ok(result.body)
+        let result = self.run_tvm(Some(call_set), Signer::None).await?;
+        match result.decoded {
+            Some(data) => match data.output {
+                Some(value) => serde_json::from_value::<ResultOfGetWalletAddress>(value)
+                    .map_err(|e| anyhow!("Deserialize output ({e})")),
+                None => anyhow::bail!("Empty decoded output"),
+            },
+            None => anyhow::bail!("Empty decoded result"),
+        }
     }
 
-    /// # Deploy multifactor
-    ///
-    /// Used to create multifactor and claim current indexer
-    ///
-    /// Original contract method: `isOwnerRoot`
-    ///
-    /// Should be signed with root keys
-    pub async fn deploy_multifactor(
+    pub async fn deploy_wallet(
         &self,
-        params: ParamsOfDeployMultifactor,
+        params: ParamsOfDeployWallet,
         signer: Signer,
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "isOwnerRoot".to_string(),
+            function_name: "deployWallet".to_string(),
             header: None,
             input: Some(json!(params)),
         };
