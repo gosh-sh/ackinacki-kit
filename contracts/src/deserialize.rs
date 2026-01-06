@@ -28,7 +28,7 @@ where
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt {
-        Some(s) => s.parse::<u16>().map(Some).map_err(serde::de::Error::custom),
+        Some(s) => s.parse::<u16>().map(Some).map_err(Error::custom),
         None => Ok(None),
     }
 }
@@ -49,6 +49,17 @@ where
     serde_json::from_str::<u64>(&s).map_err(Error::custom)
 }
 
+pub fn deserialize_option_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        Some(s) => s.parse::<u64>().map(Some).map_err(Error::custom),
+        None => Ok(None),
+    }
+}
+
 pub fn deserialize_u128<'de, D>(deserializer: D) -> Result<u128, D::Error>
 where
     D: Deserializer<'de>,
@@ -63,7 +74,7 @@ where
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt {
-        Some(s) => s.parse::<u128>().map(Some).map_err(serde::de::Error::custom),
+        Some(s) => s.parse::<u128>().map(Some).map_err(Error::custom),
         None => Ok(None),
     }
 }
@@ -76,8 +87,23 @@ where
     let mut result = HashMap::with_capacity(raw_map.len());
 
     for (k, v) in raw_map {
-        let parsed = v.parse::<u128>().map_err(serde::de::Error::custom)?;
+        let parsed = v.parse::<u128>().map_err(Error::custom)?;
         result.insert(k, parsed);
+    }
+
+    Ok(result)
+}
+
+pub fn deserialize_u128_vec<'de, D>(deserializer: D) -> Result<Vec<u128>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_vec: Vec<String> = Vec::deserialize(deserializer)?;
+    let mut result = Vec::with_capacity(raw_vec.len());
+
+    for v in raw_vec {
+        let parsed = v.parse::<u128>().map_err(Error::custom)?;
+        result.push(parsed);
     }
 
     Ok(result)
@@ -91,8 +117,23 @@ where
     let mut result = HashMap::with_capacity(raw_map.len());
 
     for (k, v) in raw_map {
-        let parsed = v.parse::<u64>().map_err(serde::de::Error::custom)?;
+        let parsed = v.parse::<u64>().map_err(Error::custom)?;
         result.insert(k, parsed);
+    }
+
+    Ok(result)
+}
+
+pub fn deserialize_u64_vec<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_vec: Vec<String> = Vec::deserialize(deserializer)?;
+    let mut result = Vec::with_capacity(raw_vec.len());
+
+    for v in raw_vec {
+        let parsed = v.parse::<u64>().map_err(Error::custom)?;
+        result.push(parsed);
     }
 
     Ok(result)
@@ -112,7 +153,7 @@ where
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt {
-        Some(s) => BigInt::from_str(&s).map(Some).map_err(serde::de::Error::custom),
+        Some(s) => BigInt::from_str(&s).map(Some).map_err(Error::custom),
         None => Ok(None),
     }
 }
@@ -127,7 +168,7 @@ where
             let bytes = {
                 let s = s.trim_start_matches("0x").trim_start_matches("0X");
                 let padded = format!("{:0>width$}", s, width = (s.len() + 1) & !1);
-                hex::decode(padded).map_err(serde::de::Error::custom)?
+                hex::decode(padded).map_err(Error::custom)?
             };
             Ok(Some(BigInt::from_signed_bytes_be(&bytes)))
         }

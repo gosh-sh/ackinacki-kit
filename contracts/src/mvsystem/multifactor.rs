@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -145,25 +144,21 @@ impl Executor for Multifactor {}
 
 impl SendMessage for Multifactor {}
 
-#[async_trait]
 impl AsyncGuarded<Account> for Multifactor {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T,
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
 impl AsyncGuardedMut<Account> for Multifactor {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -309,6 +304,16 @@ pub struct ParamsOfUpdateWhitelist {
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfCleanWhitelist {
     pub epk_expire_at: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetForceRemoveOldest {
+    pub flag: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetWasmHash {
+    pub wasm_hash: String,
 }
 
 impl Multifactor {
@@ -607,6 +612,44 @@ impl Multifactor {
     ) -> anyhow::Result<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cleanWhiteList".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set _force_remove_oldest flag
+    ///
+    /// Original contract method: `setForceRemoveOldest`
+    ///
+    /// Should be signed by owner keys
+    pub async fn set_force_remove_oldest(
+        &self,
+        params: ParamsOfSetForceRemoveOldest,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setForceRemoveOldest".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set _wasm_hash value
+    ///
+    /// Original contract method: `setWasmHash`
+    ///
+    /// Should be signed by owner keys
+    pub async fn set_wasm_hash(
+        &self,
+        params: ParamsOfSetWasmHash,
+        signer: Signer,
+    ) -> anyhow::Result<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setWasmHash".to_string(),
             header: None,
             input: Some(json!(params)),
         };

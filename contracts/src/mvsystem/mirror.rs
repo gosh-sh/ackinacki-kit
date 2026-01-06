@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use num_bigint::BigUint;
+use num_traits::ToPrimitive;
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
@@ -17,12 +18,14 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::mvsystem::miner::contract::Miner;
 use crate::mvsystem::PopitMedia;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
+use crate::traits::Executor;
 use crate::traits::SendMessage;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
@@ -31,6 +34,7 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 pub struct Mirror {
     context: Arc<ClientContext>,
     address: String,
+    index: u128,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -61,27 +65,27 @@ impl ContextAccessor for Mirror {
 
 impl EncodeMessage for Mirror {}
 
+impl Executor for Mirror {}
+
 impl SendMessage for Mirror {}
 
-#[async_trait]
 impl AsyncGuarded<Account> for Mirror {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
-        F: FnOnce(&Account) -> T + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(&Account) -> T,
+
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-#[async_trait]
 impl AsyncGuardedMut<Account> for Mirror {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
-        F: FnOnce(OwnedMutexGuard<Account>) -> Fut + Send + 'async_trait,
-        Fut: Future<Output = anyhow::Result<T>> + Send + 'async_trait,
-        T: Send + 'async_trait,
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = anyhow::Result<T>>,
+
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -123,6 +127,18 @@ pub struct ParamsOfDeployPopcoinRoot {
     pub owner_popitgame_address: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetMinerAddress {
+    #[serde(rename(serialize = "multifactor"))]
+    pub multifactor_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetMinerAddress {
+    #[serde(rename = "miner")]
+    pub address: String,
+}
+
 impl Mirror {
     pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> anyhow::Result<Self> {
         let public = {
@@ -131,17 +147,47 @@ impl Mirror {
             BigUint::from_bytes_be(&bytes)
         };
 
-        let address = {
-            let index = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
-            format!("0:2{index:063x}")
+        let index = {
+            let number = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
+            number.to_u64().map(|v| v as u128).ok_or_else(|| anyhow!("Convert index to u64"))?
         };
+        let address = format!("0:2{index:063x}");
 
         Ok(Self {
             context: context.clone(),
             address: address.clone(),
+            index,
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address))),
         })
+    }
+
+    pub fn index(&self) -> u128 {
+        self.index
+    }
+
+    /// # Get miner
+    ///
+    /// Original contract method: `getMinerAddress`
+    pub async fn get_miner(&self, params: ParamsOfGetMinerAddress) -> anyhow::Result<Miner> {
+        let call_set = CallSet {
+            function_name: "getMinerAddress".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        let result = self.run_tvm(Some(call_set), Signer::None).await?;
+        match result.decoded {
+            Some(data) => match data.output {
+                Some(value) => {
+                    let decoded = serde_json::from_value::<ResultOfGetMinerAddress>(value)
+                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
+                    Ok(Miner::new(self.context.clone(), decoded.address))
+                }
+                None => anyhow::bail!("Empty decoded output"),
+            },
+            None => anyhow::bail!("Empty decoded result"),
+        }
     }
 
     /// # Deploy multifactor account
@@ -170,5 +216,20 @@ impl Mirror {
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Encode deploy miner message
+    ///
+    /// Original contract method: `deployMiner`
+    pub async fn deploy_miner_message(&self) -> anyhow::Result<String> {
+        let call_set =
+            CallSet { function_name: "deployMiner".to_string(), header: None, input: None };
+
+        let result = self
+            .encode_message_body(call_set, true, Signer::None)
+            .await
+            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+
+        Ok(result.body)
     }
 }
