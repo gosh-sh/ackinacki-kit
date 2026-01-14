@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use num_bigint::BigInt;
 use serde::Deserialize;
 use serde::Serialize;
@@ -11,6 +10,10 @@ use tvm_client::boc::ParamsOfParse;
 use tvm_client::ClientContext;
 
 use crate::deserialize::deserialize_account_balance;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
+use crate::KitResult;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[repr(u8)]
@@ -92,7 +95,7 @@ impl Account {
         self.acc_type == AccountStatus::Active
     }
 
-    pub async fn fetch(&mut self) -> anyhow::Result<()> {
+    pub async fn fetch(&mut self) -> KitResult<()> {
         // Fetch account boc
         let get_account_result = tvm_client::account::get_account(
             self.context.clone(),
@@ -108,25 +111,47 @@ impl Account {
                     self.reset();
                     return Ok(());
                 }
-                _ => anyhow::bail!("Get account `{}` ({e})", self.address),
+                _ => {
+                    return Err(KitError::new(
+                        KitModule::Account,
+                        KitErrorCode::GetAccount,
+                        format!("Get account `{}` ({e})", self.address),
+                    ));
+                }
             },
         };
 
         // Construct account from boc to get ecc balance
-        let tvm_account = tvm_block::Account::construct_from_base64(&boc)
-            .map_err(|e| anyhow!("Construct account `{}` from boc ({e})", self.address))?;
+        let tvm_account = tvm_block::Account::construct_from_base64(&boc).map_err(|e| {
+            KitError::new(
+                KitModule::Account,
+                KitErrorCode::ConstructAccount,
+                format!("Construct account `{}` from boc ({e})", self.address),
+            )
+        })?;
 
         // Parse account boc
         let parsed = tvm_client::boc::parse_account(
             self.context.clone(),
             ParamsOfParse { boc: boc.clone() },
         )
-        .map_err(|e| anyhow!("Parse account `{}` ({e})", self.address))?
+        .map_err(|e| {
+            KitError::new(
+                KitModule::Account,
+                KitErrorCode::ParseAccount,
+                format!("Parse account `{}` ({e})", self.address),
+            )
+        })?
         .parsed;
 
         // Deserialize account value
-        let deserialized = serde_json::from_value::<AccountData>(parsed)
-            .map_err(|e| anyhow!("Deserialize account `{}` ({e})", self.address))?;
+        let deserialized = serde_json::from_value::<AccountData>(parsed).map_err(|e| {
+            KitError::new(
+                KitModule::Account,
+                KitErrorCode::DeserializeAccountData,
+                format!("Deserialize account `{}` ({e})", self.address),
+            )
+        })?;
 
         self.boc = deserialized.boc;
         self.data = deserialized.data;
@@ -141,7 +166,13 @@ impl Account {
                         map.insert(k, v.value().clone());
                         Ok(true)
                     })
-                    .map_err(|e| anyhow!("Iterate account `{}` currency ({e})", self.address))?;
+                    .map_err(|e| {
+                        KitError::new(
+                            KitModule::Account,
+                            KitErrorCode::IterateCurrencies,
+                            format!("Iterate account `{}` currency ({e})", self.address),
+                        )
+                    })?;
                 map
             }
             None => BTreeMap::new(),
@@ -150,15 +181,18 @@ impl Account {
         Ok(())
     }
 
-    pub async fn wait(&mut self, params: ParamsOfWaitAccount) -> anyhow::Result<()> {
+    pub async fn wait(&mut self, params: ParamsOfWaitAccount) -> KitResult<()> {
         let mut attempts = 0;
         loop {
             if attempts == params.attempts.unwrap_or(20) {
-                anyhow::bail!(
-                    "Wait for account `{}` status `{:?}`. Max attempts reached.",
-                    self.address,
-                    params.status,
-                );
+                return Err(KitError::new(
+                    KitModule::Account,
+                    KitErrorCode::WaitAccount,
+                    format!(
+                        "Wait for account `{}` status `{:?}`. Max attempts reached.",
+                        self.address, params.status,
+                    ),
+                ));
             }
 
             self.fetch().await?;
@@ -207,7 +241,8 @@ mod tests {
             context,
             "0:2222222222222222222222222222222222222222222222222222222222222222",
         );
-        let fetch_result = account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e})"));
+        let fetch_result =
+            account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e:?})"));
         assert!(fetch_result.is_ok());
 
         assert!(account.boc.is_some());
@@ -228,7 +263,7 @@ mod tests {
         let wait_result = account
             .wait(ParamsOfWaitAccount { status: AccountStatus::Active, ..Default::default() })
             .await
-            .inspect_err(|e| eprintln!("Wait account ({e})"));
+            .inspect_err(|e| eprintln!("Wait account ({e:?})"));
         assert!(wait_result.is_ok());
 
         // Wait for non existing account
@@ -243,7 +278,7 @@ mod tests {
                 attempts_timeout: Some(500),
             })
             .await
-            .inspect_err(|e| eprintln!("Wait account ({e})"));
+            .inspect_err(|e| eprintln!("Wait account ({e:?})"));
         assert!(wait_result.is_err());
     }
 
@@ -256,6 +291,6 @@ mod tests {
             context.clone(),
             "0:269840b497d21dc35c73ccfd31158eade4245ba01230196842acd5f8f3655011",
         );
-        account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e})")).unwrap();
+        account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e:?})")).unwrap();
     }
 }

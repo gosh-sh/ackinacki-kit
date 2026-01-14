@@ -1,30 +1,33 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use base64::Engine;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi;
 use tvm_client::abi::Abi;
-use tvm_client::abi::CallSet;
-use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::account::AccountStatus;
 use crate::deserialize::deserialize_u128;
+use crate::error::BkSystemModule;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/bksystem/ReputationCoefficientCalculator.abi.json");
 const TVC: &[u8] = include_bytes!("../../abi/bksystem/ReputationCoefficientCalculator.tvc");
@@ -37,12 +40,16 @@ pub struct ReputationCoefficientCalculator {
     account: Arc<Mutex<Account>>,
 }
 
+impl ModuleAccessor for ReputationCoefficientCalculator {
+    const MODULE: KitModule = KitModule::BkSystem(BkSystemModule::Reputation);
+}
+
 impl AccountAccessor for ReputationCoefficientCalculator {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
     }
 
-    async fn fetch_account(&self) -> anyhow::Result<()> {
+    async fn fetch_account(&self) -> KitResult<()> {
         let state = base64::prelude::BASE64_STANDARD.encode(TVC);
         let encoded_account = abi::encode_account(
             self.context.clone(),
@@ -54,7 +61,13 @@ impl AccountAccessor for ReputationCoefficientCalculator {
                 boc_cache: None,
             },
         )
-        .map_err(|e| anyhow!("Encode account ({e})"))?;
+        .map_err(|e| {
+            KitError::new(
+                KitModule::BkSystem(BkSystemModule::Reputation),
+                KitErrorCode::EncodeAccount,
+                format!("Encode account ({e})"),
+            )
+        })?;
 
         let created_account = Account {
             context: self.context.clone(),
@@ -107,10 +120,10 @@ impl AsyncGuarded<Account> for ReputationCoefficientCalculator {
 }
 
 impl AsyncGuardedMut<Account> for ReputationCoefficientCalculator {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -141,27 +154,8 @@ impl ReputationCoefficientCalculator {
         }
     }
 
-    pub async fn calculate(&self, params: ParamsOfCalculate) -> anyhow::Result<u128> {
-        let call_set = CallSet {
-            function_name: "calcRepCoef".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        let calculated = match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let data = serde_json::from_value::<ResultOfCalculate>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({})", e))?;
-                    data.value0
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        };
-
-        Ok(calculated)
+    pub async fn calculate(&self, params: ParamsOfCalculate) -> KitResult<u128> {
+        self.call_get_method_with::<u128, ParamsOfCalculate>("calcRepCoef", params).await
     }
 }
 
@@ -179,7 +173,7 @@ mod tests {
         let coefficient = contract
             .calculate(ParamsOfCalculate { reputation_time: 97344 })
             .await
-            .inspect_err(|e| eprintln!("Calculate ({e})"))
+            .inspect_err(|e| eprintln!("Calculate ({e:?})"))
             .unwrap();
         assert_eq!(coefficient, 1008676871);
     }

@@ -55,18 +55,12 @@ pub trait AccountAccessor:
 
     fn wait_account(&self, params: ParamsOfWaitAccount) -> impl Future<Output = KitResult<()>> {
         async {
-            self.async_guarded_mut(|mut account| async move { account.wait(params).await })
-                .await
-                .map_err(|e| KitError::new(Self::MODULE, KitErrorCode::WaitAccount, e.to_string()))
+            self.async_guarded_mut(|mut account| async move { account.wait(params).await }).await
         }
     }
 
     fn fetch_account(&self) -> impl Future<Output = KitResult<()>> {
-        async {
-            self.async_guarded_mut(|mut account| async move { account.fetch().await })
-                .await
-                .map_err(|e| KitError::new(Self::MODULE, KitErrorCode::FetchAccount, e.to_string()))
-        }
+        async { self.async_guarded_mut(|mut account| async move { account.fetch().await }).await }
     }
 
     fn is_deployed(&self) -> impl Future<Output = bool> {
@@ -76,6 +70,39 @@ pub trait AccountAccessor:
         }
     }
 }
+
+// impl<T> AsyncGuarded<Account> for T
+// where
+//     T: AccountAccessor + Send + Sync,
+// {
+//     fn async_guarded<F, R>(&self, action: F) -> impl Future<Output = R>
+//     where
+//         F: FnOnce(&Account) -> R,
+//     {
+//         let account: Arc<Mutex<Account>> = self.account().clone();
+//         async move {
+//             let guard = account.lock().await;
+//             action(&guard)
+//         }
+//     }
+// }
+
+// impl<T> AsyncGuardedMut<Account> for T
+// where
+//     T: AccountAccessor + Send + Sync,
+// {
+//     fn async_guarded_mut<F, Fut, R, E>(&self, action: F) -> impl Future<Output = Result<R, E>>
+//     where
+//         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+//         Fut: Future<Output = Result<R, E>>,
+//     {
+//         let account = self.account().clone();
+//         async move {
+//             let guard = account.lock_owned().await;
+//             action(guard).await
+//         }
+//     }
+// }
 
 pub trait ContextAccessor {
     fn context(&self) -> &Arc<ClientContext>;
@@ -260,7 +287,7 @@ pub trait FromEvent {
 }
 
 #[derive(Debug, Clone)]
-struct GetMethodArgs<I = ()> {
+pub struct GetMethodArgs<I = ()> {
     pub function_name: &'static str,
     pub input: Option<I>,
 }

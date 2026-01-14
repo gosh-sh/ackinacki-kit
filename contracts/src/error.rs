@@ -4,7 +4,10 @@ use tvm_client::error::ClientError;
 pub enum KitModule {
     Token(TokenModule),
     Event,
+    Account,
     MvSystem(MvSystemModule),
+    BkSystem(BkSystemModule),
+    MvConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,6 +29,13 @@ pub enum MvSystemModule {
     Boost,
     Miner,
     GameRoot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BkSystemModule {
+    BlockKeeperWallet,
+    BlockManagerWallet,
+    Reputation,
 }
 
 impl From<TokenModule> for KitModule {
@@ -50,11 +60,15 @@ pub enum KitErrorCode {
     Convert = 104,
 
     // account
-    FetchAccount = 200,
-    AccountIsNotActive = 201,
-    DecodeAccountData = 202,
-    DeserializeAccountData = 203,
-    WaitAccount = 204,
+    AccountIsNotActive = 200,
+    DecodeAccountData = 201,
+    DeserializeAccountData = 202,
+    WaitAccount = 203,
+    EncodeAccount = 204,
+    GetAccount = 205,
+    ConstructAccount = 206,
+    ParseAccount = 207,
+    IterateCurrencies = 208,
 
     // Event
     QueryEvents = 300,
