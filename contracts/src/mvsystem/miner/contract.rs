@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -22,6 +21,8 @@ use crate::deserialize::deserialize_u128_vec;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u64_vec;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -30,7 +31,10 @@ use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../../abi/mvsystem/Miner.abi.json");
 
@@ -40,6 +44,10 @@ pub struct Miner {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for Miner {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Miner);
 }
 
 impl AccountAccessor for Miner {
@@ -244,19 +252,8 @@ impl Miner {
     }
 
     /// # Get contract state data
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     /// # Encode set owner public key message
@@ -266,17 +263,14 @@ impl Miner {
     pub async fn set_owner_public_message(
         &self,
         params: ParamsOfEncodeSetOwnerPublic,
-    ) -> anyhow::Result<String> {
+    ) -> KitResult<String> {
         let call_set = CallSet {
             function_name: "setOwnerPubkey".to_string(),
             header: None,
             input: Some(json!(params)),
         };
 
-        let result = self
-            .encode_message_body(call_set, true, Signer::None)
-            .await
-            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+        let result = self.encode_message_body(call_set, true, Signer::None).await?;
 
         Ok(result.body)
     }
@@ -288,17 +282,14 @@ impl Miner {
     pub async fn remove_owner_public_message(
         &self,
         params: ParamsOfEncodeRemoveOwnerPublic,
-    ) -> anyhow::Result<String> {
+    ) -> KitResult<String> {
         let call_set = CallSet {
             function_name: "deleteOwnerPubkey".to_string(),
             header: None,
             input: Some(json!(params)),
         };
 
-        let result = self
-            .encode_message_body(call_set, true, Signer::None)
-            .await
-            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+        let result = self.encode_message_body(call_set, true, Signer::None).await?;
 
         Ok(result.body)
     }
@@ -310,7 +301,7 @@ impl Miner {
         &self,
         params: ParamsOfGetReward,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "getReward".to_string(),
             header: None,
@@ -326,7 +317,7 @@ impl Miner {
         &self,
         params: ParamsOfSubmitSession,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setCommitData".to_string(),
             header: None,
@@ -342,7 +333,7 @@ impl Miner {
         &self,
         params: ParamsOfCancelSession,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cancelCommitData".to_string(),
             header: None,
@@ -358,7 +349,7 @@ impl Miner {
         &self,
         params: ParamsOfVerifySession,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "acceptTap".to_string(),
             header: None,

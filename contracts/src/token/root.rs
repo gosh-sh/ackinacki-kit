@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -16,6 +15,8 @@ use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::deserialize::deserialize_u128;
+use crate::error::KitModule;
+use crate::error::TokenModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -23,7 +24,10 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/token/RootToken.abi.json");
 
@@ -59,6 +63,10 @@ impl ContextAccessor for TokenRoot {
     }
 }
 
+impl ModuleAccessor for TokenRoot {
+    const MODULE: KitModule = KitModule::Token(TokenModule::Root);
+}
+
 impl EncodeMessage for TokenRoot {}
 
 impl DecodeMessage for TokenRoot {}
@@ -71,7 +79,6 @@ impl AsyncGuarded<Account> for TokenRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
@@ -83,7 +90,6 @@ impl AsyncGuardedMut<Account> for TokenRoot {
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
-
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -134,47 +140,26 @@ impl TokenRoot {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     pub async fn get_wallet_address(
         &self,
         params: ParamsOfGetWalletAddress,
-    ) -> anyhow::Result<ResultOfGetWalletAddress> {
-        let call_set = CallSet {
-            function_name: "getWalletAddress".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetWalletAddress>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<ResultOfGetWalletAddress> {
+        self.call_get_method_with::<ResultOfGetWalletAddress, ParamsOfGetWalletAddress>(
+            "getWalletAddress",
+            params,
+        )
+        .await
     }
 
     pub async fn deploy_wallet(
         &self,
         params: ParamsOfDeployWallet,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployWallet".to_string(),
             header: None,

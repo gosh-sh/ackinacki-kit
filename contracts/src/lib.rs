@@ -1,11 +1,14 @@
 pub mod account;
 pub mod bksystem;
 pub mod deserialize;
+pub mod error;
 pub mod event;
 pub mod mvconfig;
 pub mod mvsystem;
 pub mod token;
 pub mod traits;
+
+pub type KitResult<T> = Result<T, error::KitError>;
 
 #[cfg(test)]
 mod tests {

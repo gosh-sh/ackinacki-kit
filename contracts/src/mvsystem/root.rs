@@ -1,21 +1,19 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
-use tvm_client::abi::CallSet;
-use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::deserialize::deserialize_u32;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::mvsystem::indexer::Indexer;
 use crate::mvsystem::multifactor::Multifactor;
 use crate::mvsystem::popcoin_root::PopcoinRoot;
@@ -27,6 +25,9 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/MobileVerifiersContractRoot.abi.json");
 
@@ -36,6 +37,10 @@ pub struct MobileVerifiersRoot {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for MobileVerifiersRoot {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Root);
 }
 
 impl AccountAccessor for MobileVerifiersRoot {
@@ -68,33 +73,30 @@ impl DecodeMessage for MobileVerifiersRoot {}
 
 impl Executor for MobileVerifiersRoot {}
 
-
 impl AsyncGuarded<Account> for MobileVerifiersRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-
 impl AsyncGuardedMut<Account> for MobileVerifiersRoot {
     async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
-
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetIndexer {
+    #[serde(rename = "name")]
     pub name: String,
 }
 
@@ -104,8 +106,9 @@ pub struct ResultOfGetIndexerAddress {
     pub address: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetMvMultifactor {
+    #[serde(rename = "pubkey")]
     pub public: String,
 }
 
@@ -115,8 +118,9 @@ pub struct ResultOfGetMvMultifactorAddress {
     pub address: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetPopitgame {
+    #[serde(rename = "owner")]
     pub multifactor_address: String,
 }
 
@@ -126,8 +130,9 @@ struct ResultOfGetPopitgameAddress {
     pub address: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetPopcoinRoot {
+    #[serde(rename = "name")]
     pub name: String,
 }
 
@@ -174,151 +179,77 @@ impl MobileVerifiersRoot {
     pub async fn get_mv_multifactor(
         &self,
         params: ParamsOfGetMvMultifactor,
-    ) -> anyhow::Result<Multifactor> {
-        let call_set = CallSet {
-            function_name: "getMvMultifactorAddress".to_string(),
-            header: None,
-            input: Some(json!({"pubkey": params.public})),
-        };
+    ) -> KitResult<Multifactor> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetMvMultifactorAddress, ParamsOfGetMvMultifactor>(
+                "getMvMultifactorAddress",
+                params,
+            )
+            .await?;
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetMvMultifactorAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(Multifactor::new(self.context().clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+        Ok(Multifactor::new(self.context().clone(), res_of_get_addr.address))
     }
 
     /// # Get popitgame instance
     ///
     /// Original contract method: `getPopitGameAddress`
-    pub async fn get_popitgame(&self, params: ParamsOfGetPopitgame) -> anyhow::Result<Popitgame> {
-        let call_set = CallSet {
-            function_name: "getPopitGameAddress".to_string(),
-            header: None,
-            input: Some(json!({"owner": params.multifactor_address})),
-        };
+    pub async fn get_popitgame(&self, params: ParamsOfGetPopitgame) -> KitResult<Popitgame> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetPopitgameAddress, ParamsOfGetPopitgame>(
+                "getPopitGameAddress",
+                params,
+            )
+            .await?;
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetPopitgameAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(Popitgame::new(self.context().clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+        Ok(Popitgame::new(self.context().clone(), res_of_get_addr.address))
     }
 
     /// # Get popcoin root instance
     ///
     /// Original contract method: `getPopCoinRootAddress`
-    pub async fn get_popcoin_root(
-        &self,
-        params: ParamsOfGetPopcoinRoot,
-    ) -> anyhow::Result<PopcoinRoot> {
-        let call_set = CallSet {
-            function_name: "getPopCoinRootAddress".to_string(),
-            header: None,
-            input: Some(json!({"name": params.name})),
-        };
+    pub async fn get_popcoin_root(&self, params: ParamsOfGetPopcoinRoot) -> KitResult<PopcoinRoot> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetPopcoinRootAddress, ParamsOfGetPopcoinRoot>(
+                "getPopCoinRootAddress",
+                params,
+            )
+            .await?;
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetPopcoinRootAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({})", e))?;
-                    Ok(PopcoinRoot::new(self.context().clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+        Ok(PopcoinRoot::new(self.context().clone(), res_of_get_addr.address))
     }
 
     /// # Get indexer instance
     ///
     /// Original contract method: `getIndexerAddress`
-    pub async fn get_indexer(&self, params: ParamsOfGetIndexer) -> anyhow::Result<Indexer> {
-        let call_set = CallSet {
-            function_name: "getIndexerAddress".to_string(),
-            header: None,
-            input: Some(json!({"name": params.name})),
-        };
+    pub async fn get_indexer(&self, params: ParamsOfGetIndexer) -> KitResult<Indexer> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetIndexerAddress, ParamsOfGetIndexer>(
+                "getIndexerAddress",
+                params,
+            )
+            .await?;
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetIndexerAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(Indexer::new(self.context().clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+        Ok(Indexer::new(self.context().clone(), res_of_get_addr.address))
     }
 
     /// # Get indexer code
     ///
     /// Original contract method: `getIndexerCode`
-    pub async fn get_indexer_code(&self) -> anyhow::Result<ResultOfGetIndexerCode> {
-        let call_set =
-            CallSet { function_name: "getIndexerCode".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetIndexerCode>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_indexer_code(&self) -> KitResult<ResultOfGetIndexerCode> {
+        self.call_get_method::<ResultOfGetIndexerCode>("getIndexerCode").await
     }
 
     /// # Get all codes
     ///
     /// Original contract method: `getCodes`
-    pub async fn get_codes(&self) -> anyhow::Result<ResultOfGetCodes> {
-        let call_set = CallSet { function_name: "getCodes".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetCodes>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_codes(&self) -> KitResult<ResultOfGetCodes> {
+        self.call_get_method::<ResultOfGetCodes>("getCodes").await
     }
 
     /// # Get epoch start/end unixtime
     ///
     /// Original contract method: `getEpoch`
-    pub async fn get_epoch(&self) -> anyhow::Result<ResultOfGetEpoch> {
-        let call_set = CallSet { function_name: "getEpoch".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetEpoch>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_epoch(&self) -> KitResult<ResultOfGetEpoch> {
+        self.call_get_method::<ResultOfGetEpoch>("getEpoch").await
     }
 }

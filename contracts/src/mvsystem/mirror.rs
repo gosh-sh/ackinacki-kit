@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
@@ -18,6 +17,10 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::mvsystem::miner::contract::Miner;
 use crate::mvsystem::PopitMedia;
 use crate::traits::AbiAccessor;
@@ -26,7 +29,10 @@ use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 
@@ -37,6 +43,10 @@ pub struct Mirror {
     index: u128,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for Mirror {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Mirror);
 }
 
 impl AccountAccessor for Mirror {
@@ -73,7 +83,6 @@ impl AsyncGuarded<Account> for Mirror {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
@@ -85,7 +94,6 @@ impl AsyncGuardedMut<Account> for Mirror {
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
-
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -140,16 +148,23 @@ pub struct ResultOfGetMinerAddress {
 }
 
 impl Mirror {
-    pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> anyhow::Result<Self> {
+    pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
         let public = {
-            let bytes =
-                hex::decode(public.as_ref()).map_err(|e| anyhow!("Decode hex to bytes ({e})"))?;
+            let bytes = hex::decode(public.as_ref()).map_err(|e| {
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::Decode,
+                    format!("Decode hex to bytes ({e})"),
+                )
+            })?;
             BigUint::from_bytes_be(&bytes)
         };
 
         let index = {
             let number = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
-            number.to_u64().map(|v| v as u128).ok_or_else(|| anyhow!("Convert index to u64"))?
+            number.to_u64().map(|v| v as u128).ok_or_else(|| {
+                KitError::new(Self::MODULE, KitErrorCode::Convert, format!("Convert index to u64"))
+            })?
         };
         let address = format!("0:2{index:063x}");
 
@@ -169,25 +184,15 @@ impl Mirror {
     /// # Get miner
     ///
     /// Original contract method: `getMinerAddress`
-    pub async fn get_miner(&self, params: ParamsOfGetMinerAddress) -> anyhow::Result<Miner> {
-        let call_set = CallSet {
-            function_name: "getMinerAddress".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
+    pub async fn get_miner(&self, params: ParamsOfGetMinerAddress) -> KitResult<Miner> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetMinerAddress, ParamsOfGetMinerAddress>(
+                "getMinerAddress",
+                params,
+            )
+            .await?;
 
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetMinerAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(Miner::new(self.context.clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+        Ok(Miner::new(self.context.clone(), res_of_get_addr.address))
     }
 
     /// # Deploy multifactor account
@@ -195,7 +200,7 @@ impl Mirror {
         &self,
         params: ParamsOfDeployMultifactor,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployMultifactor".to_string(),
             header: None,
@@ -209,7 +214,7 @@ impl Mirror {
         &self,
         params: ParamsOfDeployPopcoinRoot,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployPopCoinRoot".to_string(),
             header: None,
@@ -221,14 +226,11 @@ impl Mirror {
     /// # Encode deploy miner message
     ///
     /// Original contract method: `deployMiner`
-    pub async fn deploy_miner_message(&self) -> anyhow::Result<String> {
+    pub async fn deploy_miner_message(&self) -> KitResult<String> {
         let call_set =
             CallSet { function_name: "deployMiner".to_string(), header: None, input: None };
 
-        let result = self
-            .encode_message_body(call_set, true, Signer::None)
-            .await
-            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+        let result = self.encode_message_body(call_set, true, Signer::None).await?;
 
         Ok(result.body)
     }
