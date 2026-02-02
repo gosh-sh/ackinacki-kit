@@ -264,8 +264,8 @@ impl TokenWallet {
     pub async fn get_transaction_address(
         &self,
         params: ParamsOfGetTransactionAddress,
-    ) -> KitResult<ResultOfGetDetails> {
-        self.call_get_method_with::<ResultOfGetDetails, ParamsOfGetTransactionAddress>(
+    ) -> KitResult<ResultOfGetTransactionAddress> {
+        self.call_get_method_with::<ResultOfGetTransactionAddress, ParamsOfGetTransactionAddress>(
             "getTransactionAddress",
             params,
         )
