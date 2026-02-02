@@ -78,6 +78,14 @@ pub enum KitErrorCode {
     UnknownEvent = 303,
 }
 
+pub fn as_i32(self) -> i32 {
+    self as i32
+}
+
+pub fn as_string(self) -> String {
+    (self as i32).to_string()
+}
+
 #[derive(Debug)]
 pub struct KitError {
     pub tvm_error: Option<ClientError>,
