@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
@@ -29,7 +30,15 @@ use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::account::ParamsOfWaitAccount;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
 use crate::event::Event;
+use crate::KitResult;
+
+pub trait ModuleAccessor {
+    const MODULE: KitModule;
+}
 
 pub trait AddressAccessor {
     fn address(&self) -> &str;
@@ -39,19 +48,18 @@ pub trait AbiAccessor {
     fn abi(&self) -> &Abi;
 }
 
-pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
+pub trait AccountAccessor:
+    ModuleAccessor + AsyncGuarded<Account> + AsyncGuardedMut<Account>
+{
     fn account(&self) -> &Arc<Mutex<Account>>;
 
-    fn wait_account(
-        &self,
-        params: ParamsOfWaitAccount,
-    ) -> impl Future<Output = anyhow::Result<()>> {
+    fn wait_account(&self, params: ParamsOfWaitAccount) -> impl Future<Output = KitResult<()>> {
         async {
             self.async_guarded_mut(|mut account| async move { account.wait(params).await }).await
         }
     }
 
-    fn fetch_account(&self) -> impl Future<Output = anyhow::Result<()>> {
+    fn fetch_account(&self) -> impl Future<Output = KitResult<()>> {
         async { self.async_guarded_mut(|mut account| async move { account.fetch().await }).await }
     }
 
@@ -63,12 +71,47 @@ pub trait AccountAccessor: AsyncGuarded<Account> + AsyncGuardedMut<Account> {
     }
 }
 
+// impl<T> AsyncGuarded<Account> for T
+// where
+//     T: AccountAccessor + Send + Sync,
+// {
+//     fn async_guarded<F, R>(&self, action: F) -> impl Future<Output = R>
+//     where
+//         F: FnOnce(&Account) -> R,
+//     {
+//         let account: Arc<Mutex<Account>> = self.account().clone();
+//         async move {
+//             let guard = account.lock().await;
+//             action(&guard)
+//         }
+//     }
+// }
+
+// impl<T> AsyncGuardedMut<Account> for T
+// where
+//     T: AccountAccessor + Send + Sync,
+// {
+//     fn async_guarded_mut<F, Fut, R, E>(&self, action: F) -> impl Future<Output = Result<R, E>>
+//     where
+//         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+//         Fut: Future<Output = Result<R, E>>,
+//     {
+//         let account = self.account().clone();
+//         async move {
+//             let guard = account.lock_owned().await;
+//             action(guard).await
+//         }
+//     }
+// }
+
 pub trait ContextAccessor {
     fn context(&self) -> &Arc<ClientContext>;
 }
 
-pub trait DecodeAccountData<T: DeserializeOwned>: ContextAccessor + AbiAccessor {
-    fn decode_account_data(&self, data: impl AsRef<str>) -> anyhow::Result<T> {
+pub trait DecodeAccountData<T: DeserializeOwned>:
+    ModuleAccessor + ContextAccessor + AbiAccessor
+{
+    fn decode_account_data(&self, data: impl AsRef<str>) -> KitResult<T> {
         let value = abi::decode_account_data(
             self.context().clone(),
             ParamsOfDecodeAccountData {
@@ -77,15 +120,27 @@ pub trait DecodeAccountData<T: DeserializeOwned>: ContextAccessor + AbiAccessor 
                 allow_partial: true,
             },
         )
-        .map_err(|e| anyhow!("Decode account data ({e:?})"))?
+        .map_err(|e| {
+            KitError::new(
+                Self::MODULE,
+                KitErrorCode::DecodeAccountData,
+                format!("Decode account data ({e:?})"),
+            )
+        })?
         .data;
 
-        serde_json::from_value::<T>(value).map_err(|e| anyhow!("Deserialize account data ({e:?})"))
+        serde_json::from_value::<T>(value).map_err(|e| {
+            KitError::new(
+                Self::MODULE,
+                KitErrorCode::DeserializeAccountData,
+                format!("Deserialize account data ({e:?})"),
+            )
+        })
     }
 }
 
-pub trait DecodeMessage: ContextAccessor + AbiAccessor {
-    fn decode_message(&self, boc: impl AsRef<str>) -> anyhow::Result<DecodedMessageBody> {
+pub trait DecodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor {
+    fn decode_message(&self, boc: impl AsRef<str>) -> KitResult<DecodedMessageBody> {
         abi::decode_message(
             self.context().clone(),
             ParamsOfDecodeMessage {
@@ -96,17 +151,20 @@ pub trait DecodeMessage: ContextAccessor + AbiAccessor {
                 data_layout: None,
             },
         )
-        .map_err(|e| anyhow!("Decode message ({e:?})"))
+        .map_err(|e| {
+            KitError::new(Self::MODULE, KitErrorCode::None, format!("Decode message ({e:?})"))
+                .with_tvm_error(e)
+        })
     }
 }
 
-pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
+pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + AddressAccessor {
     fn encode_message(
         &self,
         call_set: Option<CallSet>,
         deploy_set: Option<DeploySet>,
         signer: Signer,
-    ) -> impl Future<Output = anyhow::Result<ResultOfEncodeMessage>> {
+    ) -> impl Future<Output = KitResult<ResultOfEncodeMessage>> {
         async {
             let params = ParamsOfEncodeMessage {
                 abi: self.abi().clone(),
@@ -117,9 +175,9 @@ pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
                 processing_try_index: None,
                 signature_id: None,
             };
-            abi::encode_message(self.context().clone(), params)
-                .await
-                .map_err(|e| anyhow!("Encode message ({e:?})"))
+            abi::encode_message(self.context().clone(), params).await.map_err(|e| {
+                KitError::new(Self::MODULE, KitErrorCode::None, "Encode message").with_tvm_error(e)
+            })
         }
     }
 
@@ -128,7 +186,7 @@ pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
         call_set: CallSet,
         is_internal: bool,
         signer: Signer,
-    ) -> impl Future<Output = anyhow::Result<ResultOfEncodeMessageBody>> {
+    ) -> impl Future<Output = KitResult<ResultOfEncodeMessageBody>> {
         async move {
             let params = ParamsOfEncodeMessageBody {
                 abi: self.abi().clone(),
@@ -139,20 +197,21 @@ pub trait EncodeMessage: ContextAccessor + AbiAccessor + AddressAccessor {
                 processing_try_index: None,
                 signature_id: None,
             };
-            abi::encode_message_body(self.context().clone(), params)
-                .await
-                .map_err(|e| anyhow!("Encode message body ({e:?})"))
+            abi::encode_message_body(self.context().clone(), params).await.map_err(|e| {
+                KitError::new(Self::MODULE, KitErrorCode::None, "Encode message body")
+                    .with_tvm_error(e)
+            })
         }
     }
 }
 
-pub trait SendMessage: EncodeMessage {
+pub trait SendMessage: ModuleAccessor + EncodeMessage {
     fn send_message(
         &self,
         call_set: Option<CallSet>,
         deploy_set: Option<DeploySet>,
         signer: Signer,
-    ) -> impl Future<Output = anyhow::Result<ResultOfSendMessage>> {
+    ) -> impl Future<Output = KitResult<ResultOfSendMessage>> {
         async {
             let encode_message_result = self.encode_message(call_set, deploy_set, signer).await?;
             let params = ParamsOfSendMessage {
@@ -164,7 +223,10 @@ pub trait SendMessage: EncodeMessage {
 
             processing::send_message(self.context().clone(), params, process_message_callback)
                 .await
-                .map_err(|e| anyhow!("Send message ({e:?})"))
+                .map_err(|e| {
+                    KitError::new(Self::MODULE, KitErrorCode::None, "Send message")
+                        .with_tvm_error(e)
+                })
         }
     }
 }
@@ -174,15 +236,17 @@ pub trait Executor: EncodeMessage + AccountAccessor {
         &self,
         call_set: Option<CallSet>,
         signer: Signer,
-    ) -> impl Future<Output = anyhow::Result<ResultOfRunTvm>> {
+    ) -> impl Future<Output = KitResult<ResultOfRunTvm>> {
         async {
-            self.fetch_account()
-                .await
-                .map_err(|e| anyhow!("Fetch account `{}` ({e})", self.address()))?;
+            self.fetch_account().await?;
 
             let account = self.async_guarded(|account| account.clone()).await;
             if !account.is_deployed() {
-                anyhow::bail!("Account `{}` is not active", self.address())
+                return Err(KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::AccountIsNotActive,
+                    format!("Account `{}` is not active", self.address()),
+                ));
             }
 
             let encode_message_result = self.encode_message(call_set, None, signer).await?;
@@ -195,9 +259,9 @@ pub trait Executor: EncodeMessage + AccountAccessor {
                 return_updated_account: None,
             };
 
-            tvm::run_tvm(self.context().clone(), params)
-                .await
-                .map_err(|e| anyhow!("Run tvm ({e:?})"))
+            tvm::run_tvm(self.context().clone(), params).await.map_err(|e| {
+                KitError::new(Self::MODULE, KitErrorCode::None, "Run tvm").with_tvm_error(e)
+            })
         }
     }
 }
@@ -210,30 +274,96 @@ pub struct ResultOfGetVersion {
     pub contract_name: String,
 }
 
-pub trait VersionAccessor: Executor {
-    fn get_version(&self) -> impl Future<Output = anyhow::Result<ResultOfGetVersion>> {
-        async {
-            let call_set =
-                CallSet { function_name: "getVersion".to_string(), header: None, input: None };
-
-            let result = self.run_tvm(Some(call_set), Signer::None).await?;
-            match result.decoded {
-                Some(data) => match data.output {
-                    Some(value) => serde_json::from_value::<ResultOfGetVersion>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({})", e)),
-                    None => anyhow::bail!("Empty decoded output"),
-                },
-                None => anyhow::bail!("Empty decoded result"),
-            }
-        }
+pub trait VersionAccessor: GetMethodAccessor + Executor {
+    fn get_version(&self) -> impl Future<Output = KitResult<ResultOfGetVersion>> {
+        async { self.call_get_method::<ResultOfGetVersion>("getVersion").await }
     }
 }
 
 pub trait FromEvent {
-    fn from_event(event: &Event, contract: &impl DecodeMessage) -> anyhow::Result<Self>
+    fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self>
     where
         Self: Sized;
 }
+
+#[derive(Debug, Clone)]
+pub struct GetMethodArgs<I = ()> {
+    pub function_name: &'static str,
+    pub input: Option<I>,
+}
+
+impl GetMethodArgs<()> {
+    pub const fn new(function_name: &'static str) -> Self {
+        Self { function_name, input: None }
+    }
+}
+
+impl<I> GetMethodArgs<I> {
+    pub fn input<J>(self, input: J) -> GetMethodArgs<J> {
+        GetMethodArgs { function_name: self.function_name, input: Some(input) }
+    }
+}
+
+pub trait GetMethodAccessor: ModuleAccessor + Executor {
+    fn call_get_method<T>(
+        &self,
+        name: &'static str,
+    ) -> impl std::future::Future<Output = KitResult<T>>
+    where
+        T: DeserializeOwned,
+    {
+        self.get_method::<T, _>(GetMethodArgs::new(name))
+    }
+
+    fn call_get_method_with<T, I>(
+        &self,
+        name: &'static str,
+        input: I,
+    ) -> impl std::future::Future<Output = KitResult<T>>
+    where
+        T: DeserializeOwned,
+        I: Serialize,
+    {
+        self.get_method::<T, _>(GetMethodArgs::new(name).input(input))
+    }
+
+    fn get_method<T, I>(
+        &self,
+        args: GetMethodArgs<I>,
+    ) -> impl std::future::Future<Output = KitResult<T>>
+    where
+        T: DeserializeOwned,
+        I: Serialize,
+    {
+        async move {
+            let call_set = CallSet {
+                function_name: args.function_name.to_string(),
+                header: None,
+                input: args.input.map(|i| json!(i)),
+            };
+
+            let result = self.run_tvm(Some(call_set), Signer::None).await?;
+
+            let decoded = result.decoded.ok_or_else(|| {
+                KitError::new(Self::MODULE, KitErrorCode::EmptyResult, "Empty decoded result")
+            })?;
+
+            let output = decoded.output.ok_or_else(|| {
+                KitError::new(Self::MODULE, KitErrorCode::EmptyOutput, "Empty decoded output")
+            })?;
+
+            serde_json::from_value::<T>(output).map_err(|e| {
+                KitError::new(
+                    KitModule::from(Self::MODULE),
+                    KitErrorCode::DeserializeFailed,
+                    format!("Deserialize output ({e})"),
+                )
+            })
+        }
+    }
+}
+
+impl<T> GetMethodAccessor for T where T: ModuleAccessor + Executor {}
 
 async fn process_message_callback(event: ProcessingEvent) {
     tracing::debug!(target: "ackinacki_kit", "{event:?}");

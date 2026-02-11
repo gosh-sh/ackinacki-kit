@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -18,6 +17,8 @@ use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::mvsystem::popcoin_wallet::PopcoinWallet;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
@@ -26,7 +27,10 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/PopitGame.abi.json");
 
@@ -36,6 +40,10 @@ pub struct Popitgame {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for Popitgame {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::PopitGame);
 }
 
 impl AccountAccessor for Popitgame {
@@ -74,7 +82,6 @@ impl AsyncGuarded<Account> for Popitgame {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
@@ -82,11 +89,10 @@ impl AsyncGuarded<Account> for Popitgame {
 }
 
 impl AsyncGuardedMut<Account> for Popitgame {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
-
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -149,19 +155,8 @@ impl Popitgame {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     /// # Encode withdraw message
@@ -169,17 +164,14 @@ impl Popitgame {
     /// Original contract method: `withdraw`
     ///
     /// Should be sent from owner multifactor contract
-    pub async fn withdraw_message(&self, params: ParamsOfEncodeWithdraw) -> anyhow::Result<String> {
+    pub async fn withdraw_message(&self, params: ParamsOfEncodeWithdraw) -> KitResult<String> {
         let call_set = CallSet {
             function_name: "withdraw".to_string(),
             header: None,
             input: Some(json!(params)),
         };
 
-        let result = self
-            .encode_message_body(call_set, true, Signer::None)
-            .await
-            .map_err(|e| anyhow!("Encode message body ({e})"))?;
+        let result = self.encode_message_body(call_set, true, Signer::None).await?;
 
         Ok(result.body)
     }
@@ -190,25 +182,14 @@ impl Popitgame {
     pub async fn get_popcoin_wallet(
         &self,
         params: ParamsOfGetPopcoinWallet,
-    ) -> anyhow::Result<PopcoinWallet> {
-        let call_set = CallSet {
-            function_name: "getPopCoinWalletAddress".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => {
-                    let decoded = serde_json::from_value::<ResultOfGetPopcoinWalletAddress>(value)
-                        .map_err(|e| anyhow!("Deserialize output ({e})"))?;
-                    Ok(PopcoinWallet::new(self.context().clone(), decoded.address))
-                }
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<PopcoinWallet> {
+        let res_of_get_addr = self
+            .call_get_method_with::<ResultOfGetPopcoinWalletAddress, ParamsOfGetPopcoinWallet>(
+                "getPopCoinWalletAddress",
+                params,
+            )
+            .await?;
+        Ok(PopcoinWallet::new(self.context().clone(), res_of_get_addr.address))
     }
 
     /// # Deploy popcoin wallet
@@ -220,7 +201,7 @@ impl Popitgame {
         &self,
         params: ParamsOfDeployPopcoinWallet,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployPopCoinWallet".to_string(),
             header: None,
@@ -241,7 +222,7 @@ impl Popitgame {
         &self,
         params: ParamsOfDeployPopcoinWallet,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployPopCoinWalletOldTransfer".to_string(),
             header: None,

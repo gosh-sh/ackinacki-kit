@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -17,6 +16,8 @@ use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::deserialize::deserialize_u64;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::mvsystem::ContractIndex;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
@@ -26,7 +27,10 @@ use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Mvmultifactor.abi.json");
 
@@ -110,6 +114,10 @@ pub struct Multifactor {
     account: Arc<Mutex<Account>>,
 }
 
+impl ModuleAccessor for Multifactor {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Multifactor);
+}
+
 impl AccountAccessor for Multifactor {
     fn account(&self) -> &Arc<Mutex<Account>> {
         &self.account
@@ -155,10 +163,10 @@ impl AsyncGuarded<Account> for Multifactor {
 }
 
 impl AsyncGuardedMut<Account> for Multifactor {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -332,22 +340,12 @@ impl Multifactor {
     pub async fn get_epk_expire_at(
         &self,
         params: ParamsOfGetEpkExpire,
-    ) -> anyhow::Result<ResultOfGetEpkExpire> {
-        let call_set = CallSet {
-            function_name: "get_epk_expire_at".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetEpkExpire>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<ResultOfGetEpkExpire> {
+        self.call_get_method_with::<ResultOfGetEpkExpire, ParamsOfGetEpkExpire>(
+            "get_epk_expire_at",
+            params,
+        )
+        .await
     }
 
     /// # Get list of ephemeral public keys
@@ -355,22 +353,8 @@ impl Multifactor {
     /// Original contract method: `getZKPEphemeralPublicKeys`
     pub async fn get_zkp_ephemeral_public_keys(
         &self,
-    ) -> anyhow::Result<ResultOfGetZkpEphemeralPublicKeys> {
-        let call_set = CallSet {
-            function_name: "getZKPEphemeralPublicKeys".to_string(),
-            header: None,
-            input: None,
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetZkpEphemeralPublicKeys>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<ResultOfGetZkpEphemeralPublicKeys> {
+        self.call_get_method::<ResultOfGetZkpEphemeralPublicKeys>("getZKPEphemeralPublicKeys").await
     }
 
     /// # Update ZK id
@@ -382,7 +366,7 @@ impl Multifactor {
         &self,
         params: ParamsOfUpdateZkId,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateZkid".to_string(),
             header: None,
@@ -401,7 +385,7 @@ impl Multifactor {
         &self,
         params: ParamsOfAddZkpFactor,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "addZKPfactor".to_string(),
             header: None,
@@ -420,7 +404,7 @@ impl Multifactor {
         &self,
         params: ParamsOfSubmitTransaction,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "submitTransaction".to_string(),
             header: None,
@@ -438,7 +422,7 @@ impl Multifactor {
         &self,
         params: ParamsOfAddJwkModulus,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "addJwkModulus".to_string(),
             header: None,
@@ -457,7 +441,7 @@ impl Multifactor {
         &self,
         params: ParamsOfChangeSeedPhrase,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "changeSeedPhrase".to_string(),
             header: None,
@@ -476,7 +460,7 @@ impl Multifactor {
         &self,
         params: ParamsOfAcceptCandidateSeedPhrase,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "acceptCandidateSeedPhrase".to_string(),
             header: None,
@@ -495,7 +479,7 @@ impl Multifactor {
         &self,
         params: ParamsOfDeleteCandidateSeedPhrase,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deleteCandidateSeedPhrase".to_string(),
             header: None,
@@ -514,7 +498,7 @@ impl Multifactor {
         &self,
         params: ParamsOfUpdateRecoveryPhrase,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateRecoveryPhrase".to_string(),
             header: None,
@@ -533,7 +517,7 @@ impl Multifactor {
         &self,
         params: ParamsOfDeleteZKPFactorByItself,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deleteZKPfactorByItself".to_string(),
             header: None,
@@ -552,7 +536,7 @@ impl Multifactor {
         &self,
         params: ParamsOfUpdateJwkUpdateKey,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateJwkUpdateKey".to_string(),
             header: None,
@@ -571,7 +555,7 @@ impl Multifactor {
         &self,
         params: ParamsOfDeleteJwkModulusByFactor,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deleteJwkModulusByFactor".to_string(),
             header: None,
@@ -590,7 +574,7 @@ impl Multifactor {
         &self,
         params: ParamsOfUpdateWhitelist,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateWhiteList".to_string(),
             header: None,
@@ -609,7 +593,7 @@ impl Multifactor {
         &self,
         params: ParamsOfCleanWhitelist,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cleanWhiteList".to_string(),
             header: None,
@@ -628,7 +612,7 @@ impl Multifactor {
         &self,
         params: ParamsOfSetForceRemoveOldest,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setForceRemoveOldest".to_string(),
             header: None,
@@ -647,7 +631,7 @@ impl Multifactor {
         &self,
         params: ParamsOfSetWasmHash,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setWasmHash".to_string(),
             header: None,
@@ -681,7 +665,7 @@ mod tests {
         let data = multifactor.async_guarded(|account| account.data.clone()).await.unwrap();
         let decoded = multifactor
             .decode_account_data(data)
-            .inspect_err(|e| eprintln!("Decode multifactor data ({e})"))
+            .inspect_err(|e| eprintln!("Decode multifactor data ({e:?})"))
             .unwrap();
         assert_eq!(decoded.index_mod_4, "1");
     }
