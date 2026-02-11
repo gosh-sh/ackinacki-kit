@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use tvm_client::error::ClientError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -104,5 +106,18 @@ impl KitError {
     pub fn with_tvm_error(mut self, err: ClientError) -> Self {
         self.tvm_error = Some(err);
         self
+    }
+}
+
+impl Display for KitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "KitError {{ module: {:?}, code: {}, message: {}, tvm_erorr {:?} }}",
+            self.module,
+            self.code.as_i32(),
+            self.message,
+            self.tvm_error
+        )
     }
 }
