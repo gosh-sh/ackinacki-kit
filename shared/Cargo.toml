@@ -9,5 +9,4 @@ default = ["tokio/full"]
 wasm = ["tokio/sync"]
 
 [dependencies]
-anyhow.workspace = true
 tokio = { workspace = true, optional = true }

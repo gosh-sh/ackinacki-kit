@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
-use tvm_client::abi::CallSet;
-use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
@@ -17,12 +14,17 @@ use crate::bksystem::LicenseData;
 use crate::bksystem::Stake;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u8;
+use crate::error::BkSystemModule;
+use crate::error::KitModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockKeeperNodeWallet.abi.json");
 
@@ -32,6 +34,10 @@ pub struct BlockKeeperWallet {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for BlockKeeperWallet {
+    const MODULE: KitModule = KitModule::BkSystem(BkSystemModule::BlockKeeperWallet);
 }
 
 impl AccountAccessor for BlockKeeperWallet {
@@ -73,10 +79,10 @@ impl AsyncGuarded<Account> for BlockKeeperWallet {
 }
 
 impl AsyncGuardedMut<Account> for BlockKeeperWallet {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -111,19 +117,8 @@ impl BlockKeeperWallet {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 }
 
@@ -141,8 +136,10 @@ mod tests {
             "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
         );
 
-        let details =
-            bk_wallet.get_details().await.inspect_err(|e| eprintln!("Get BK wallet details ({e})"));
+        let details = bk_wallet
+            .get_details()
+            .await
+            .inspect_err(|e| eprintln!("Get BK wallet details ({e:?})"));
         assert!(details.is_ok());
     }
 }

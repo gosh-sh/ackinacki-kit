@@ -1,15 +1,18 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
 use crate::event::Event;
 use crate::mvsystem::miner::SessionInterval;
 use crate::traits::DecodeMessage;
 use crate::traits::FromEvent;
+use crate::KitResult;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u128)]
@@ -22,19 +25,30 @@ pub enum MinerEvent {
 }
 
 impl TryFrom<String> for MinerEvent {
-    type Error = anyhow::Error;
+    type Error = KitError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let cleaned = value.replace(":", "");
-        let number = u128::from_str_radix(&cleaned, 16)
-            .map_err(|e| anyhow!("Parse miner event `{cleaned}` into u128 ({e})"))?;
+        let number = u128::from_str_radix(&cleaned, 16).map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::Parse,
+                format!("Parse miner event `{cleaned}` into u128 ({e})"),
+            )
+        })?;
         let event = match number {
             5 => MinerEvent::SessionInterval,
             6 => MinerEvent::SeedUpdated,
             7 => MinerEvent::ComplexityUpdated,
             100 => MinerEvent::SessionAccepted,
             101 => MinerEvent::SessionRejected,
-            _ => anyhow::bail!("Unknown miner event `{cleaned}`"),
+            _ => {
+                return Err(KitError::new(
+                    KitModule::Event,
+                    KitErrorCode::UnknownEvent,
+                    format!("Unknown miner event `{cleaned}`"),
+                ))
+            }
         };
         Ok(event)
     }
@@ -61,51 +75,66 @@ pub enum DecodedMinerEvent {
 }
 
 impl FromEvent for DecodedMinerEvent {
-    fn from_event(event: &Event, contract: &impl DecodeMessage) -> anyhow::Result<Self> {
+    fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
         let kind = MinerEvent::try_from(event.dst.clone())?;
         match kind {
             MinerEvent::SessionInterval => {
-                let decoded = event
-                    .decode::<SessionIntervalData>(contract)
-                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let decoded = event.decode::<SessionIntervalData>(contract)?;
+                // .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
                 let data = decoded.ok_or_else(|| {
-                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for miner event `{}`", event.dst),
+                    )
                 })?;
                 Ok(DecodedMinerEvent::SessionInterval { event: event.clone(), kind, data })
             }
             MinerEvent::SeedUpdated => {
-                let decoded = event
-                    .decode::<SeedUpdatedData>(contract)
-                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let decoded = event.decode::<SeedUpdatedData>(contract)?;
+                // .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
                 let data = decoded.ok_or_else(|| {
-                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for miner event `{}`", event.dst),
+                    )
                 })?;
                 Ok(DecodedMinerEvent::SeedUpdated { event: event.clone(), kind, data })
             }
             MinerEvent::ComplexityUpdated => {
-                let decoded = event
-                    .decode::<ComplexityUpdatedData>(contract)
-                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let decoded = event.decode::<ComplexityUpdatedData>(contract)?;
+                // .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
                 let data = decoded.ok_or_else(|| {
-                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for miner event `{}`", event.dst),
+                    )
                 })?;
                 Ok(DecodedMinerEvent::ComplexityUpdated { event: event.clone(), kind, data })
             }
             MinerEvent::SessionAccepted => {
-                let decoded = event
-                    .decode::<SessionAcceptedData>(contract)
-                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let decoded = event.decode::<SessionAcceptedData>(contract)?;
+                // .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
                 let data = decoded.ok_or_else(|| {
-                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for miner event `{}`", event.dst),
+                    )
                 })?;
                 Ok(DecodedMinerEvent::SessionAccepted { event: event.clone(), kind, data })
             }
             MinerEvent::SessionRejected => {
-                let decoded = event
-                    .decode::<SessionRejectedData>(contract)
-                    .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
+                let decoded = event.decode::<SessionRejectedData>(contract)?;
+                // .map_err(|e| anyhow!("Decode miner event `{}` ({e})", event.dst))?;
                 let data = decoded.ok_or_else(|| {
-                    anyhow!("Unexpected empty data for miner event `{}`", event.dst)
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for miner event `{}`", event.dst),
+                    )
                 })?;
                 Ok(DecodedMinerEvent::SessionRejected { event: event.clone(), kind, data })
             }

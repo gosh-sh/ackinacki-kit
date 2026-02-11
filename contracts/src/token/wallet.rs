@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -17,6 +16,8 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_option_u128;
 use crate::deserialize::deserialize_u128;
+use crate::error::KitModule;
+use crate::error::TokenModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -24,7 +25,10 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/token/TokenWallet.abi.json");
 
@@ -34,6 +38,10 @@ pub struct TokenWallet {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for TokenWallet {
+    const MODULE: KitModule = KitModule::Token(TokenModule::Wallet);
 }
 
 impl AccountAccessor for TokenWallet {
@@ -68,25 +76,21 @@ impl Executor for TokenWallet {}
 
 impl SendMessage for TokenWallet {}
 
-
 impl AsyncGuarded<Account> for TokenWallet {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
     }
 }
 
-
 impl AsyncGuardedMut<Account> for TokenWallet {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
-
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -253,47 +257,26 @@ impl TokenWallet {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     pub async fn get_transaction_address(
         &self,
         params: ParamsOfGetTransactionAddress,
-    ) -> anyhow::Result<ResultOfGetTransactionAddress> {
-        let call_set = CallSet {
-            function_name: "getTransactionAddress".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetTransactionAddress>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<ResultOfGetTransactionAddress> {
+        self.call_get_method_with::<ResultOfGetTransactionAddress, ParamsOfGetTransactionAddress>(
+            "getTransactionAddress",
+            params,
+        )
+        .await
     }
 
     pub async fn deploy_transaction(
         &self,
         params: ParamsOfDeployTransaction,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deployTransaction".to_string(),
             header: None,

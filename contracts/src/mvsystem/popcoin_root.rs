@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -19,6 +18,8 @@ use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u16;
 use crate::deserialize::deserialize_u64;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::mvsystem::Popit;
 use crate::mvsystem::PopitCandidateWithMedia;
 use crate::mvsystem::PopitMedia;
@@ -29,7 +30,10 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/PopCoinRoot.abi.json");
 
@@ -39,6 +43,10 @@ pub struct PopcoinRoot {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for PopcoinRoot {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::PopcoinRoot);
 }
 
 impl AccountAccessor for PopcoinRoot {
@@ -77,7 +85,6 @@ impl AsyncGuarded<Account> for PopcoinRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
-
     {
         let guard = self.account.lock().await;
         action(&guard)
@@ -85,11 +92,10 @@ impl AsyncGuarded<Account> for PopcoinRoot {
 }
 
 impl AsyncGuardedMut<Account> for PopcoinRoot {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
-
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -170,19 +176,8 @@ impl PopcoinRoot {
         }
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     /// # Set `public` flag for popcoin
@@ -196,7 +191,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfSetIsPublic,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setIsPublic".to_string(),
             header: None,
@@ -214,7 +209,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfSetPopitMedia,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setPopitMedia".to_string(),
             header: None,
@@ -232,7 +227,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfActivate,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "activate".to_string(),
             header: None,
@@ -250,7 +245,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfAddPopitCandidate,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "addNewPopit".to_string(),
             header: None,
@@ -268,7 +263,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfActivatePopitCandidate,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "activatePopit".to_string(),
             header: None,
@@ -286,7 +281,7 @@ impl PopcoinRoot {
         &self,
         params: ParamsOfDeletePopitCandidate,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deleteCandidate".to_string(),
             header: None,
@@ -300,7 +295,7 @@ impl PopcoinRoot {
     /// Original contract method: `destroy`
     ///
     /// Should be signed with server keys
-    pub async fn destroy(&self, signer: Signer) -> anyhow::Result<ResultOfSendMessage> {
+    pub async fn destroy(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet { function_name: "destroy".to_string(), header: None, input: None };
         self.send_message(Some(call_set), None, signer).await
     }

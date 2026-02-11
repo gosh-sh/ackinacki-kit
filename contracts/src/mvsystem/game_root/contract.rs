@@ -1,19 +1,17 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
-use tvm_client::abi::CallSet;
-use tvm_client::abi::Signer;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -22,6 +20,9 @@ use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../../abi/mvsystem/MobileVerifiersContractGameRoot.abi.json");
 
@@ -31,6 +32,10 @@ pub struct MobileVerifiersGameRoot {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for MobileVerifiersGameRoot {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::GameRoot);
 }
 
 impl AccountAccessor for MobileVerifiersGameRoot {
@@ -76,10 +81,10 @@ impl AsyncGuarded<Account> for MobileVerifiersGameRoot {
 }
 
 impl AsyncGuardedMut<Account> for MobileVerifiersGameRoot {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -130,21 +135,11 @@ impl MobileVerifiersGameRoot {
     pub async fn get_cell_for_boost(
         &self,
         params: ParamsOfGetCellForBoost,
-    ) -> anyhow::Result<ResultOfGetCellForBoost> {
-        let call_set = CallSet {
-            function_name: "getCellForBoost".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetCellForBoost>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({e})")),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    ) -> KitResult<ResultOfGetCellForBoost> {
+        self.call_get_method_with::<ResultOfGetCellForBoost, ParamsOfGetCellForBoost>(
+            "getCellForBoost",
+            params,
+        )
+        .await
     }
 }

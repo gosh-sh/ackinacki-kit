@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
@@ -12,6 +13,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::error::KitModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -19,7 +21,9 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvconfig/MVConfig.abi.json");
 
@@ -29,6 +33,10 @@ pub struct MobileVerifiersConfig {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for MobileVerifiersConfig {
+    const MODULE: KitModule = KitModule::MvConfig;
 }
 
 impl AccountAccessor for MobileVerifiersConfig {
@@ -74,10 +82,10 @@ impl AsyncGuarded<Account> for MobileVerifiersConfig {
 }
 
 impl AsyncGuardedMut<Account> for MobileVerifiersConfig {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -116,7 +124,7 @@ impl MobileVerifiersConfig {
         &self,
         params: ParamsOfSetRootPublic,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setPubkeyRoot".to_string(),
             header: None,
@@ -134,7 +142,7 @@ impl MobileVerifiersConfig {
         &self,
         params: ParamsOfSetConfig,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setConfig".to_string(),
             header: None,

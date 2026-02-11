@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -16,6 +15,8 @@ use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::deserialize::deserialize_u64;
+use crate::error::KitModule;
+use crate::error::MvSystemModule;
 use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
@@ -23,8 +24,11 @@ use crate::traits::ContextAccessor;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::GetMethodAccessor;
+use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
 use crate::traits::VersionAccessor;
+use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/mvsystem/Boost.abi.json");
 const ABI_1_0_1: &str = include_str!("../../abi/mvsystem/Boost_1.0.1.abi.json");
@@ -35,6 +39,10 @@ pub struct Boost {
     address: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
+}
+
+impl ModuleAccessor for Boost {
+    const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Boost);
 }
 
 impl AccountAccessor for Boost {
@@ -82,10 +90,10 @@ impl AsyncGuarded<Account> for Boost {
 }
 
 impl AsyncGuardedMut<Account> for Boost {
-    async fn async_guarded_mut<F, Fut, T>(&self, action: F) -> anyhow::Result<T>
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
-        Fut: Future<Output = anyhow::Result<T>>,
+        Fut: Future<Output = Result<T, E>>,
     {
         let guard = self.account.clone().lock_owned().await;
         action(guard).await
@@ -114,10 +122,7 @@ pub struct ParamsOfUpdateCode {
 }
 
 impl Boost {
-    pub async fn new(
-        context: Arc<ClientContext>,
-        address: impl AsRef<str>,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> KitResult<Self> {
         let version = {
             let instance = Self {
                 context: context.clone(),
@@ -125,10 +130,7 @@ impl Boost {
                 abi: Abi::Json(ABI.to_string()),
                 account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
             };
-            instance
-                .get_version()
-                .await
-                .map_err(|e| anyhow!("Get boost `{}` version ({e})", address.as_ref()))?
+            instance.get_version().await?
         };
 
         let abi = match version.version.as_str() {
@@ -144,19 +146,8 @@ impl Boost {
         })
     }
 
-    pub async fn get_details(&self) -> anyhow::Result<ResultOfGetDetails> {
-        let call_set =
-            CallSet { function_name: "getDetails".to_string(), header: None, input: None };
-
-        let result = self.run_tvm(Some(call_set), Signer::None).await?;
-        match result.decoded {
-            Some(data) => match data.output {
-                Some(value) => serde_json::from_value::<ResultOfGetDetails>(value)
-                    .map_err(|e| anyhow!("Deserialize output ({})", e)),
-                None => anyhow::bail!("Empty decoded output"),
-            },
-            None => anyhow::bail!("Empty decoded result"),
-        }
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
     /// # Set mamaboard max detail index
@@ -168,7 +159,7 @@ impl Boost {
         &self,
         params: ParamsOfSetMbiCur,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "setMbiCur".to_string(),
             header: None,
@@ -186,7 +177,7 @@ impl Boost {
         &self,
         params: ParamsOfUpdateCode,
         signer: Signer,
-    ) -> anyhow::Result<ResultOfSendMessage> {
+    ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateCode".to_string(),
             header: None,
