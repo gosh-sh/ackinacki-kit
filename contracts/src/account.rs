@@ -116,7 +116,8 @@ impl Account {
                         KitModule::Account,
                         KitErrorCode::GetAccount,
                         format!("Get account `{}` ({e})", self.address),
-                    ));
+                    )
+                    .with_tvm_error(e));
                 }
             },
         };
