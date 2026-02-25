@@ -7,6 +7,7 @@ pub enum KitModule {
     Token(TokenModule),
     Event,
     Account,
+    AuthService(AuthServiceModule),
     MvSystem(MvSystemModule),
     BkSystem(BkSystemModule),
     MvConfig,
@@ -17,6 +18,12 @@ pub enum TokenModule {
     Root,
     Wallet,
     Transaction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AuthServiceModule {
+    Root,
+    Profile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -49,6 +56,12 @@ impl From<TokenModule> for KitModule {
 impl From<MvSystemModule> for KitModule {
     fn from(value: MvSystemModule) -> Self {
         KitModule::MvSystem(value)
+    }
+}
+
+impl From<AuthServiceModule> for KitModule {
+    fn from(value: AuthServiceModule) -> Self {
+        KitModule::AuthService(value)
     }
 }
 

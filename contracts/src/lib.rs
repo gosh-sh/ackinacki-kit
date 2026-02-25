@@ -1,4 +1,5 @@
 pub mod account;
+pub mod authservice;
 pub mod bksystem;
 pub mod deserialize;
 pub mod error;
