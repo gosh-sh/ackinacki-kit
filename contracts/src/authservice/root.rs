@@ -5,7 +5,6 @@ use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
@@ -17,76 +16,46 @@ use crate::account::Account;
 use crate::authservice::profile::AuthProfile;
 use crate::error::AuthServiceModule;
 use crate::error::KitModule;
-use crate::traits::AbiAccessor;
+use crate::traits::AutoContract;
 use crate::traits::AccountAccessor;
-use crate::traits::AddressAccessor;
+use crate::traits::ContractBase;
 use crate::traits::ContextAccessor;
-use crate::traits::DecodeAccountData;
-use crate::traits::DecodeMessage;
-use crate::traits::EncodeMessage;
-use crate::traits::Executor;
 use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
-use crate::traits::VersionAccessor;
 use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/authservice/AuthServiceRoot.abi.json");
 
+/// Reference wrapper migrated to the reduced-boilerplate style:
+/// - stores shared runtime state in `ContractBase`
+/// - exposes it via `HasContractBase`
+/// - keeps contract identity in `ModuleAccessor`
+/// - opts into blanket message/executor impls via `AutoContract`
 #[derive(Debug, Clone)]
 pub struct AuthServiceRoot {
-    context: Arc<ClientContext>,
-    address: String,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
+    base: ContractBase,
 }
 
 impl ModuleAccessor for AuthServiceRoot {
     const MODULE: KitModule = KitModule::AuthService(AuthServiceModule::Root);
 }
 
-impl AccountAccessor for AuthServiceRoot {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
+impl HasContractBase for AuthServiceRoot {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
-impl AbiAccessor for AuthServiceRoot {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for AuthServiceRoot {
-    fn address(&self) -> &str {
-        &self.address
-    }
-}
-
-impl ContextAccessor for AuthServiceRoot {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
-    }
-}
-
-impl VersionAccessor for AuthServiceRoot {}
-
-impl EncodeMessage for AuthServiceRoot {}
-
-impl DecodeMessage for AuthServiceRoot {}
-
-impl DecodeAccountData<serde_json::Value> for AuthServiceRoot {}
-
-impl Executor for AuthServiceRoot {}
-
-impl SendMessage for AuthServiceRoot {}
+impl AutoContract for AuthServiceRoot {}
 
 impl AsyncGuarded<Account> for AuthServiceRoot {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -97,7 +66,7 @@ impl AsyncGuardedMut<Account> for AuthServiceRoot {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -138,10 +107,7 @@ impl AuthServiceRoot {
     /// or local networks where AuthServiceRoot may live at a non-premine address).
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
-            context: context.clone(),
-            address: address.as_ref().to_string(),
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            base: ContractBase::new(context, address, Abi::Json(ABI.to_string())),
         }
     }
 

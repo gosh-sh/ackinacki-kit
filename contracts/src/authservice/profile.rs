@@ -3,7 +3,6 @@ use std::sync::Arc;
 use serde::Deserialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
@@ -14,76 +13,40 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::error::AuthServiceModule;
 use crate::error::KitModule;
-use crate::traits::AbiAccessor;
+use crate::traits::AutoContract;
 use crate::traits::AccountAccessor;
-use crate::traits::AddressAccessor;
-use crate::traits::ContextAccessor;
-use crate::traits::DecodeAccountData;
-use crate::traits::DecodeMessage;
-use crate::traits::EncodeMessage;
-use crate::traits::Executor;
+use crate::traits::ContractBase;
 use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
-use crate::traits::VersionAccessor;
 use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/authservice/AuthProfile.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct AuthProfile {
-    context: Arc<ClientContext>,
-    address: String,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
+    base: ContractBase,
 }
 
 impl ModuleAccessor for AuthProfile {
     const MODULE: KitModule = KitModule::AuthService(AuthServiceModule::Profile);
 }
 
-impl AccountAccessor for AuthProfile {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
+impl HasContractBase for AuthProfile {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
-impl AbiAccessor for AuthProfile {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for AuthProfile {
-    fn address(&self) -> &str {
-        &self.address
-    }
-}
-
-impl ContextAccessor for AuthProfile {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
-    }
-}
-
-impl VersionAccessor for AuthProfile {}
-
-impl EncodeMessage for AuthProfile {}
-
-impl DecodeMessage for AuthProfile {}
-
-impl DecodeAccountData<serde_json::Value> for AuthProfile {}
-
-impl Executor for AuthProfile {}
-
-impl SendMessage for AuthProfile {}
+impl AutoContract for AuthProfile {}
 
 impl AsyncGuarded<Account> for AuthProfile {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -94,7 +57,7 @@ impl AsyncGuardedMut<Account> for AuthProfile {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -111,10 +74,7 @@ pub struct ResultOfGetDetails {
 impl AuthProfile {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self {
-            context: context.clone(),
-            address: address.as_ref().to_string(),
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            base: ContractBase::new(context, address, Abi::Json(ABI.to_string())),
         }
     }
 
