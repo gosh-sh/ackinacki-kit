@@ -191,3 +191,196 @@ impl AuthServiceRoot {
         self.send_message(Some(call_set), None, signer).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::*;
+    use num_bigint::BigUint;
+    use serde_json::json;
+    use tvm_client::abi::Signer;
+    use tvm_client::crypto;
+    use tvm_client::crypto::KeyPair;
+    use tvm_client::crypto::ParamsOfMnemonicDeriveSignKeys;
+    use tvm_client::crypto::ParamsOfMnemonicFromRandom;
+
+    use crate::account::AccountStatus;
+    use crate::account::ParamsOfWaitAccount;
+    use crate::authservice::events::AuthServiceEvent;
+    use crate::authservice::events::DecodedAuthServiceEvent;
+    use crate::event::query_events;
+    use crate::tests::create_context;
+    use crate::tests::top_up_native_with_giver_if_below;
+    use crate::traits::AccountAccessor;
+    use crate::traits::AddressAccessor;
+    use crate::traits::FromEvent;
+
+    const SHELLNET_AUTH_SERVICE_ROOT_ADDRESS: &str =
+        "0:dc02c3729be17598278617915c999c1599eb81b1ff9c07457b2693ed1d49c98b";
+
+    fn gen_signer_keys(
+        context: std::sync::Arc<tvm_client::ClientContext>,
+        word_count: u8,
+    ) -> Result<KeyPair, tvm_client::error::ClientError> {
+        let phrase = crypto::mnemonic_from_random(
+            context.clone(),
+            ParamsOfMnemonicFromRandom { dictionary: None, word_count: Some(word_count) },
+        )?
+        .phrase;
+
+        crypto::mnemonic_derive_sign_keys(
+            context,
+            ParamsOfMnemonicDeriveSignKeys {
+                phrase,
+                path: None,
+                dictionary: None,
+                word_count: Some(word_count),
+            },
+        )
+    }
+
+    fn hex_u256_to_dec(value: &str) -> String {
+        BigUint::parse_bytes(value.as_bytes(), 16)
+            .expect("valid hex uint256")
+            .to_string()
+    }
+
+    fn parse_u256_str(value: &str) -> BigUint {
+        if let Some(hex) = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")) {
+            return BigUint::parse_bytes(hex.as_bytes(), 16).expect("valid hex uint256");
+        }
+        BigUint::parse_bytes(value.as_bytes(), 10).expect("valid decimal uint256")
+    }
+
+    #[tokio::test]
+    #[ignore = "requires shellnet access and performs a real deployProfile call"]
+    async fn test_deploy_profile_on_shellnet() {
+        let context = create_context();
+        let root = AuthServiceRoot::new(context.clone(), SHELLNET_AUTH_SERVICE_ROOT_ADDRESS);
+        top_up_native_with_giver_if_below(
+            context.clone(),
+            &root,
+            3_000_000_000,
+            5_000_000_000,
+            "AuthServiceRoot",
+        )
+        .await;
+
+        let keys = gen_signer_keys(context.clone(), 24).expect("Generate signer keys");
+        let signer = Signer::Keys { keys: keys.clone() };
+
+        let started_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_secs()
+            .saturating_sub(5);
+
+        let description = format!("ackinacki-kit authservice deploy test {}", started_at);
+        let pubkey_hex = keys.public.clone();
+        let pubkey = hex_u256_to_dec(&pubkey_hex);
+
+        let expected_profile = root
+            .get_profile_address(ParamsOfGetProfileAddress { pubkey: pubkey.clone() })
+            .await
+            .inspect_err(|e| eprintln!("getProfileAddress failed: {e:?}"))
+            .expect("Get deterministic profile address")
+            .profile;
+
+        root.deploy_profile(
+            ParamsOfDeployProfile { pubkey: pubkey.clone(), description: description.clone() },
+            signer,
+        )
+        .await
+        .inspect_err(|e| eprintln!("deployProfile failed: {e:?}"))
+        .expect("Deploy profile");
+
+        let profile = root
+            .get_profile(ParamsOfGetProfileAddress { pubkey: pubkey.clone() })
+            .await
+            .inspect_err(|e| eprintln!("getProfile failed: {e:?}"))
+            .expect("Get profile wrapper");
+        eprintln!("Deployed profile address: {}", profile.address());
+
+        profile
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::Active,
+                attempts: Some(30),
+                attempts_timeout: Some(2_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait profile failed: {e:?}"))
+            .expect("Wait profile active");
+
+        let details = profile
+            .get_details()
+            .await
+            .inspect_err(|e| eprintln!("getDetails failed: {e:?}"))
+            .expect("Read profile details");
+
+        assert_eq!(details.description, description);
+        assert_eq!(details.root.to_lowercase(), SHELLNET_AUTH_SERVICE_ROOT_ADDRESS.to_lowercase());
+        assert_eq!(parse_u256_str(&details.pubkey), parse_u256_str(&pubkey));
+        assert_eq!(profile.address().to_lowercase(), expected_profile.to_lowercase());
+
+        let event_address = AuthServiceEvent::AuthProfileDeployed.to_address();
+        let mut matched_event = false;
+
+        for _ in 0..10 {
+            let events = query_events(
+                context.clone(),
+                Some(json!({
+                    "src": { "eq": SHELLNET_AUTH_SERVICE_ROOT_ADDRESS },
+                    "dst": { "eq": event_address },
+                    "created_at": { "ge": started_at },
+                })),
+                None,
+                Some(50),
+            )
+            .await
+            .inspect_err(|e| eprintln!("query_events failed: {e:?}"))
+            .expect("Query authservice events");
+
+            for event in events {
+                let decoded = DecodedAuthServiceEvent::from_event(&event, &root)
+                    .inspect_err(|e| eprintln!("decode authservice event failed: {e:?}"))
+                    .expect("Decode authservice event");
+
+                let DecodedAuthServiceEvent::AuthProfileDeployed { data, .. } = decoded;
+                if data.profile.eq_ignore_ascii_case(&expected_profile) {
+                    matched_event = true;
+                    break;
+                }
+            }
+
+            if matched_event {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+
+        if !matched_event {
+            eprintln!(
+                "Warning: AuthProfileDeployed event for profile `{expected_profile}` was not observed on shellnet in the polling window"
+            );
+        }
+
+        profile
+            .destroy(Signer::Keys { keys })
+            .await
+            .inspect_err(|e| eprintln!("destroy failed: {e:?}"))
+            .expect("Destroy profile");
+
+        profile
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::NonExist,
+                attempts: Some(30),
+                attempts_timeout: Some(2_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait profile destroy failed: {e:?}"))
+            .expect("Wait profile destroyed");
+        eprintln!("Destroyed profile address: {}", expected_profile);
+    }
+}

@@ -1,0 +1,148 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use shared::traits::guarded::AsyncGuarded;
+use shared::traits::guarded::AsyncGuardedMut;
+use tokio::sync::OwnedMutexGuard;
+use tvm_client::abi::Abi;
+use tvm_client::abi::CallSet;
+use tvm_client::abi::Signer;
+use tvm_client::processing::ResultOfSendMessage;
+use tvm_client::ClientContext;
+
+use crate::account::Account;
+use crate::error::DexModule;
+use crate::error::KitModule;
+use crate::traits::AutoContract;
+use crate::traits::AccountAccessor;
+use crate::traits::ContractBase;
+use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
+use crate::traits::ModuleAccessor;
+use crate::traits::SendMessage;
+use crate::KitResult;
+
+const ABI: &str = include_str!("../../abi/dex/OracleEventList.abi.json");
+
+#[derive(Debug, Clone)]
+/// Wrapper for an `OracleEventList` shard contract.
+pub struct OracleEventList {
+    base: ContractBase,
+}
+
+impl ModuleAccessor for OracleEventList {
+    const MODULE: KitModule = KitModule::Dex(DexModule::OracleEventList);
+}
+
+impl HasContractBase for OracleEventList {
+    fn base(&self) -> &ContractBase {
+        &self.base
+    }
+}
+
+impl AutoContract for OracleEventList {}
+
+impl AsyncGuarded<Account> for OracleEventList {
+    async fn async_guarded<F, T>(&self, action: F) -> T
+    where
+        F: FnOnce(&Account) -> T,
+    {
+        let guard = self.account().lock().await;
+        action(&guard)
+    }
+}
+
+impl AsyncGuardedMut<Account> for OracleEventList {
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
+    where
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = Result<T, E>>,
+    {
+        let guard = self.account().clone().lock_owned().await;
+        action(guard).await
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `OracleEventList.addEvent`.
+pub struct ParamsOfAddEvent {
+    pub event_name: String,
+    pub oracle_fee: u128,
+    pub deadline: u64,
+    pub describe: String,
+    #[serde(rename(serialize = "outcomeNames"))]
+    pub outcome_names: HashMap<u32, String>,
+    #[serde(rename(serialize = "trustAddr"))]
+    pub trust_addr: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `OracleEventList.deleteEvent`.
+pub struct ParamsOfDeleteEvent {
+    pub event_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `OracleEventList._events` getter.
+///
+/// Entries are left as raw JSON because the event tuple schema can evolve.
+pub struct ResultOfGetEvents {
+    #[serde(rename = "_events")]
+    pub events: HashMap<String, serde_json::Value>,
+}
+
+impl OracleEventList {
+    /// Create a wrapper for a deployed `OracleEventList` shard.
+    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    }
+
+    /// # Add oracle-serviced event
+    ///
+    /// Original contract method: `addEvent`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn add_event(
+        &self,
+        params: ParamsOfAddEvent,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "addEvent".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Delete event from list
+    ///
+    /// Original contract method: `deleteEvent`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn delete_event(
+        &self,
+        params: ParamsOfDeleteEvent,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "deleteEvent".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Read full `_events` mapping
+    ///
+    /// Original contract method: `_events`
+    ///
+    /// Returns raw JSON values for map entries to keep the wrapper stable while
+    /// DEX event tuple schema is still evolving.
+    pub async fn get_events(&self) -> KitResult<ResultOfGetEvents> {
+        self.call_get_method::<ResultOfGetEvents>("_events").await
+    }
+}

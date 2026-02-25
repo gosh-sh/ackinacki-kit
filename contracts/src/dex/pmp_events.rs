@@ -1,0 +1,262 @@
+use std::fmt::Display;
+
+use serde::Deserialize;
+
+use crate::deserialize::deserialize_u8;
+use crate::deserialize::deserialize_u32;
+use crate::deserialize::deserialize_u64;
+use crate::deserialize::deserialize_u128;
+use crate::error::KitError;
+use crate::error::KitErrorCode;
+use crate::error::KitModule;
+use crate::event::Event;
+use crate::traits::DecodeMessage;
+use crate::traits::FromEvent;
+use crate::KitResult;
+
+/// External event IDs are defined in `dex/modifiers/modifiers.sol`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u128)]
+/// External events emitted by `PMP`.
+pub enum PmpEvent {
+    StakeAccepted = 118,
+    ApprovedByOracle = 119,
+    Resolved = 120,
+    ClaimProcessed = 121,
+    NetworkFeeBurned = 122,
+    TimingsSet = 124,
+    NumOutcomesSet = 125,
+    EventCancelled = 126,
+    PmpCancelled = 132,
+    CreatorFeeCollected = 137,
+}
+
+impl TryFrom<String> for PmpEvent {
+    type Error = KitError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let cleaned = value.replace(":", "");
+        let number = u128::from_str_radix(&cleaned, 16).map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::Parse,
+                format!("Parse PMP event `{cleaned}` into u128 ({e})"),
+            )
+        })?;
+
+        match number {
+            118 => Ok(PmpEvent::StakeAccepted),
+            119 => Ok(PmpEvent::ApprovedByOracle),
+            120 => Ok(PmpEvent::Resolved),
+            121 => Ok(PmpEvent::ClaimProcessed),
+            122 => Ok(PmpEvent::NetworkFeeBurned),
+            124 => Ok(PmpEvent::TimingsSet),
+            125 => Ok(PmpEvent::NumOutcomesSet),
+            126 => Ok(PmpEvent::EventCancelled),
+            132 => Ok(PmpEvent::PmpCancelled),
+            137 => Ok(PmpEvent::CreatorFeeCollected),
+            _ => Err(KitError::new(
+                KitModule::Event,
+                KitErrorCode::UnknownEvent,
+                format!("Unknown PMP event `{cleaned}`"),
+            )),
+        }
+    }
+}
+
+impl Display for PmpEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{:064x}", *self as u128)
+    }
+}
+
+impl PmpEvent {
+    pub fn to_address(&self) -> String {
+        format!("0:{:064x}", *self as u128)
+    }
+}
+
+/// Typed decoded `PMP` external event.
+pub enum DecodedPmpEvent {
+    StakeAccepted { event: Event, kind: PmpEvent, data: StakeAcceptedData },
+    ApprovedByOracle { event: Event, kind: PmpEvent, data: ApprovedByOracleData },
+    Resolved { event: Event, kind: PmpEvent, data: ResolvedData },
+    ClaimProcessed { event: Event, kind: PmpEvent, data: ClaimProcessedData },
+    NetworkFeeBurned { event: Event, kind: PmpEvent, data: NetworkFeeBurnedData },
+    TimingsSet { event: Event, kind: PmpEvent, data: TimingsSetData },
+    NumOutcomesSet { event: Event, kind: PmpEvent, data: NumOutcomesSetData },
+    EventCancelled { event: Event, kind: PmpEvent },
+    PmpCancelled { event: Event, kind: PmpEvent },
+    CreatorFeeCollected { event: Event, kind: PmpEvent, data: CreatorFeeCollectedData },
+}
+
+impl FromEvent for DecodedPmpEvent {
+    fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
+        let kind = PmpEvent::try_from(event.dst.clone())?;
+        match kind {
+            PmpEvent::StakeAccepted => {
+                let decoded = event.decode::<StakeAcceptedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::StakeAccepted { event: event.clone(), kind, data })
+            }
+            PmpEvent::ApprovedByOracle => {
+                let decoded = event.decode::<ApprovedByOracleData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::ApprovedByOracle { event: event.clone(), kind, data })
+            }
+            PmpEvent::Resolved => {
+                let decoded = event.decode::<ResolvedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::Resolved { event: event.clone(), kind, data })
+            }
+            PmpEvent::ClaimProcessed => {
+                let decoded = event.decode::<ClaimProcessedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::ClaimProcessed { event: event.clone(), kind, data })
+            }
+            PmpEvent::NetworkFeeBurned => {
+                let decoded = event.decode::<NetworkFeeBurnedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::NetworkFeeBurned { event: event.clone(), kind, data })
+            }
+            PmpEvent::TimingsSet => {
+                let decoded = event.decode::<TimingsSetData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::TimingsSet { event: event.clone(), kind, data })
+            }
+            PmpEvent::NumOutcomesSet => {
+                let decoded = event.decode::<NumOutcomesSetData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::NumOutcomesSet { event: event.clone(), kind, data })
+            }
+            PmpEvent::EventCancelled => {
+                Ok(DecodedPmpEvent::EventCancelled { event: event.clone(), kind })
+            }
+            PmpEvent::PmpCancelled => Ok(DecodedPmpEvent::PmpCancelled { event: event.clone(), kind }),
+            PmpEvent::CreatorFeeCollected => {
+                let decoded = event.decode::<CreatorFeeCollectedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::CreatorFeeCollected { event: event.clone(), kind, data })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::StakeAccepted`.
+pub struct StakeAcceptedData {
+    pub note: String,
+    #[serde(rename = "outcomeId", deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+    #[serde(rename = "bet_type", deserialize_with = "deserialize_u8")]
+    pub bet_type: u8,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::ApprovedByOracle`.
+pub struct ApprovedByOracleData {
+    #[serde(rename = "oracleEventList")]
+    pub oracle_event_list: String,
+    #[serde(rename = "oraclePubkey")]
+    pub oracle_pubkey: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::Resolved`.
+pub struct ResolvedData {
+    #[serde(rename = "outcomeId", deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::ClaimProcessed`.
+pub struct ClaimProcessedData {
+    pub note: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub payout: u128,
+    pub win: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::NetworkFeeBurned`.
+pub struct NetworkFeeBurnedData {
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub amount: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::TimingsSet`.
+pub struct TimingsSetData {
+    #[serde(rename = "stakeStart", deserialize_with = "deserialize_u64")]
+    pub stake_start: u64,
+    #[serde(rename = "stakeEnd", deserialize_with = "deserialize_u64")]
+    pub stake_end: u64,
+    #[serde(rename = "resultStart", deserialize_with = "deserialize_u64")]
+    pub result_start: u64,
+    #[serde(rename = "resultEnd", deserialize_with = "deserialize_u64")]
+    pub result_end: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::NumOutcomesSet`.
+pub struct NumOutcomesSetData {
+    #[serde(rename = "numOutcomes", deserialize_with = "deserialize_u32")]
+    pub num_outcomes: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::CreatorFeeCollected`.
+pub struct CreatorFeeCollectedData {
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub fee: u128,
+}

@@ -8,6 +8,7 @@ pub enum KitModule {
     Event,
     Account,
     AuthService(AuthServiceModule),
+    Dex(DexModule),
     MvSystem(MvSystemModule),
     BkSystem(BkSystemModule),
     MvConfig,
@@ -24,6 +25,17 @@ pub enum TokenModule {
 pub enum AuthServiceModule {
     Root,
     Profile,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DexModule {
+    RootOracle,
+    RootPn,
+    Oracle,
+    OracleEventList,
+    PrivateNote,
+    Pmp,
+    Nullifier,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -62,6 +74,12 @@ impl From<MvSystemModule> for KitModule {
 impl From<AuthServiceModule> for KitModule {
     fn from(value: AuthServiceModule) -> Self {
         KitModule::AuthService(value)
+    }
+}
+
+impl From<DexModule> for KitModule {
+    fn from(value: DexModule) -> Self {
+        KitModule::Dex(value)
     }
 }
 

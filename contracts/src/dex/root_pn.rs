@@ -1,0 +1,258 @@
+use std::sync::Arc;
+
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use shared::traits::guarded::AsyncGuarded;
+use shared::traits::guarded::AsyncGuardedMut;
+use tokio::sync::OwnedMutexGuard;
+use tvm_client::abi::Abi;
+use tvm_client::abi::CallSet;
+use tvm_client::abi::Signer;
+use tvm_client::processing::ResultOfSendMessage;
+use tvm_client::ClientContext;
+
+use crate::account::Account;
+use crate::deserialize::deserialize_u128;
+use crate::error::DexModule;
+use crate::error::KitModule;
+use crate::traits::AutoContract;
+use crate::traits::AccountAccessor;
+use crate::traits::ContractBase;
+use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
+use crate::traits::ModuleAccessor;
+use crate::traits::SendMessage;
+use crate::KitResult;
+
+const ABI: &str = include_str!("../../abi/dex/RootPN.abi.json");
+
+#[derive(Debug, Clone)]
+/// Wrapper for the DEX `RootPN` contract.
+pub struct RootPn {
+    base: ContractBase,
+}
+
+impl ModuleAccessor for RootPn {
+    const MODULE: KitModule = KitModule::Dex(DexModule::RootPn);
+}
+
+impl HasContractBase for RootPn {
+    fn base(&self) -> &ContractBase {
+        &self.base
+    }
+}
+
+impl AutoContract for RootPn {}
+
+impl AsyncGuarded<Account> for RootPn {
+    async fn async_guarded<F, T>(&self, action: F) -> T
+    where
+        F: FnOnce(&Account) -> T,
+    {
+        let guard = self.account().lock().await;
+        action(&guard)
+    }
+}
+
+impl AsyncGuardedMut<Account> for RootPn {
+    async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
+    where
+        F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
+        Fut: Future<Output = Result<T, E>>,
+    {
+        let guard = self.account().clone().lock_owned().await;
+        action(guard).await
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.sendEccShellToPrivateNote`.
+pub struct ParamsOfSendEccShellToPrivateNote {
+    pub proof: String,
+    pub nullifier_hash: String,
+    pub deposit_identifier_hash: String,
+    pub value: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.deployPrivateNote`.
+pub struct ParamsOfDeployPrivateNote {
+    pub zkproof: String,
+    pub deposit_identifier_hash: String,
+    pub ethemeral_pubkey: String,
+    pub value: u64,
+    pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.getPrivateNoteAddress`.
+pub struct ParamsOfGetPrivateNoteAddress {
+    pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `RootPN.getPrivateNoteAddress`.
+pub struct ResultOfGetPrivateNoteAddress {
+    #[serde(rename = "privateNoteAddress")]
+    pub private_note_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `RootPN.getPrivateNoteCode`.
+pub struct ResultOfGetPrivateNoteCode {
+    #[serde(rename = "privateNoteCode")]
+    pub private_note_code: String,
+    #[serde(rename = "privateNoteHash")]
+    pub private_note_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.getPMPAddress`.
+pub struct ParamsOfGetPmpAddress {
+    pub event_id: String,
+    pub names: Vec<String>,
+    pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `RootPN.getPMPAddress`.
+pub struct ResultOfGetPmpAddress {
+    #[serde(rename = "pmpAddress")]
+    pub pmp_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `RootPN.getDetails`.
+pub struct ResultOfGetDetails {
+    #[serde(rename = "pmpCodeHash")]
+    pub pmp_code_hash: String,
+    #[serde(rename = "privateNoteCodeHash")]
+    pub private_note_code_hash: String,
+    #[serde(rename = "ownerPubkey")]
+    pub owner_pubkey: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub balance: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for owner-only `RootPN.updateCode`.
+pub struct ParamsOfUpdateCode {
+    #[serde(rename(serialize = "newcode"))]
+    pub new_code: String,
+    pub cell: String,
+}
+
+impl RootPn {
+    /// Premine RootPN address from `dex/modifiers/modifiers.sol`.
+    pub const DEFAULT_ADDRESS: &'static str =
+        "0:1010101010101010101010101010101010101010101010101010101010101010";
+
+    /// Allows passing the root address explicitly (useful for shellnet/testnet
+    /// or local networks where RootPN may live at a non-premine address).
+    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self {
+            base: ContractBase::new(context, address, Abi::Json(ABI.to_string())),
+        }
+    }
+
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(context, Self::DEFAULT_ADDRESS)
+    }
+
+    /// # Send ECC shell to a deterministic PrivateNote via ZK proof
+    ///
+    /// Original contract method: `sendEccShellToPrivateNote`
+    ///
+    /// Open method, can be called by any external sender (valid ZK proof required)
+    pub async fn send_ecc_shell_to_private_note(
+        &self,
+        params: ParamsOfSendEccShellToPrivateNote,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "sendEccShellToPrivateNote".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Deploy PrivateNote
+    ///
+    /// Original contract method: `deployPrivateNote`
+    ///
+    /// Open method, can be called by any external sender (valid ZK proof required)
+    pub async fn deploy_private_note(
+        &self,
+        params: ParamsOfDeployPrivateNote,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "deployPrivateNote".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Get salted PrivateNote code and hash
+    ///
+    /// Original contract method: `getPrivateNoteCode`
+    pub async fn get_private_note_code(&self) -> KitResult<ResultOfGetPrivateNoteCode> {
+        self.call_get_method::<ResultOfGetPrivateNoteCode>("getPrivateNoteCode").await
+    }
+
+    /// # Get deterministic PrivateNote address
+    ///
+    /// Original contract method: `getPrivateNoteAddress`
+    pub async fn get_private_note_address(
+        &self,
+        params: ParamsOfGetPrivateNoteAddress,
+    ) -> KitResult<ResultOfGetPrivateNoteAddress> {
+        self.call_get_method_with::<ResultOfGetPrivateNoteAddress, ParamsOfGetPrivateNoteAddress>(
+            "getPrivateNoteAddress",
+            params,
+        )
+        .await
+    }
+
+    /// # Get deterministic PMP address
+    ///
+    /// Original contract method: `getPMPAddress`
+    pub async fn get_pmp_address(
+        &self,
+        params: ParamsOfGetPmpAddress,
+    ) -> KitResult<ResultOfGetPmpAddress> {
+        self.call_get_method_with::<ResultOfGetPmpAddress, ParamsOfGetPmpAddress>(
+            "getPMPAddress",
+            params,
+        )
+        .await
+    }
+
+    /// # Get root details
+    ///
+    /// Original contract method: `getDetails`
+    pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
+        self.call_get_method::<ResultOfGetDetails>("getDetails").await
+    }
+
+    /// # Update root code
+    ///
+    /// Original contract method: `updateCode`
+    ///
+    /// Should be signed with root owner keys
+    pub async fn update_code(
+        &self,
+        params: ParamsOfUpdateCode,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "updateCode".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+}
