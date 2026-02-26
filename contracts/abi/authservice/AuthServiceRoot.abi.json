@@ -21,7 +21,7 @@
 		{
 			"name": "deployProfile",
 			"inputs": [
-				{"name":"pubkey","type":"uint256"},
+				{"name":"pubkeyHash","type":"uint256"},
 				{"name":"description","type":"string"}
 			],
 			"outputs": [
@@ -30,6 +30,7 @@
 		{
 			"name": "onProfileDeployed",
 			"inputs": [
+				{"name":"descriptionHash","type":"uint256"},
 				{"name":"pubkeyHash","type":"uint256"}
 			],
 			"outputs": [
@@ -38,10 +39,19 @@
 		{
 			"name": "getProfileAddress",
 			"inputs": [
-				{"name":"pubkey","type":"uint256"}
+				{"name":"description","type":"string"}
 			],
 			"outputs": [
 				{"name":"profile","type":"address"}
+			]
+		},
+		{
+			"name": "hashPubkey",
+			"inputs": [
+				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+				{"name":"hash","type":"uint256"}
 			]
 		},
 		{

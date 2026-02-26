@@ -6,8 +6,16 @@
 		{
 			"name": "constructor",
 			"inputs": [
-				{"name":"pubkey","type":"uint256"},
+				{"name":"pubkeyHash","type":"uint256"},
 				{"name":"description","type":"string"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "addContext",
+			"inputs": [
+				{"name":"context","type":"cell"}
 			],
 			"outputs": [
 			]
@@ -25,8 +33,8 @@
 			],
 			"outputs": [
 				{"name":"description","type":"string"},
+				{"name":"descriptionHash","type":"uint256"},
 				{"name":"pubkeyHash","type":"uint256"},
-				{"name":"pubkey","type":"uint256"},
 				{"name":"root","type":"address"}
 			]
 		},
@@ -41,14 +49,22 @@
 		}
 	],
 	"events": [
+		{
+			"name": "ContextAdded",
+			"inputs": [
+				{"name":"context","type":"cell"}
+			],
+			"outputs": [
+			]
+		}
 	],
 	"fields": [
 		{"init":true,"name":"_pubkey","type":"uint256"},
 		{"init":false,"name":"_timestamp","type":"uint64"},
 		{"init":false,"name":"_constructorFlag","type":"bool"},
 		{"init":true,"name":"_root","type":"address"},
-		{"init":true,"name":"_pubkeyHash","type":"uint256"},
-		{"init":false,"name":"_ownerPubkey","type":"uint256"},
+		{"init":true,"name":"_descriptionHash","type":"uint256"},
+		{"init":false,"name":"_pubkeyHash","type":"uint256"},
 		{"init":false,"name":"_description","type":"string"}
 	]
 }

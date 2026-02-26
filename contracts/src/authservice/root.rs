@@ -78,18 +78,29 @@ pub struct ParamsOfSetProfileCode {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfDeployProfile {
-    pub pubkey: String,
+    #[serde(rename(serialize = "pubkeyHash"))]
+    pub pubkey_hash: String,
     pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetProfileAddress {
-    pub pubkey: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetProfileAddress {
     pub profile: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfHashPubkey {
+    pub pubkey: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfHashPubkey {
+    pub hash: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -173,6 +184,14 @@ impl AuthServiceRoot {
         Ok(AuthProfile::new(self.context().clone(), profile.profile))
     }
 
+    /// # Hash pubkey
+    ///
+    /// Original contract method: `hashPubkey`
+    pub async fn hash_pubkey(&self, params: ParamsOfHashPubkey) -> KitResult<ResultOfHashPubkey> {
+        self.call_get_method_with::<ResultOfHashPubkey, ParamsOfHashPubkey>("hashPubkey", params)
+            .await
+    }
+
     /// # Update root code
     ///
     /// Original contract method: `updateCode`
@@ -194,6 +213,7 @@ impl AuthServiceRoot {
 
 #[cfg(test)]
 mod tests {
+    use std::future::Future;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
@@ -209,15 +229,18 @@ mod tests {
     use crate::account::ParamsOfWaitAccount;
     use crate::authservice::events::AuthServiceEvent;
     use crate::authservice::events::DecodedAuthServiceEvent;
+    use crate::error::KitError;
+    use crate::authservice::profile::ParamsOfQueryProfileEvents;
     use crate::event::query_events;
     use crate::tests::create_context;
     use crate::tests::top_up_native_with_giver_if_below;
     use crate::traits::AccountAccessor;
     use crate::traits::AddressAccessor;
     use crate::traits::FromEvent;
+    use crate::traits::VersionAccessor;
 
     const SHELLNET_AUTH_SERVICE_ROOT_ADDRESS: &str =
-        "0:dc02c3729be17598278617915c999c1599eb81b1ff9c07457b2693ed1d49c98b";
+        "0:df9a74d0ec1977a7b74863e1a468f1e2de1962ab503bc67f15b6a96298488224";
 
     fn gen_signer_keys(
         context: std::sync::Arc<tvm_client::ClientContext>,
@@ -240,12 +263,6 @@ mod tests {
         )
     }
 
-    fn hex_u256_to_dec(value: &str) -> String {
-        BigUint::parse_bytes(value.as_bytes(), 16)
-            .expect("valid hex uint256")
-            .to_string()
-    }
-
     fn parse_u256_str(value: &str) -> BigUint {
         if let Some(hex) = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")) {
             return BigUint::parse_bytes(hex.as_bytes(), 16).expect("valid hex uint256");
@@ -253,8 +270,65 @@ mod tests {
         BigUint::parse_bytes(value.as_bytes(), 10).expect("valid decimal uint256")
     }
 
+    fn extract_tvm_exit_code(err: &KitError) -> Option<i64> {
+        let value = err
+            .tvm_error
+            .as_ref()?
+            .data
+            .pointer("/node_error/extensions/details/exit_code")?;
+        value.as_i64().or_else(|| value.as_str().and_then(|s| s.parse::<i64>().ok()))
+    }
+
+    fn is_transient_network_error(err: &KitError) -> bool {
+        let Some(tvm_error) = err.tvm_error.as_ref() else {
+            return false;
+        };
+
+        let msg = tvm_error.message.to_ascii_lowercase();
+        msg.contains("connection reset by peer")
+            || msg.contains("client error (sendrequest)")
+            || msg.contains("all attempts failed")
+    }
+
+    async fn expect_unauthorized_exit_code_101_with_retry<F, Fut>(label: &str, mut action: F)
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = KitResult<ResultOfSendMessage>>,
+    {
+        let max_attempts = 4;
+
+        for attempt in 1..=max_attempts {
+            match action().await {
+                Ok(_) => panic!("{label} unexpectedly succeeded"),
+                Err(err) => {
+                    if let Some(exit_code) = extract_tvm_exit_code(&err) {
+                        assert_eq!(
+                            exit_code, 101,
+                            "{label} failed with unexpected TVM exit code `{exit_code}`: {err:?}"
+                        );
+                        eprintln!("{label} rejected with expected exit_code=101");
+                        return;
+                    }
+
+                    if is_transient_network_error(&err) && attempt < max_attempts {
+                        eprintln!(
+                            "{label} transient network error on attempt {attempt}/{max_attempts}: {err:?}"
+                        );
+                        tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+                        continue;
+                    }
+
+                    panic!(
+                        "{label} failed without TVM exit_code=101 (non-contract or unretryable error): {err:?}"
+                    );
+                }
+            }
+        }
+
+        unreachable!("loop must return or panic");
+    }
+
     #[tokio::test]
-    #[ignore = "requires shellnet access and performs a real deployProfile call"]
     async fn test_deploy_profile_on_shellnet() {
         let context = create_context();
         let root = AuthServiceRoot::new(context.clone(), SHELLNET_AUTH_SERVICE_ROOT_ADDRESS);
@@ -267,8 +341,10 @@ mod tests {
         )
         .await;
 
-        let keys = gen_signer_keys(context.clone(), 24).expect("Generate signer keys");
-        let signer = Signer::Keys { keys: keys.clone() };
+        let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
+        let stranger_keys = gen_signer_keys(context.clone(), 24).expect("Generate stranger keys");
+        let owner_signer = Signer::Keys { keys: owner_keys.clone() };
+        let stranger_signer = Signer::Keys { keys: stranger_keys.clone() };
 
         let started_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -277,26 +353,40 @@ mod tests {
             .saturating_sub(5);
 
         let description = format!("ackinacki-kit authservice deploy test {}", started_at);
-        let pubkey_hex = keys.public.clone();
-        let pubkey = hex_u256_to_dec(&pubkey_hex);
+        let owner_pubkey_hex = owner_keys.public.clone();
+        let owner_pubkey_with_prefix = format!("0x{owner_pubkey_hex}");
+
+        let root_version = root
+            .get_version()
+            .await
+            .inspect_err(|e| eprintln!("root getVersion failed: {e:?}"))
+            .expect("Read root version");
+        assert_eq!(root_version.contract_name, "AuthServiceRoot");
+
+        let pubkey_hash = root
+            .hash_pubkey(ParamsOfHashPubkey { pubkey: owner_pubkey_with_prefix })
+            .await
+            .inspect_err(|e| eprintln!("hashPubkey failed: {e:?}"))
+            .expect("Hash pubkey")
+            .hash;
 
         let expected_profile = root
-            .get_profile_address(ParamsOfGetProfileAddress { pubkey: pubkey.clone() })
+            .get_profile_address(ParamsOfGetProfileAddress { description: description.clone() })
             .await
             .inspect_err(|e| eprintln!("getProfileAddress failed: {e:?}"))
             .expect("Get deterministic profile address")
             .profile;
 
         root.deploy_profile(
-            ParamsOfDeployProfile { pubkey: pubkey.clone(), description: description.clone() },
-            signer,
+            ParamsOfDeployProfile { pubkey_hash: pubkey_hash.clone(), description: description.clone() },
+            Signer::None,
         )
         .await
         .inspect_err(|e| eprintln!("deployProfile failed: {e:?}"))
         .expect("Deploy profile");
 
         let profile = root
-            .get_profile(ParamsOfGetProfileAddress { pubkey: pubkey.clone() })
+            .get_profile(ParamsOfGetProfileAddress { description: description.clone() })
             .await
             .inspect_err(|e| eprintln!("getProfile failed: {e:?}"))
             .expect("Get profile wrapper");
@@ -320,10 +410,41 @@ mod tests {
 
         assert_eq!(details.description, description);
         assert_eq!(details.root.to_lowercase(), SHELLNET_AUTH_SERVICE_ROOT_ADDRESS.to_lowercase());
-        assert_eq!(parse_u256_str(&details.pubkey), parse_u256_str(&pubkey));
+        assert_ne!(parse_u256_str(&details.description_hash), BigUint::default());
+        assert_eq!(parse_u256_str(&details.pubkey_hash), parse_u256_str(&pubkey_hash));
         assert_eq!(profile.address().to_lowercase(), expected_profile.to_lowercase());
 
-        let event_address = AuthServiceEvent::AuthProfileDeployed.to_address();
+        let profile_version = profile
+            .get_version()
+            .await
+            .inspect_err(|e| eprintln!("profile getVersion failed: {e:?}"))
+            .expect("Read profile version");
+        assert_eq!(profile_version.contract_name, "AuthProfile");
+
+        let context_text = "ackinacki-kit authservice context".to_string();
+
+        expect_unauthorized_exit_code_101_with_retry("stranger addContext", || {
+            profile.add_context_text(&context_text, stranger_signer.clone())
+        })
+        .await;
+        profile
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::Active,
+                attempts: Some(10),
+                attempts_timeout: Some(1_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait after stranger addContext failed: {e:?}"))
+            .expect("Profile remains active after stranger addContext");
+
+        profile
+            .add_context_text(&context_text, owner_signer.clone())
+            .await
+            .inspect_err(|e| eprintln!("owner addContext failed: {e:?}"))
+            .expect("Owner addContext succeeds");
+
+        let event_address = AuthServiceEvent::auth_profile_deployed_external_address(&pubkey_hash)
+            .expect("Build authservice event address");
         let mut matched_event = false;
 
         for _ in 0..10 {
@@ -366,8 +487,22 @@ mod tests {
             );
         }
 
+        expect_unauthorized_exit_code_101_with_retry("stranger destroy", || {
+            profile.destroy(stranger_signer.clone())
+        })
+        .await;
         profile
-            .destroy(Signer::Keys { keys })
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::Active,
+                attempts: Some(10),
+                attempts_timeout: Some(1_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait after stranger destroy failed: {e:?}"))
+            .expect("Profile remains active after stranger destroy");
+
+        profile
+            .destroy(owner_signer)
             .await
             .inspect_err(|e| eprintln!("destroy failed: {e:?}"))
             .expect("Destroy profile");
@@ -382,5 +517,142 @@ mod tests {
             .inspect_err(|e| eprintln!("wait profile destroy failed: {e:?}"))
             .expect("Wait profile destroyed");
         eprintln!("Destroyed profile address: {}", expected_profile);
+    }
+
+    #[tokio::test]
+    async fn test_add_context_message_found_on_shellnet() {
+        let context = create_context();
+        let root = AuthServiceRoot::new(context.clone(), SHELLNET_AUTH_SERVICE_ROOT_ADDRESS);
+        top_up_native_with_giver_if_below(
+            context.clone(),
+            &root,
+            3_000_000_000,
+            5_000_000_000,
+            "AuthServiceRoot",
+        )
+        .await;
+
+        let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
+        let owner_signer = Signer::Keys { keys: owner_keys.clone() };
+        let owner_pubkey_with_prefix = format!("0x{}", owner_keys.public);
+
+        let started_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_secs()
+            .saturating_sub(5);
+
+        let description = format!("ackinacki-kit authservice context msg test {}", started_at);
+        let pubkey_hash = root
+            .hash_pubkey(ParamsOfHashPubkey { pubkey: owner_pubkey_with_prefix })
+            .await
+            .inspect_err(|e| eprintln!("hashPubkey failed: {e:?}"))
+            .expect("Hash pubkey")
+            .hash;
+
+        let expected_profile = root
+            .get_profile_address(ParamsOfGetProfileAddress { description: description.clone() })
+            .await
+            .inspect_err(|e| eprintln!("getProfileAddress failed: {e:?}"))
+            .expect("Get deterministic profile address")
+            .profile;
+
+        root.deploy_profile(
+            ParamsOfDeployProfile { pubkey_hash, description: description.clone() },
+            Signer::None,
+        )
+        .await
+        .inspect_err(|e| eprintln!("deployProfile failed: {e:?}"))
+        .expect("Deploy profile");
+
+        let profile = root
+            .get_profile(ParamsOfGetProfileAddress { description })
+            .await
+            .inspect_err(|e| eprintln!("getProfile failed: {e:?}"))
+            .expect("Get profile wrapper");
+        assert_eq!(profile.address().to_lowercase(), expected_profile.to_lowercase());
+        eprintln!("Deployed profile for ContextAdded test: {}", profile.address());
+
+        profile
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::Active,
+                attempts: Some(30),
+                attempts_timeout: Some(2_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait profile active failed: {e:?}"))
+            .expect("Wait profile active");
+
+        let context_text = "ackinacki-kit ContextAdded payload check".to_string();
+        let context_cell = profile
+            .encode_context_text_cell(&context_text)
+            .inspect_err(|e| eprintln!("encode_context_text_cell failed: {e:?}"))
+            .expect("Encode context text into cell");
+        let add_context_started_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_secs()
+            .saturating_sub(2);
+
+        profile
+            .add_context_text(&context_text, owner_signer.clone())
+            .await
+            .inspect_err(|e| eprintln!("owner addContext failed: {e:?}"))
+            .expect("Owner addContext succeeds");
+
+        let mut found_context_added = false;
+
+        for _ in 0..10 {
+            let events = profile
+                .query_context_added_events(ParamsOfQueryProfileEvents {
+                    created_at_from: Some(add_context_started_at),
+                    limit: Some(50),
+                    before: None,
+                })
+                .await
+                .inspect_err(|e| eprintln!("query_context_added_events failed: {e:?}"))
+                .expect("Query and decode ContextAdded events");
+            eprintln!("query_context_added_events fetched {} decoded events", events.len());
+
+            for decoded_event in events {
+                let event = decoded_event.event;
+                let data = decoded_event.data;
+                assert_eq!(data.text, context_text);
+                assert_eq!(event.src.to_lowercase(), profile.address().to_lowercase());
+                assert_eq!(profile.decode_context_text_cell(&context_cell).unwrap(), context_text);
+                eprintln!("ContextAdded raw event: {:?}", event);
+                eprintln!("ContextAdded decoded event: {:?}", data);
+                found_context_added = true;
+                break;
+            }
+
+            if found_context_added {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+
+        assert!(
+            found_context_added,
+            "ContextAdded message was not found for profile `{}`",
+            profile.address(),
+        );
+
+        profile
+            .destroy(owner_signer)
+            .await
+            .inspect_err(|e| eprintln!("destroy failed: {e:?}"))
+            .expect("Destroy profile");
+
+        profile
+            .wait_account(ParamsOfWaitAccount {
+                status: AccountStatus::NonExist,
+                attempts: Some(30),
+                attempts_timeout: Some(2_000),
+            })
+            .await
+            .inspect_err(|e| eprintln!("wait profile destroy failed: {e:?}"))
+            .expect("Wait profile destroyed");
     }
 }
