@@ -2,10 +2,10 @@ use std::fmt::Display;
 
 use serde::Deserialize;
 
-use crate::deserialize::deserialize_u8;
+use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
-use crate::deserialize::deserialize_u128;
+use crate::deserialize::deserialize_u8;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
@@ -174,7 +174,9 @@ impl FromEvent for DecodedPmpEvent {
             PmpEvent::EventCancelled => {
                 Ok(DecodedPmpEvent::EventCancelled { event: event.clone(), kind })
             }
-            PmpEvent::PmpCancelled => Ok(DecodedPmpEvent::PmpCancelled { event: event.clone(), kind }),
+            PmpEvent::PmpCancelled => {
+                Ok(DecodedPmpEvent::PmpCancelled { event: event.clone(), kind })
+            }
             PmpEvent::CreatorFeeCollected => {
                 let decoded = event.decode::<CreatorFeeCollectedData>(contract)?;
                 let data = decoded.ok_or_else(|| {

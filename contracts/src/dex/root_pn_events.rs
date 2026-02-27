@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use serde::Deserialize;
 
+use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
-use crate::deserialize::deserialize_u128;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;

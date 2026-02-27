@@ -22,6 +22,7 @@
 			"name": "deployProfile",
 			"inputs": [
 				{"name":"pubkeyHash","type":"uint256"},
+				{"name":"multifactorHash","type":"uint256"},
 				{"name":"description","type":"string"}
 			],
 			"outputs": [
@@ -31,7 +32,8 @@
 			"name": "onProfileDeployed",
 			"inputs": [
 				{"name":"descriptionHash","type":"uint256"},
-				{"name":"pubkeyHash","type":"uint256"}
+				{"name":"multifactorHash","type":"uint256"},
+				{"name":"description","type":"string"}
 			],
 			"outputs": [
 			]
@@ -49,6 +51,15 @@
 			"name": "hashPubkey",
 			"inputs": [
 				{"name":"pubkey","type":"uint256"}
+			],
+			"outputs": [
+				{"name":"hash","type":"uint256"}
+			]
+		},
+		{
+			"name": "hashMultifactor",
+			"inputs": [
+				{"name":"multifactor","type":"address"}
 			],
 			"outputs": [
 				{"name":"hash","type":"uint256"}
@@ -78,7 +89,8 @@
 			"name": "AuthProfileDeployed",
 			"inputs": [
 				{"name":"profile","type":"address"},
-				{"name":"pubkeyHash","type":"uint256"}
+				{"name":"multifactorHash","type":"uint256"},
+				{"name":"description","type":"string"}
 			],
 			"outputs": [
 			]

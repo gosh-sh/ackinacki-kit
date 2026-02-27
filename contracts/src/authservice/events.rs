@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use serde::Deserialize;
 use num_bigint::BigUint;
+use serde::Deserialize;
 
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -49,14 +49,15 @@ impl Display for AuthServiceEvent {
 
 impl AuthServiceEvent {
     /// Builds the external event destination address used by
-    /// `AuthServiceRoot.onProfileDeployed` for a given `pubkeyHash`.
+    /// `AuthServiceRoot.onProfileDeployed` for a given `multifactorHash`.
     ///
-    /// Solidity emits `AuthProfileDeployed` to `address.makeAddrExtern(pubkeyHash, 256)`.
+    /// Solidity emits `AuthProfileDeployed` to
+    /// `address.makeAddrExtern(multifactorHash, 256)`.
     /// In GraphQL message queries this address is represented as `:{hex}`.
     pub fn auth_profile_deployed_external_address(
-        pubkey_hash: impl AsRef<str>,
+        multifactor_hash: impl AsRef<str>,
     ) -> KitResult<String> {
-        let value = parse_u256_str(pubkey_hash.as_ref())?;
+        let value = parse_u256_str(multifactor_hash.as_ref())?;
         Ok(format!(":{value:064x}"))
     }
 }
@@ -122,6 +123,7 @@ fn parse_u256_str(value: &str) -> KitResult<BigUint> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthProfileDeployedData {
     pub profile: String,
-    #[serde(rename = "pubkeyHash")]
-    pub pubkey_hash: String,
+    #[serde(rename = "multifactorHash")]
+    pub multifactor_hash: String,
+    pub description: String,
 }

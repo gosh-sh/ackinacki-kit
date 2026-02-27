@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use num_bigint::BigInt;
 use num_bigint::BigUint;
@@ -21,14 +22,14 @@ use crate::dex::oracle_event_list::OracleEventList;
 use crate::dex::oracle_event_list::ParamsOfAddEvent;
 use crate::dex::oracle_event_list::ParamsOfDeleteEvent;
 use crate::dex::private_note::PrivateNote;
+use crate::dex::root_oracle::ParamsOfDeployOracle;
+use crate::dex::root_oracle::ParamsOfGetOracleAddress;
+use crate::dex::root_oracle::RootOracle;
 use crate::dex::root_pn::ParamsOfDeployPrivateNote;
 use crate::dex::root_pn::ParamsOfGetPmpAddress;
 use crate::dex::root_pn::ParamsOfGetPrivateNoteAddress;
 use crate::dex::root_pn::ParamsOfSendEccShellToPrivateNote;
 use crate::dex::root_pn::RootPn;
-use crate::dex::root_oracle::ParamsOfDeployOracle;
-use crate::dex::root_oracle::ParamsOfGetOracleAddress;
-use crate::dex::root_oracle::RootOracle;
 use crate::tests::create_context;
 use crate::tests::giver_send_currency_with_flag;
 use crate::tests::top_up_native_with_giver_if_below;
@@ -36,7 +37,8 @@ use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::VersionAccessor;
 
-const DEFAULT_HALO2_PROOVER_PATH: &str = "/Users/dronbas/Projects/ackinacki/acki-nacki/halo2-proover";
+const DEFAULT_HALO2_PROOVER_PATH: &str =
+    "/Users/dronbas/Projects/ackinacki/acki-nacki/halo2-proover";
 const CURRENCY_ID_SHELL: u32 = 2;
 const CURRENCY_ID_NACKL: u32 = 1;
 const TOKEN_TYPE_NACKL: u32 = 1;
@@ -77,9 +79,7 @@ fn pubkey_hex_0x(pubkey: &str) -> String {
 
 fn hex_u256_to_dec(hex: &str) -> String {
     let hex = hex.strip_prefix("0x").or_else(|| hex.strip_prefix("0X")).unwrap_or(hex);
-    BigUint::parse_bytes(hex.as_bytes(), 16)
-        .expect("valid hex uint256")
-        .to_string()
+    BigUint::parse_bytes(hex.as_bytes(), 16).expect("valid hex uint256").to_string()
 }
 
 fn parse_u256_str(value: &str) -> BigUint {
@@ -93,10 +93,7 @@ fn random_valid_sk_hex() -> String {
     let seed = format!(
         "{}:{}:{}",
         std::process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time")
-            .as_nanos(),
+        SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_nanos(),
         "ackinacki-kit-dex"
     );
     let mut bytes = Sha256::digest(seed.as_bytes()).to_vec();
@@ -155,11 +152,7 @@ fn generate_halo2_proof(skcommit: &str, token_type: u32, value: u64) -> Halo2Pro
         level1
     };
 
-    let proof = inner
-        .get("proof")
-        .and_then(|v| v.as_str())
-        .expect("proof")
-        .to_string();
+    let proof = inner.get("proof").and_then(|v| v.as_str()).expect("proof").to_string();
     let digest = inner
         .get("private_note_digest")
         .and_then(|v| v.as_str())
@@ -168,7 +161,9 @@ fn generate_halo2_proof(skcommit: &str, token_type: u32, value: u64) -> Halo2Pro
     let private_note_sum = inner
         .get("private_note_sum")
         .and_then(|v| v.as_str())
-        .unwrap_or_else(|| inner.get("private_note_sum").and_then(|v| v.as_u64()).map(|_| "").unwrap())
+        .unwrap_or_else(|| {
+            inner.get("private_note_sum").and_then(|v| v.as_u64()).map(|_| "").unwrap()
+        })
         .to_string();
     let token_type_out = inner
         .get("token_type")
@@ -177,16 +172,12 @@ fn generate_halo2_proof(skcommit: &str, token_type: u32, value: u64) -> Halo2Pro
         .to_string();
 
     let private_note_sum = if private_note_sum.is_empty() {
-        inner.get("private_note_sum")
-            .and_then(|v| v.as_u64())
-            .expect("private_note_sum u64")
+        inner.get("private_note_sum").and_then(|v| v.as_u64()).expect("private_note_sum u64")
     } else {
         private_note_sum.parse::<u64>().expect("private_note_sum parse")
     };
     let token_type = if token_type_out.is_empty() {
-        inner.get("token_type")
-            .and_then(|v| v.as_u64())
-            .expect("token_type u64") as u32
+        inner.get("token_type").and_then(|v| v.as_u64()).expect("token_type u64") as u32
     } else {
         token_type_out.parse::<u32>().expect("token_type parse")
     };
@@ -279,15 +270,11 @@ fn event_entry_name(entry: &serde_json::Value) -> Option<&str> {
 }
 
 fn event_entry_u128(entry: &serde_json::Value, field: &str) -> Option<u128> {
-    entry.get(field)
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<u128>().ok())
+    entry.get(field).and_then(|v| v.as_str()).and_then(|s| s.parse::<u128>().ok())
 }
 
 fn event_entry_u64(entry: &serde_json::Value, field: &str) -> Option<u64> {
-    entry.get(field)
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<u64>().ok())
+    entry.get(field).and_then(|v| v.as_str()).and_then(|s| s.parse::<u64>().ok())
 }
 
 async fn deploy_test_oracle(
@@ -295,13 +282,11 @@ async fn deploy_test_oracle(
     root: &RootOracle,
     oracle_name_prefix: &str,
 ) -> (KeyPair, Oracle, OracleEventList) {
-    let oracle_owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate oracle owner keys");
+    let oracle_owner_keys =
+        gen_signer_keys(context.clone(), 24).expect("Generate oracle owner keys");
     let ephemeral_keys = gen_signer_keys(context.clone(), 24).expect("Generate ephemeral keys");
 
-    let run_id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
+    let run_id = SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_nanos();
     let oracle_name = format!("{oracle_name_prefix}{run_id:x}");
 
     root.deploy_oracle(
@@ -371,13 +356,11 @@ async fn test_shellnet_oracle_flow_from_python_oracle_test() {
         );
     }
 
-    let oracle_owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate oracle owner keys");
+    let oracle_owner_keys =
+        gen_signer_keys(context.clone(), 24).expect("Generate oracle owner keys");
     let ephemeral_keys = gen_signer_keys(context.clone(), 24).expect("Generate ephemeral keys");
 
-    let run_id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("time")
-        .as_nanos();
+    let run_id = SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_nanos();
     let oracle_name = format!("KitOracle{run_id:x}");
 
     root.deploy_oracle(
@@ -596,7 +579,8 @@ async fn test_shellnet_oracle_management_phase4_like_python() {
     }
 
     let events1_map = events1_observed.expect("EventList[1] should contain one event");
-    let (_event1_id, event1_info) = events1_map.iter().next().expect("single event in EventList[1]");
+    let (_event1_id, event1_info) =
+        events1_map.iter().next().expect("single event in EventList[1]");
     assert_eq!(event_entry_name(event1_info), Some(event1_name.as_str()));
     assert_eq!(event_entry_u128(event1_info, "oracle_fee"), Some(oracle_fee));
     assert_eq!(event_entry_u64(event1_info, "deadline"), Some(deadline));
@@ -667,7 +651,8 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     assert_eq!(proof_nackl.private_note_sum, VAULT_DEPOSIT);
     assert_eq!(proof_nackl.token_type, TOKEN_TYPE_NACKL);
 
-    let ephemeral_keys = gen_signer_keys(context.clone(), 24).expect("Generate ephemeral owner keys");
+    let ephemeral_keys =
+        gen_signer_keys(context.clone(), 24).expect("Generate ephemeral owner keys");
     let ephemeral_pubkey_dec = hex_u256_to_dec(&pubkey_hex_0x(&ephemeral_keys.public));
     let dih_dec = hex_u256_to_dec(&proof_nackl.deposit_identifier_hash_hex);
 
@@ -701,7 +686,14 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     // Replenish RootPN shell ECC and transfer it to PN via ZK proof.
     let mut ecc_shell = HashMap::new();
     ecc_shell.insert(CURRENCY_ID_SHELL, ECC_SHELL_DEPOSIT);
-    giver_send_currency_with_flag(context.clone(), RootPn::DEFAULT_ADDRESS, 2_000_000_000, ecc_shell, 1).await;
+    giver_send_currency_with_flag(
+        context.clone(),
+        RootPn::DEFAULT_ADDRESS,
+        2_000_000_000,
+        ecc_shell,
+        1,
+    )
+    .await;
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     let proof_ecc = generate_halo2_proof(&random_valid_sk_hex(), TOKEN_TYPE_ECC, ECC_SHELL_DEPOSIT);
@@ -726,7 +718,8 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     let details = pn.get_details().await.expect("PrivateNote.getDetails");
     eprintln!("PrivateNote details from {}: {:?}", pn.address(), details);
 
-    let nackl_balance = details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
+    let nackl_balance =
+        details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
     assert_eq!(nackl_balance, VAULT_DEPOSIT as u128);
     assert!(details.busy_address.is_none(), "PN must not be busy after phase1 setup");
     assert_eq!(
@@ -755,18 +748,13 @@ async fn test_shellnet_root_pn_smoke_getters_no_prover() {
 
     let dih_hex = format!(
         "0x{}",
-        hex::encode(
-            Sha256::digest(
-                format!(
-                    "ackinacki-kit-rootpn-smoke:{}",
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .expect("time")
-                        .as_nanos()
-                )
-                .as_bytes()
+        hex::encode(Sha256::digest(
+            format!(
+                "ackinacki-kit-rootpn-smoke:{}",
+                SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_nanos()
             )
-        )
+            .as_bytes()
+        ))
     );
     let dih_dec = hex_u256_to_dec(&dih_hex);
 

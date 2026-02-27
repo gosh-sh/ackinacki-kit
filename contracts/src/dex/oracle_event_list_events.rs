@@ -2,8 +2,8 @@ use std::fmt::Display;
 
 use serde::Deserialize;
 
-use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u128;
+use crate::deserialize::deserialize_u64;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
@@ -74,14 +74,13 @@ impl FromEvent for DecodedOracleEventListEvent {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for oracle event list event `{}`", event.dst),
+                        format!(
+                            "Unexpected empty data for oracle event list event `{}`",
+                            event.dst
+                        ),
                     )
                 })?;
-                Ok(DecodedOracleEventListEvent::EventAdded {
-                    event: event.clone(),
-                    kind,
-                    data,
-                })
+                Ok(DecodedOracleEventListEvent::EventAdded { event: event.clone(), kind, data })
             }
             OracleEventListEvent::EventConfirmed => {
                 let decoded = event.decode::<EventConfirmedData>(contract)?;
@@ -89,14 +88,13 @@ impl FromEvent for DecodedOracleEventListEvent {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for oracle event list event `{}`", event.dst),
+                        format!(
+                            "Unexpected empty data for oracle event list event `{}`",
+                            event.dst
+                        ),
                     )
                 })?;
-                Ok(DecodedOracleEventListEvent::EventConfirmed {
-                    event: event.clone(),
-                    kind,
-                    data,
-                })
+                Ok(DecodedOracleEventListEvent::EventConfirmed { event: event.clone(), kind, data })
             }
         }
     }

@@ -7,6 +7,7 @@
 			"name": "constructor",
 			"inputs": [
 				{"name":"pubkeyHash","type":"uint256"},
+				{"name":"multifactorHash","type":"uint256"},
 				{"name":"description","type":"string"}
 			],
 			"outputs": [
@@ -21,13 +22,6 @@
 			]
 		},
 		{
-			"name": "destroy",
-			"inputs": [
-			],
-			"outputs": [
-			]
-		},
-		{
 			"name": "getDetails",
 			"inputs": [
 			],
@@ -35,6 +29,7 @@
 				{"name":"description","type":"string"},
 				{"name":"descriptionHash","type":"uint256"},
 				{"name":"pubkeyHash","type":"uint256"},
+				{"name":"multifactorHash","type":"uint256"},
 				{"name":"root","type":"address"}
 			]
 		},
@@ -65,6 +60,7 @@
 		{"init":true,"name":"_root","type":"address"},
 		{"init":true,"name":"_descriptionHash","type":"uint256"},
 		{"init":false,"name":"_pubkeyHash","type":"uint256"},
+		{"init":false,"name":"_multifactorHash","type":"uint256"},
 		{"init":false,"name":"_description","type":"string"}
 	]
 }

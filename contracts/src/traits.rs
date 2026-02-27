@@ -244,11 +244,7 @@ pub trait DecodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor {
     }
 }
 
-impl<C> DecodeMessage for C
-where
-    C: AutoContract,
-{
-}
+impl<C> DecodeMessage for C where C: AutoContract {}
 
 pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + AddressAccessor {
     fn encode_message(
@@ -297,11 +293,7 @@ pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + Addres
     }
 }
 
-impl<C> EncodeMessage for C
-where
-    C: AutoContract,
-{
-}
+impl<C> EncodeMessage for C where C: AutoContract {}
 
 pub trait SendMessage: ModuleAccessor + EncodeMessage {
     fn send_message(
@@ -329,11 +321,7 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
     }
 }
 
-impl<C> SendMessage for C
-where
-    C: AutoContract,
-{
-}
+impl<C> SendMessage for C where C: AutoContract {}
 
 pub trait Executor: EncodeMessage + AccountAccessor {
     fn run_tvm(
@@ -370,11 +358,7 @@ pub trait Executor: EncodeMessage + AccountAccessor {
     }
 }
 
-impl<C> Executor for C
-where
-    C: AutoContract,
-{
-}
+impl<C> Executor for C where C: AutoContract {}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetVersion {
@@ -390,11 +374,7 @@ pub trait VersionAccessor: GetMethodAccessor + Executor {
     }
 }
 
-impl<C> VersionAccessor for C
-where
-    C: AutoContract + GetMethodAccessor + Executor,
-{
-}
+impl<C> VersionAccessor for C where C: AutoContract + GetMethodAccessor + Executor {}
 
 pub trait FromEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self>

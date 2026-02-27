@@ -1,8 +1,8 @@
 pub mod account;
 pub mod authservice;
 pub mod bksystem;
-pub mod dex;
 pub mod deserialize;
+pub mod dex;
 pub mod error;
 pub mod event;
 pub mod mvconfig;
@@ -22,25 +22,27 @@ mod tests {
     use serde_json::json;
     use tvm_client::abi::Abi;
     use tvm_client::abi::CallSet;
-    use tvm_client::ClientConfig;
-    use tvm_client::ClientContext;
     use tvm_client::processing;
     use tvm_client::processing::ParamsOfSendMessage;
+    use tvm_client::ClientConfig;
+    use tvm_client::ClientContext;
 
     use crate::traits::AccountAccessor;
     use crate::traits::AddressAccessor;
 
+    pub const NETWORK_ENDPOINT: &str = "shellnet.ackinacki.org";
+
     pub fn create_context() -> Arc<ClientContext> {
         let mut config = ClientConfig::default();
-        config.network.endpoints = Some(vec!["shellnet.ackinacki.org".to_string()]);
+        config.network.endpoints = Some(vec![NETWORK_ENDPOINT.to_string()]);
 
         let context = ClientContext::new(config).expect("Create context");
         Arc::new(context)
     }
 
-    pub const SHELLNET_GIVER_ADDRESS: &str =
+    pub const NETWORK_GIVER_ADDRESS: &str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
-    pub const SHELLNET_GIVER_ABI_PATH: &str =
+    pub const NETWORK_GIVER_ABI_PATH: &str =
         "/Users/dronbas/Projects/ackinacki/acki-nacki/contracts/giver/GiverV3.abi.json";
 
     pub async fn giver_send_currency_with_flag(
@@ -51,7 +53,7 @@ mod tests {
         flag: u8,
     ) {
         let giver_abi = Abi::Json(
-            std::fs::read_to_string(SHELLNET_GIVER_ABI_PATH).expect("read GiverV3 ABI for tests"),
+            std::fs::read_to_string(NETWORK_GIVER_ABI_PATH).expect("read GiverV3 ABI for tests"),
         );
 
         let call_set = CallSet {
@@ -69,7 +71,7 @@ mod tests {
             context.clone(),
             tvm_client::abi::ParamsOfEncodeMessage {
                 abi: giver_abi.clone(),
-                address: Some(SHELLNET_GIVER_ADDRESS.to_string()),
+                address: Some(NETWORK_GIVER_ADDRESS.to_string()),
                 deploy_set: None,
                 call_set: Some(call_set),
                 signer: tvm_client::abi::Signer::None,
@@ -103,7 +105,40 @@ mod tests {
     ) where
         T: AccountAccessor + AddressAccessor,
     {
-        contract.fetch_account().await.expect("fetch account before top-up check");
+        async fn fetch_account_with_retry<T: AccountAccessor + AddressAccessor>(
+            contract: &T,
+            label: &str,
+            phase: &str,
+        ) {
+            let max_attempts = 4;
+            for attempt in 1..=max_attempts {
+                match contract.fetch_account().await {
+                    Ok(()) => return,
+                    Err(err) => {
+                        let msg = err
+                            .tvm_error
+                            .as_ref()
+                            .map(|e| e.message.to_ascii_lowercase())
+                            .unwrap_or_default();
+                        let transient = msg.contains("connection reset by peer")
+                            || msg.contains("client error (sendrequest)")
+                            || msg.contains("all attempts failed");
+
+                        if transient && attempt < max_attempts {
+                            eprintln!(
+                                "{label}: fetch_account {phase} transient network error on attempt {attempt}/{max_attempts}: {err:?}"
+                            );
+                            tokio::time::sleep(Duration::from_millis(700)).await;
+                            continue;
+                        }
+
+                        panic!("{label}: fetch_account {phase} failed: {err:?}");
+                    }
+                }
+            }
+        }
+
+        fetch_account_with_retry(contract, label, "before top-up check").await;
         let current_balance = {
             let guard = contract.account().lock().await;
             guard.balance.clone().unwrap_or_else(|| BigInt::from(0_u8))
@@ -115,7 +150,7 @@ mod tests {
         }
 
         eprintln!(
-            "{label} native balance {:?} is below {:?}; topping up via shellnet giver",
+            "{label} native balance {:?} is below {:?}; topping up via giver",
             current_balance, min_native
         );
 
@@ -129,12 +164,9 @@ mod tests {
         .await;
 
         tokio::time::sleep(Duration::from_secs(3)).await;
-        contract.fetch_account().await.expect("fetch account after top-up");
+        fetch_account_with_retry(contract, label, "after top-up").await;
 
         let guard = contract.account().lock().await;
-        eprintln!(
-            "{label} after top-up: balance={:?}, ecc={:?}",
-            guard.balance, guard.ecc
-        );
+        eprintln!("{label} after top-up: balance={:?}, ecc={:?}", guard.balance, guard.ecc);
     }
 }

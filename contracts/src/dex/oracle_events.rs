@@ -77,11 +77,7 @@ impl FromEvent for DecodedOracleEvent {
                         format!("Unexpected empty data for oracle event `{}`", event.dst),
                     )
                 })?;
-                Ok(DecodedOracleEvent::OracleEventListDeployed {
-                    event: event.clone(),
-                    kind,
-                    data,
-                })
+                Ok(DecodedOracleEvent::OracleEventListDeployed { event: event.clone(), kind, data })
             }
             OracleEvent::EventPublished => {
                 let decoded = event.decode::<EventPublishedData>(contract)?;

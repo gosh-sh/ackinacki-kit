@@ -16,8 +16,8 @@ use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::error::DexModule;
 use crate::error::KitModule;
-use crate::traits::AutoContract;
 use crate::traits::AccountAccessor;
+use crate::traits::AutoContract;
 use crate::traits::ContractBase;
 use crate::traits::GetMethodAccessor;
 use crate::traits::HasContractBase;
@@ -151,9 +151,7 @@ impl RootPn {
     /// Allows passing the root address explicitly (useful for shellnet/testnet
     /// or local networks where RootPN may live at a non-premine address).
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self {
-            base: ContractBase::new(context, address, Abi::Json(ABI.to_string())),
-        }
+        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
     }
 
     pub fn new_default(context: Arc<ClientContext>) -> Self {

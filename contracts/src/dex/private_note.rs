@@ -17,8 +17,8 @@ use crate::account::Account;
 use crate::deserialize::deserialize_u128_map;
 use crate::error::DexModule;
 use crate::error::KitModule;
-use crate::traits::AutoContract;
 use crate::traits::AccountAccessor;
+use crate::traits::AutoContract;
 use crate::traits::ContractBase;
 use crate::traits::GetMethodAccessor;
 use crate::traits::HasContractBase;
@@ -216,8 +216,11 @@ impl PrivateNote {
         params: ParamsOfDeployPmp,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "deployPMP".to_string(), header: None, input: Some(json!(params)) };
+        let call_set = CallSet {
+            function_name: "deployPMP".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
         self.send_message(Some(call_set), None, signer).await
     }
 
@@ -285,8 +288,11 @@ impl PrivateNote {
         params: ParamsOfSetStake,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "setStake".to_string(), header: None, input: Some(json!(params)) };
+        let call_set = CallSet {
+            function_name: "setStake".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
         self.send_message(Some(call_set), None, signer).await
     }
 
@@ -318,8 +324,11 @@ impl PrivateNote {
         params: ParamsOfStakeKey,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "claim".to_string(), header: None, input: Some(json!(params)) };
+        let call_set = CallSet {
+            function_name: "claim".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
         self.send_message(Some(call_set), None, signer).await
     }
 

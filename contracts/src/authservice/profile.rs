@@ -9,8 +9,8 @@ use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::AbiParam;
 use tvm_client::abi::CallSet;
-use tvm_client::abi::ParamsOfDecodeBoc;
 use tvm_client::abi::ParamsOfAbiEncodeBoc;
+use tvm_client::abi::ParamsOfDecodeBoc;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
@@ -21,11 +21,11 @@ use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
-use crate::traits::AutoContract;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
-use crate::traits::ContractBase;
+use crate::traits::AutoContract;
 use crate::traits::ContextAccessor;
+use crate::traits::ContractBase;
 use crate::traits::DecodeMessage;
 use crate::traits::GetMethodAccessor;
 use crate::traits::HasContractBase;
@@ -80,6 +80,8 @@ pub struct ResultOfGetDetails {
     pub description_hash: String,
     #[serde(rename = "pubkeyHash")]
     pub pubkey_hash: String,
+    #[serde(rename = "multifactorHash")]
+    pub multifactor_hash: String,
     pub root: String,
 }
 
@@ -188,9 +190,7 @@ const GQL_PROFILE_EVENTS_QUERY: &str = r#"
 
 impl AuthProfile {
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self {
-            base: ContractBase::new(context, address, Abi::Json(ABI.to_string())),
-        }
+        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
     }
 
     /// # Get profile details
@@ -198,16 +198,6 @@ impl AuthProfile {
     /// Original contract method: `getDetails`
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
         self.call_get_method::<ResultOfGetDetails>("getDetails").await
-    }
-
-    /// # Destroy profile
-    ///
-    /// Original contract method: `destroy`
-    ///
-    /// Should be signed with profile owner keys
-    pub async fn destroy(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet { function_name: "destroy".to_string(), header: None, input: None };
-        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Add context
@@ -248,11 +238,11 @@ impl AuthProfile {
             },
         )
         .map_err(|e| {
-                KitError::new(
-                    KitModule::AuthService(AuthServiceModule::Profile),
-                    KitErrorCode::None,
-                    "Encode addContext text into cell",
-                )
+            KitError::new(
+                KitModule::AuthService(AuthServiceModule::Profile),
+                KitErrorCode::None,
+                "Encode addContext text into cell",
+            )
             .with_tvm_error(e)
         })?;
 
@@ -399,18 +389,13 @@ impl AuthProfile {
             .with_tvm_error(e)
         })?;
 
-        decoded
-            .data
-            .get("value")
-            .and_then(|v| v.as_str())
-            .map(str::to_string)
-            .ok_or_else(|| {
-                KitError::new(
-                    KitModule::AuthService(AuthServiceModule::Profile),
-                    KitErrorCode::Parse,
-                    "Extract `value` string from decoded addContext cell",
-                )
-            })
+        decoded.data.get("value").and_then(|v| v.as_str()).map(str::to_string).ok_or_else(|| {
+            KitError::new(
+                KitModule::AuthService(AuthServiceModule::Profile),
+                KitErrorCode::Parse,
+                "Extract `value` string from decoded addContext cell",
+            )
+        })
     }
 }
 
