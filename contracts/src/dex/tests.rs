@@ -37,8 +37,7 @@ use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::VersionAccessor;
 
-const DEFAULT_HALO2_PROOVER_PATH: &str =
-    "/Users/dronbas/Projects/ackinacki/acki-nacki/halo2-proover";
+const DEFAULT_HALO2_PROOVER_PATH: &str = "";
 const CURRENCY_ID_SHELL: u32 = 2;
 const CURRENCY_ID_NACKL: u32 = 1;
 const TOKEN_TYPE_NACKL: u32 = 1;

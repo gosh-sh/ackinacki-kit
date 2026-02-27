@@ -42,8 +42,7 @@ mod tests {
 
     pub const NETWORK_GIVER_ADDRESS: &str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
-    pub const NETWORK_GIVER_ABI_PATH: &str =
-        "/Users/dronbas/Projects/ackinacki/acki-nacki/contracts/giver/GiverV3.abi.json";
+    pub const NETWORK_GIVER_ABI_PATH: &str = "../abi/giver/GiverV3.abi.json";
 
     pub async fn giver_send_currency_with_flag(
         context: Arc<ClientContext>,
