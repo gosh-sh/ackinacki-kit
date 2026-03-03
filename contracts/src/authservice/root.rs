@@ -219,6 +219,24 @@ const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
     }
 "#;
 
+fn is_valid_profile_deploy_raw_event(
+    event: &crate::event::Event,
+    expected_src: &str,
+    expected_dst: &str,
+    created_at_from: u64,
+) -> bool {
+    event.src.eq_ignore_ascii_case(expected_src)
+        && event.dst.eq_ignore_ascii_case(expected_dst)
+        && event.created_at >= created_at_from
+}
+
+fn is_valid_profile_deploy_data(
+    data: &AuthProfileDeployedData,
+    expected_multifactor_hash: &str,
+) -> bool {
+    data.multifactor_hash.eq_ignore_ascii_case(expected_multifactor_hash)
+}
+
 impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:0404040404040404040404040404040404040404040404040404040404040404";
@@ -399,15 +417,20 @@ impl AuthServiceRoot {
         let created_at_from = params.created_at_from.unwrap_or_default();
         let mut result = Vec::new();
         for event in parsed.data.blockchain.account.messages.edges.into_iter().map(|e| e.node) {
-            if !event.src.eq_ignore_ascii_case(self.address()) {
-                continue;
-            }
-            if event.created_at < created_at_from {
+            if !is_valid_profile_deploy_raw_event(
+                &event,
+                self.address(),
+                &expected_dst,
+                created_at_from,
+            ) {
                 continue;
             }
 
             let decoded = DecodedAuthServiceEvent::from_event(&event, self)?;
             let DecodedAuthServiceEvent::AuthProfileDeployed { data, .. } = decoded;
+            if !is_valid_profile_deploy_data(&data, &multifactor_hash) {
+                continue;
+            }
             result.push(AuthProfileDeployedEventRecord { event, data });
         }
 
@@ -497,6 +520,83 @@ mod tests {
             return BigUint::parse_bytes(hex.as_bytes(), 16).expect("valid hex uint256");
         }
         BigUint::parse_bytes(value.as_bytes(), 10).expect("valid decimal uint256")
+    }
+
+    #[test]
+    fn test_query_profiles_by_multifactor_raw_post_filter_mixed_dst() {
+        let expected_src = "0:d6054a384e148b7dac122acf24ec7f218b44826a8a68bb085f2ba371b59ff6a8";
+        let expected_dst = ":f968d0686b7853933f28f98d101a21b625be653045ad93740e4db0033aed7a0c";
+        let created_at_from = 1_772_219_000_u64;
+
+        let events = vec![
+            crate::event::Event {
+                id: "valid".to_string(),
+                src: expected_src.to_string(),
+                dst: expected_dst.to_string(),
+                created_at: created_at_from + 10,
+                boc: "ignored".to_string(),
+            },
+            crate::event::Event {
+                id: "wrong-dst".to_string(),
+                src: expected_src.to_string(),
+                dst: ":deadbeef".to_string(),
+                created_at: created_at_from + 10,
+                boc: "ignored".to_string(),
+            },
+            crate::event::Event {
+                id: "wrong-src".to_string(),
+                src: "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                dst: expected_dst.to_string(),
+                created_at: created_at_from + 10,
+                boc: "ignored".to_string(),
+            },
+            crate::event::Event {
+                id: "too-old".to_string(),
+                src: expected_src.to_string(),
+                dst: expected_dst.to_string(),
+                created_at: created_at_from.saturating_sub(1),
+                boc: "ignored".to_string(),
+            },
+        ];
+
+        let filtered = events
+            .iter()
+            .filter(|event| {
+                is_valid_profile_deploy_raw_event(
+                    event,
+                    expected_src,
+                    expected_dst,
+                    created_at_from,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "valid");
+    }
+
+    #[test]
+    fn test_query_profiles_by_multifactor_post_filter_multifactor_hash_mismatch() {
+        let expected_multifactor_hash =
+            "0xf968d0686b7853933f28f98d101a21b625be653045ad93740e4db0033aed7a0c";
+
+        let valid_data = AuthProfileDeployedData {
+            profile: "0:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                .to_string(),
+            multifactor_hash: expected_multifactor_hash.to_string(),
+            description: "ok".to_string(),
+        };
+        let mismatch_data = AuthProfileDeployedData {
+            profile: "0:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                .to_string(),
+            multifactor_hash: "0x1111111111111111111111111111111111111111111111111111111111111111"
+                .to_string(),
+            description: "bad".to_string(),
+        };
+
+        assert!(is_valid_profile_deploy_data(&valid_data, expected_multifactor_hash));
+        assert!(!is_valid_profile_deploy_data(&mismatch_data, expected_multifactor_hash));
     }
 
     fn multifactor_epk_signer() -> Signer {
