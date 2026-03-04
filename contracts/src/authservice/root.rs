@@ -227,14 +227,9 @@ impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:0404040404040404040404040404040404040404040404040404040404040404";
 
-    /// Allows passing the root address explicitly (useful for non-default
-    /// networks where AuthServiceRoot may live at a non-premine address).
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
-    }
-
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+    /// Creates AuthServiceRoot wrapper bound to the default address.
+    pub fn new(context: Arc<ClientContext>) -> Self {
+        Self { base: ContractBase::new(context, Self::DEFAULT_ADDRESS, Abi::Json(ABI.to_string())) }
     }
 
     /// # Set auth profile code
@@ -781,7 +776,7 @@ mod tests {
     #[tokio::test]
     async fn test_deploy_profile_flow() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone(), AUTH_SERVICE_ROOT_ADDRESS);
+        let root = AuthServiceRoot::new(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,
@@ -947,7 +942,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_context_message_found() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone(), AUTH_SERVICE_ROOT_ADDRESS);
+        let root = AuthServiceRoot::new(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,
