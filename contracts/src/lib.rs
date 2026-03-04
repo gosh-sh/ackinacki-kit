@@ -42,7 +42,23 @@ mod tests {
 
     pub const NETWORK_GIVER_ADDRESS: &str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
-    pub const NETWORK_GIVER_ABI_PATH: &str = "../abi/giver/GiverV3.abi.json";
+    pub const NETWORK_GIVER_ABI_PATHS: &[&str] = &[
+        "../abi/giver/GiverV3.abi.json",
+        "/Users/dronbas/Projects/ackinacki/acki-nacki/contracts/giver/GiverV3.abi.json",
+    ];
+
+    fn read_giver_abi_json() -> String {
+        for path in NETWORK_GIVER_ABI_PATHS {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                return content;
+            }
+        }
+
+        panic!(
+            "read GiverV3 ABI for tests: none of paths exist or readable: {:?}",
+            NETWORK_GIVER_ABI_PATHS
+        );
+    }
 
     pub async fn giver_send_currency_with_flag(
         context: Arc<ClientContext>,
@@ -51,9 +67,7 @@ mod tests {
         ecc: HashMap<u32, u64>,
         flag: u8,
     ) {
-        let giver_abi = Abi::Json(
-            std::fs::read_to_string(NETWORK_GIVER_ABI_PATH).expect("read GiverV3 ABI for tests"),
-        );
+        let giver_abi = Abi::Json(read_giver_abi_json());
 
         let call_set = CallSet {
             function_name: "sendCurrencyWithFlag".to_string(),
@@ -81,7 +95,7 @@ mod tests {
         .await
         .expect("encode GiverV3.sendCurrencyWithFlag");
 
-        processing::send_message(
+        let sent = processing::send_message(
             context,
             ParamsOfSendMessage {
                 message: encoded.message,
@@ -91,8 +105,30 @@ mod tests {
             },
             |_| Box::pin(async {}),
         )
-        .await
-        .expect("send GiverV3.sendCurrencyWithFlag");
+        .await;
+
+        match sent {
+            Ok(_) => {}
+            Err(err) => {
+                let duplicate = err.code == 621
+                    && err
+                        .data
+                        .pointer("/node_error/extensions/code")
+                        .and_then(|v| v.as_str())
+                        .map(|v| v.eq_ignore_ascii_case("DUPLICATE_MESSAGE"))
+                        .unwrap_or(false);
+
+                if duplicate {
+                    eprintln!(
+                        "giver_send_currency_with_flag: duplicate message, continue: {}",
+                        err.message
+                    );
+                    return;
+                }
+
+                panic!("send GiverV3.sendCurrencyWithFlag: {err:?}");
+            }
+        }
     }
 
     pub async fn top_up_native_with_giver_if_below<T>(

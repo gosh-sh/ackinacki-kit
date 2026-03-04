@@ -11,6 +11,7 @@ use tvm_client::abi::AbiParam;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::ParamsOfAbiEncodeBoc;
 use tvm_client::abi::ParamsOfDecodeBoc;
+use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
@@ -21,12 +22,12 @@ use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
+use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::AutoContract;
 use crate::traits::ContextAccessor;
 use crate::traits::ContractBase;
-use crate::traits::DecodeMessage;
 use crate::traits::GetMethodAccessor;
 use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
@@ -150,36 +151,39 @@ struct GqlBlockchain {
 
 #[derive(Debug, Clone, Deserialize)]
 struct GqlAccount {
-    messages: GqlMessages,
+    events: GqlEvents,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct GqlMessages {
+struct GqlEvents {
     edges: Vec<GqlEdge>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct GqlEdge {
-    node: crate::event::Event,
+    node: GqlEventNode,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventNode {
+    #[serde(rename = "msg_id")]
+    msg_id: String,
+    created_at: u64,
+    dst: String,
+    body: String,
 }
 
 const GQL_PROFILE_EVENTS_QUERY: &str = r#"
-    query($address: String!, $counterparties: [String!], $last: Int!, $before: String) {
+    query($address: String!, $dst: String!) {
       blockchain {
         account(address: $address) {
-          messages(
-            msg_type: [ExtOut]
-            counterparties: $counterparties
-            last: $last
-            before: $before
-          ) {
+          events(dst: $dst) {
             edges {
               node {
-                id
-                src
+                msg_id
                 dst
                 created_at
-                boc
+                body
               }
             }
           }
@@ -272,13 +276,11 @@ impl AuthProfile {
         &self,
         params: ParamsOfQueryProfileEvents,
     ) -> KitResult<Vec<DecodedAuthProfileEvent>> {
-        let limit = params.limit.unwrap_or(50);
+        let limit = params.limit.unwrap_or(50) as usize;
         let expected_dst = profile_internal_to_external_address(self.address());
         let variables = json!({
             "address": self.address(),
-            "counterparties": [expected_dst],
-            "last": limit,
-            "before": params.before,
+            "dst": expected_dst,
         });
 
         let raw = net::query(
@@ -307,15 +309,30 @@ impl AuthProfile {
         })?;
 
         let mut result = Vec::new();
-        for event in parsed.data.blockchain.account.messages.edges.into_iter().map(|e| e.node) {
-            if !event.src.eq_ignore_ascii_case(self.address()) {
-                continue;
-            }
-            if event.created_at < params.created_at_from.unwrap_or_default() {
+        for event_node in parsed.data.blockchain.account.events.edges.into_iter().map(|e| e.node) {
+            if event_node.created_at < params.created_at_from.unwrap_or_default() {
                 continue;
             }
 
-            let decoded = self.decode_message(event.boc.clone())?;
+            let decoded = tvm_client::abi::decode_message_body(
+                self.context().clone(),
+                ParamsOfDecodeMessageBody {
+                    abi: self.abi().clone(),
+                    body: event_node.body.clone(),
+                    is_internal: false,
+                    allow_partial: true,
+                    function_name: None,
+                    data_layout: None,
+                },
+            )
+            .map_err(|e| {
+                KitError::new(
+                    KitModule::AuthService(AuthServiceModule::Profile),
+                    KitErrorCode::Decode,
+                    "Decode AuthProfile event body",
+                )
+                .with_tvm_error(e)
+            })?;
             if decoded.name != "ContextAdded" {
                 continue;
             }
@@ -338,10 +355,20 @@ impl AuthProfile {
                 })?;
 
             let text = self.decode_context_text_cell(&raw_data.context)?;
+            let event = crate::event::Event {
+                id: event_node.msg_id,
+                src: self.address().to_string(),
+                dst: event_node.dst,
+                created_at: event_node.created_at,
+                boc: event_node.body,
+            };
             result.push(DecodedAuthProfileEvent::ContextAdded {
                 event,
                 data: ContextAddedTextData { text },
             });
+            if result.len() >= limit {
+                break;
+            }
         }
 
         Ok(result)

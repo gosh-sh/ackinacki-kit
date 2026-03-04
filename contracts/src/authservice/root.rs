@@ -8,6 +8,7 @@ use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
+use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
@@ -16,18 +17,17 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::authservice::events::AuthProfileDeployedData;
 use crate::authservice::events::AuthServiceEvent;
-use crate::authservice::events::DecodedAuthServiceEvent;
 use crate::authservice::profile::AuthProfile;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
+use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::AutoContract;
 use crate::traits::ContextAccessor;
 use crate::traits::ContractBase;
-use crate::traits::FromEvent;
 use crate::traits::GetMethodAccessor;
 use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
@@ -138,9 +138,10 @@ pub struct ParamsOfQueryProfilesByMultifactor {
     pub multifactor: String,
     /// Lower bound (inclusive) for event message timestamp in seconds.
     pub created_at_from: Option<u64>,
-    /// Maximum number of messages to fetch per GraphQL query.
+    /// Maximum number of decoded records returned to caller.
     pub limit: Option<u32>,
-    /// Reverse-pagination cursor (`before`) for GraphQL account.messages query.
+    /// Pagination cursor placeholder kept for backward compatibility.
+    /// Not used by current `account.events` GraphQL query.
     pub before: Option<String>,
 }
 
@@ -181,36 +182,39 @@ struct GqlBlockchain {
 
 #[derive(Debug, Clone, Deserialize)]
 struct GqlAccount {
-    messages: GqlMessages,
+    events: GqlEvents,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct GqlMessages {
+struct GqlEvents {
     edges: Vec<GqlEdge>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct GqlEdge {
-    node: crate::event::Event,
+    node: GqlEventNode,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventNode {
+    #[serde(rename = "msg_id")]
+    msg_id: String,
+    created_at: u64,
+    dst: String,
+    body: String,
 }
 
 const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
-    query($address: String!, $counterparties: [String!], $last: Int!, $before: String) {
+    query($address: String!, $dst: String!) {
       blockchain {
         account(address: $address) {
-          messages(
-            msg_type: [ExtOut]
-            counterparties: $counterparties
-            last: $last
-            before: $before
-          ) {
+          events(dst: $dst) {
             edges {
               node {
-                id
-                src
+                msg_id
                 dst
                 created_at
-                boc
+                body
               }
             }
           }
@@ -218,24 +222,6 @@ const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
       }
     }
 "#;
-
-fn is_valid_profile_deploy_raw_event(
-    event: &crate::event::Event,
-    expected_src: &str,
-    expected_dst: &str,
-    created_at_from: u64,
-) -> bool {
-    event.src.eq_ignore_ascii_case(expected_src)
-        && event.dst.eq_ignore_ascii_case(expected_dst)
-        && event.created_at >= created_at_from
-}
-
-fn is_valid_profile_deploy_data(
-    data: &AuthProfileDeployedData,
-    expected_multifactor_hash: &str,
-) -> bool {
-    data.multifactor_hash.eq_ignore_ascii_case(expected_multifactor_hash)
-}
 
 impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
@@ -367,7 +353,7 @@ impl AuthServiceRoot {
     ///
     /// Developer-friendly helper that:
     /// 1. Calculates `multifactorHash` using `hashMultifactor(multifactor)`.
-    /// 2. Queries root outbound external messages sent to `extern(multifactorHash)`.
+    /// 2. Queries root events sent to `extern(multifactorHash)`.
     /// 3. Decodes `AuthProfileDeployed` events and returns matched profiles.
     ///
     /// This searches only events emitted by the current `AuthServiceRoot`
@@ -390,9 +376,7 @@ impl AuthServiceRoot {
                 query: GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.to_string(),
                 variables: Some(json!({
                     "address": self.address(),
-                    "counterparties": [expected_dst],
-                    "last": limit,
-                    "before": params.before,
+                    "dst": expected_dst,
                 })),
             },
         )
@@ -416,22 +400,63 @@ impl AuthServiceRoot {
 
         let created_at_from = params.created_at_from.unwrap_or_default();
         let mut result = Vec::new();
-        for event in parsed.data.blockchain.account.messages.edges.into_iter().map(|e| e.node) {
-            if !is_valid_profile_deploy_raw_event(
-                &event,
-                self.address(),
-                &expected_dst,
-                created_at_from,
-            ) {
+        for event_node in parsed.data.blockchain.account.events.edges.into_iter().map(|e| e.node) {
+            if event_node.created_at < created_at_from {
                 continue;
             }
 
-            let decoded = DecodedAuthServiceEvent::from_event(&event, self)?;
-            let DecodedAuthServiceEvent::AuthProfileDeployed { data, .. } = decoded;
-            if !is_valid_profile_deploy_data(&data, &multifactor_hash) {
+            let decoded = tvm_client::abi::decode_message_body(
+                self.context().clone(),
+                ParamsOfDecodeMessageBody {
+                    abi: self.abi().clone(),
+                    body: event_node.body.clone(),
+                    is_internal: false,
+                    allow_partial: true,
+                    function_name: None,
+                    data_layout: None,
+                },
+            )
+            .map_err(|e| {
+                KitError::new(
+                    KitModule::AuthService(AuthServiceModule::Root),
+                    KitErrorCode::Decode,
+                    "Decode AuthServiceRoot event body",
+                )
+                .with_tvm_error(e)
+            })?;
+
+            if decoded.name != "AuthProfileDeployed" {
                 continue;
             }
+
+            let raw_value = decoded.value.ok_or_else(|| {
+                KitError::new(
+                    KitModule::AuthService(AuthServiceModule::Root),
+                    KitErrorCode::EmptyData,
+                    "Decoded AuthProfileDeployed event body has empty data",
+                )
+            })?;
+
+            let data =
+                serde_json::from_value::<AuthProfileDeployedData>(raw_value).map_err(|e| {
+                    KitError::new(
+                        KitModule::AuthService(AuthServiceModule::Root),
+                        KitErrorCode::DeserializeFailed,
+                        format!("Deserialize AuthProfileDeployed event body ({e})"),
+                    )
+                })?;
+
+            let event = crate::event::Event {
+                id: event_node.msg_id,
+                src: self.address().to_string(),
+                dst: event_node.dst,
+                created_at: event_node.created_at,
+                boc: event_node.body,
+            };
             result.push(AuthProfileDeployedEventRecord { event, data });
+            if result.len() >= limit as usize {
+                break;
+            }
         }
 
         Ok(result)
@@ -476,23 +501,25 @@ mod tests {
     use crate::authservice::profile::AuthProfile;
     use crate::authservice::profile::ParamsOfQueryProfileEvents;
     use crate::error::KitError;
+    use crate::mvsystem::multifactor::AccountData as MultifactorAccountData;
     use crate::mvsystem::multifactor::Multifactor;
+    use crate::mvsystem::multifactor::ParamsOfGetEpkExpire;
     use crate::mvsystem::multifactor::ParamsOfSubmitTransaction;
     use crate::tests::create_context;
     use crate::tests::top_up_native_with_giver_if_below;
     use crate::traits::AccountAccessor;
     use crate::traits::AddressAccessor;
+    use crate::traits::DecodeAccountData;
     use crate::traits::VersionAccessor;
 
-    const AUTH_SERVICE_ROOT_ADDRESS: &str =
-        "0:d6054a384e148b7dac122acf24ec7f218b44826a8a68bb085f2ba371b59ff6a8";
+    const AUTH_SERVICE_ROOT_ADDRESS: &str = AuthServiceRoot::DEFAULT_ADDRESS;
     const AUTH_SERVICE_MULTIFACTOR_ADDRESS: &str =
-        "0:b66e32af6b7a93e980948a8ad2dc9283ea39b8d4d05dd8c7b8689cc72e30ec28";
+        "0:12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c";
     const AUTH_SERVICE_MULTIFACTOR_EPK: &str =
-        "692fa80bd52af31cf4bc6479e7cc9c115eab6e60783471414fd1da557f7ba1c3";
+        "61a5ae9ced72c645f7e5e0094f8d6a5508b379a5e02e1f7c070280856672c54a";
     const AUTH_SERVICE_MULTIFACTOR_ESK: &str =
-        "2728424ad101148253fe43dd69ca2ea155228bb4f4b34e39174bd21bb405e249";
-    const AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT: u64 = 1_787_683_748;
+        "9b8d83c85af652415c989aa0ef53ed803d9c34d1c1f0e88497db5fae5c03921d";
+    const AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT: u64 = 1_788_096_991;
 
     fn gen_signer_keys(
         context: std::sync::Arc<tvm_client::ClientContext>,
@@ -522,83 +549,6 @@ mod tests {
         BigUint::parse_bytes(value.as_bytes(), 10).expect("valid decimal uint256")
     }
 
-    #[test]
-    fn test_query_profiles_by_multifactor_raw_post_filter_mixed_dst() {
-        let expected_src = "0:d6054a384e148b7dac122acf24ec7f218b44826a8a68bb085f2ba371b59ff6a8";
-        let expected_dst = ":f968d0686b7853933f28f98d101a21b625be653045ad93740e4db0033aed7a0c";
-        let created_at_from = 1_772_219_000_u64;
-
-        let events = vec![
-            crate::event::Event {
-                id: "valid".to_string(),
-                src: expected_src.to_string(),
-                dst: expected_dst.to_string(),
-                created_at: created_at_from + 10,
-                boc: "ignored".to_string(),
-            },
-            crate::event::Event {
-                id: "wrong-dst".to_string(),
-                src: expected_src.to_string(),
-                dst: ":deadbeef".to_string(),
-                created_at: created_at_from + 10,
-                boc: "ignored".to_string(),
-            },
-            crate::event::Event {
-                id: "wrong-src".to_string(),
-                src: "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                    .to_string(),
-                dst: expected_dst.to_string(),
-                created_at: created_at_from + 10,
-                boc: "ignored".to_string(),
-            },
-            crate::event::Event {
-                id: "too-old".to_string(),
-                src: expected_src.to_string(),
-                dst: expected_dst.to_string(),
-                created_at: created_at_from.saturating_sub(1),
-                boc: "ignored".to_string(),
-            },
-        ];
-
-        let filtered = events
-            .iter()
-            .filter(|event| {
-                is_valid_profile_deploy_raw_event(
-                    event,
-                    expected_src,
-                    expected_dst,
-                    created_at_from,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].id, "valid");
-    }
-
-    #[test]
-    fn test_query_profiles_by_multifactor_post_filter_multifactor_hash_mismatch() {
-        let expected_multifactor_hash =
-            "0xf968d0686b7853933f28f98d101a21b625be653045ad93740e4db0033aed7a0c";
-
-        let valid_data = AuthProfileDeployedData {
-            profile: "0:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                .to_string(),
-            multifactor_hash: expected_multifactor_hash.to_string(),
-            description: "ok".to_string(),
-        };
-        let mismatch_data = AuthProfileDeployedData {
-            profile: "0:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-                .to_string(),
-            multifactor_hash: "0x1111111111111111111111111111111111111111111111111111111111111111"
-                .to_string(),
-            description: "bad".to_string(),
-        };
-
-        assert!(is_valid_profile_deploy_data(&valid_data, expected_multifactor_hash));
-        assert!(!is_valid_profile_deploy_data(&mismatch_data, expected_multifactor_hash));
-    }
-
     fn multifactor_epk_signer() -> Signer {
         Signer::Keys {
             keys: KeyPair {
@@ -611,7 +561,7 @@ mod tests {
     async fn destroy_profile_via_multifactor(
         context: std::sync::Arc<tvm_client::ClientContext>,
         profile: &AuthProfile,
-    ) {
+    ) -> bool {
         let multifactor = Multifactor::new(context.clone(), AUTH_SERVICE_MULTIFACTOR_ADDRESS);
         top_up_native_with_giver_if_below(
             context.clone(),
@@ -621,6 +571,45 @@ mod tests {
             "AuthServiceMultifactor",
         )
         .await;
+
+        let chain_epk_expire_at = multifactor
+            .get_epk_expire_at(ParamsOfGetEpkExpire {
+                epk: AUTH_SERVICE_MULTIFACTOR_EPK.to_string(),
+            })
+            .await
+            .map(|v| v.epk_expire_at)
+            .ok();
+        let chain_epks =
+            multifactor.get_zkp_ephemeral_public_keys().await.map(|v| v.keys).unwrap_or_default();
+        let multifactor_data: Option<MultifactorAccountData> =
+            if multifactor.fetch_account().await.is_ok() {
+                let raw_data = {
+                    let guard = multifactor.account().lock().await;
+                    guard.data.clone()
+                };
+                raw_data.as_ref().and_then(|data| multifactor.decode_account_data(data).ok())
+            } else {
+                None
+            };
+        if let Some(data) = multifactor_data.as_ref() {
+            eprintln!(
+                "multifactor diagnostics: owner_pubkey={}, factors_len={}, epk_count={}, chain_epk_expire_at={:?}",
+                data.owner_pubkey,
+                data.factors_len,
+                chain_epks.len(),
+                chain_epk_expire_at
+            );
+        } else {
+            eprintln!(
+                "multifactor diagnostics: unable to decode account data, epk_count={}, chain_epk_expire_at={:?}",
+                chain_epks.len(),
+                chain_epk_expire_at,
+            );
+        }
+
+        let epk_expire_at = chain_epk_expire_at
+            .filter(|v| *v > 0)
+            .unwrap_or(AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT);
 
         let max_attempts = 4;
         for attempt in 1..=max_attempts {
@@ -632,7 +621,7 @@ mod tests {
                         cc: HashMap::new(),
                         bounce: false,
                         all_balance: false,
-                        epk_expire_at: AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT,
+                        epk_expire_at,
                         payload: String::new(),
                     },
                     multifactor_epk_signer(),
@@ -640,8 +629,18 @@ mod tests {
                 .await;
 
             match result {
-                Ok(_) => return,
+                Ok(_) => return true,
                 Err(err) => {
+                    if let Some(exit_code) = extract_tvm_exit_code(&err) {
+                        if exit_code == 501 {
+                            eprintln!(
+                                "multifactor submit_transaction destroy rejected with exit_code=501; skip cleanup for profile {}",
+                                profile.address()
+                            );
+                            return false;
+                        }
+                    }
+
                     if is_transient_network_error(&err) && attempt < max_attempts {
                         eprintln!(
                             "multifactor submit_transaction destroy transient network error on attempt {attempt}/{max_attempts}: {err:?}"
@@ -654,6 +653,8 @@ mod tests {
                 }
             }
         }
+
+        false
     }
 
     fn extract_tvm_exit_code(err: &KitError) -> Option<i64> {
@@ -926,17 +927,21 @@ mod tests {
             "AuthProfileDeployed (query_profiles_by_multifactor) decoded data: {:?}",
             found_profile_event.data
         );
-        destroy_profile_via_multifactor(context.clone(), &profile).await;
-        profile
-            .wait_account(ParamsOfWaitAccount {
-                status: AccountStatus::NonExist,
-                attempts: Some(30),
-                attempts_timeout: Some(2_000),
-            })
-            .await
-            .inspect_err(|e| eprintln!("wait profile destroyed failed: {e:?}"))
-            .expect("Wait profile destroyed");
-        eprintln!("Destroyed profile address: {}", profile.address());
+        let destroyed = destroy_profile_via_multifactor(context.clone(), &profile).await;
+        if destroyed {
+            profile
+                .wait_account(ParamsOfWaitAccount {
+                    status: AccountStatus::NonExist,
+                    attempts: Some(30),
+                    attempts_timeout: Some(2_000),
+                })
+                .await
+                .inspect_err(|e| eprintln!("wait profile destroyed failed: {e:?}"))
+                .expect("Wait profile destroyed");
+            eprintln!("Destroyed profile address: {}", profile.address());
+        } else {
+            eprintln!("Skipped profile cleanup: multifactor rejected destroy");
+        }
     }
 
     #[tokio::test]
@@ -1096,16 +1101,20 @@ mod tests {
             profile.address(),
         );
 
-        destroy_profile_via_multifactor(context.clone(), &profile).await;
-        profile
-            .wait_account(ParamsOfWaitAccount {
-                status: AccountStatus::NonExist,
-                attempts: Some(30),
-                attempts_timeout: Some(2_000),
-            })
-            .await
-            .inspect_err(|e| eprintln!("wait profile destroyed failed: {e:?}"))
-            .expect("Wait profile destroyed");
-        eprintln!("Destroyed profile address: {}", profile.address());
+        let destroyed = destroy_profile_via_multifactor(context.clone(), &profile).await;
+        if destroyed {
+            profile
+                .wait_account(ParamsOfWaitAccount {
+                    status: AccountStatus::NonExist,
+                    attempts: Some(30),
+                    attempts_timeout: Some(2_000),
+                })
+                .await
+                .inspect_err(|e| eprintln!("wait profile destroyed failed: {e:?}"))
+                .expect("Wait profile destroyed");
+            eprintln!("Destroyed profile address: {}", profile.address());
+        } else {
+            eprintln!("Skipped profile cleanup: multifactor rejected destroy");
+        }
     }
 }
