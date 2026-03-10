@@ -115,6 +115,32 @@ pub struct ParamsOfGetPmpAddress {
     pub token_type: u32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.privateNoteDeployed`.
+pub struct ParamsOfPrivateNoteDeployed {
+    pub deposit_identifier_hash: String,
+    pub token_type: u32,
+    pub deployed_value: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.generatevoucher`.
+pub struct ParamsOfGenerateVoucher {
+    pub sk_u_commit: String,
+    #[serde(rename(serialize = "isFee"))]
+    pub is_fee: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `RootPN.withdrawTokens`.
+pub struct ParamsOfWithdrawTokens {
+    pub withdrawed_value: u128,
+    pub token_type: u32,
+    pub flags: u8,
+    pub wallet_addr: String,
+    pub initial_data_hash: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 /// Result of `RootPN.getPMPAddress`.
 pub struct ResultOfGetPmpAddress {
@@ -194,6 +220,22 @@ impl RootPn {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Process callback when PrivateNote deployment is acknowledged
+    ///
+    /// Original contract method: `privateNoteDeployed`
+    pub async fn private_note_deployed(
+        &self,
+        params: ParamsOfPrivateNoteDeployed,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "privateNoteDeployed".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Get salted PrivateNote code and hash
     ///
     /// Original contract method: `getPrivateNoteCode`
@@ -234,6 +276,38 @@ impl RootPn {
     /// Original contract method: `getDetails`
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
         self.call_get_method::<ResultOfGetDetails>("getDetails").await
+    }
+
+    /// # Generate voucher in RootPN vault
+    ///
+    /// Original contract method: `generatevoucher`
+    pub async fn generate_voucher(
+        &self,
+        params: ParamsOfGenerateVoucher,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "generatevoucher".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Withdraw tokens from RootPN vault
+    ///
+    /// Original contract method: `withdrawTokens`
+    pub async fn withdraw_tokens(
+        &self,
+        params: ParamsOfWithdrawTokens,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "withdrawTokens".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Update root code

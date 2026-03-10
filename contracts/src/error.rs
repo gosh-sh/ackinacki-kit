@@ -33,6 +33,7 @@ pub enum DexModule {
     RootPn,
     Oracle,
     OracleEventList,
+    OrderBook,
     PrivateNote,
     Pmp,
     Nullifier,

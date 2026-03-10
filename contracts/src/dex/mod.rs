@@ -9,6 +9,8 @@ pub mod oracle;
 pub mod oracle_event_list;
 pub mod oracle_event_list_events;
 pub mod oracle_events;
+pub mod order_book;
+pub mod order_book_events;
 pub mod pmp;
 pub mod pmp_events;
 pub mod private_note;

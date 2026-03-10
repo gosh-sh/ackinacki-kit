@@ -77,8 +77,8 @@
 		{"init":false,"name":"THRESHOLD","type":"uint32"},
 		{"init":false,"name":"_oraclePubkey","type":"uint256"},
 		{"init":false,"name":"_oracleEventListCode","type":"cell"},
-		{"init":false,"name":"_PrivateNoteCode","type":"cell"},
-		{"init":false,"name":"_pmpCode","type":"cell"},
+		{"init":false,"name":"_pmpSaltedCodeHash","type":"uint256"},
+		{"init":false,"name":"_pmpSaltedCodeDepth","type":"uint16"},
 		{"init":true,"name":"_name","type":"string"}
 	]
 }

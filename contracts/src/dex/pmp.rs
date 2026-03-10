@@ -91,6 +91,62 @@ pub struct ParamsOfSubmitResolve {
     pub outcome_id: u32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PMP.approveEvent`.
+pub struct ParamsOfApproveEvent {
+    pub oracle_pubkey: String,
+    #[serde(rename(serialize = "outcomeNames"))]
+    pub outcome_names: HashMap<u32, String>,
+    pub describe: String,
+    pub name: String,
+    #[serde(rename(serialize = "trustAddr"))]
+    pub trust_addr: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PMP.acceptStake`.
+pub struct ParamsOfAcceptStake {
+    #[serde(rename(serialize = "outcomeId"))]
+    pub outcome_id: u32,
+    #[serde(rename(serialize = "stakeAmount"))]
+    pub stake_amount: u128,
+    pub deposit_identifier_hash: String,
+    pub bet_type: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PMP.cancelStake` and `PMP.claim`.
+pub struct ParamsOfCancelOrClaimStake {
+    #[serde(rename(serialize = "stakeAmount"))]
+    pub stake_amount: Vec<u128>,
+    #[serde(rename(serialize = "debtAmount"))]
+    pub debt_amount: Vec<u128>,
+    #[serde(rename(serialize = "couponsAmount"))]
+    pub coupons_amount: Vec<u128>,
+    pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for methods that pass `amount[]` + `deposit_identifier_hash`.
+pub struct ParamsOfAmountList {
+    pub amount: Vec<u128>,
+    pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PMP.splitFullSet`.
+pub struct ParamsOfSplitFullSet {
+    pub collateral: u128,
+    pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PMP.getOrderBookAddress`.
+pub struct ResultOfGetOrderBookAddress {
+    #[serde(rename = "orderBookAddress")]
+    pub order_book_address: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 /// Result of `PMP.getDetails`.
 ///
@@ -148,6 +204,11 @@ pub struct ResultOfGetDetails {
     /// Creator fee accumulated by the pool.
     #[serde(rename = "creatorFee", deserialize_with = "deserialize_u128")]
     pub creator_fee: u128,
+    /// Whether base pools are frozen after market close.
+    pub frozen: bool,
+    /// Base pool amount used in split/merge accounting.
+    #[serde(rename = "baseTotalPool", deserialize_with = "deserialize_u128")]
+    pub base_total_pool: u128,
 }
 
 impl Pmp {
@@ -169,6 +230,152 @@ impl Pmp {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "submitSetTimings".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Reject event before approval
+    ///
+    /// Original contract method: `rejectEvent`
+    pub async fn reject_event(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "rejectEvent".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Approve event metadata
+    ///
+    /// Original contract method: `approveEvent`
+    pub async fn approve_event(
+        &self,
+        params: ParamsOfApproveEvent,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "approveEvent".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Accept single stake (callback from PrivateNote)
+    ///
+    /// Original contract method: `acceptStake`
+    pub async fn accept_stake(
+        &self,
+        params: ParamsOfAcceptStake,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "acceptStake".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Cancel stake (callback from PrivateNote)
+    ///
+    /// Original contract method: `cancelStake`
+    pub async fn cancel_stake(
+        &self,
+        params: ParamsOfCancelOrClaimStake,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelStake".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Accept full-set stake (callback from PrivateNote)
+    ///
+    /// Original contract method: `acceptFullSetStake`
+    pub async fn accept_full_set_stake(
+        &self,
+        params: ParamsOfAmountList,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "acceptFullSetStake".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Withdraw full set from PMP
+    ///
+    /// Original contract method: `withdrawFullSet`
+    pub async fn withdraw_full_set(
+        &self,
+        params: ParamsOfAmountList,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "withdrawFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Freeze base pools
+    ///
+    /// Original contract method: `freezeBasePools`
+    pub async fn freeze_base_pools(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "freezeBasePools".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Split full set
+    ///
+    /// Original contract method: `splitFullSet`
+    pub async fn split_full_set(
+        &self,
+        params: ParamsOfSplitFullSet,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "splitFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Merge full set
+    ///
+    /// Original contract method: `mergeFullSet`
+    pub async fn merge_full_set(
+        &self,
+        params: ParamsOfAmountList,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "mergeFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Claim payout
+    ///
+    /// Original contract method: `claim`
+    pub async fn claim(
+        &self,
+        params: ParamsOfCancelOrClaimStake,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "claim".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -207,7 +414,10 @@ impl Pmp {
         self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }
 
-    // Callback/internal flows (`approveEvent`, `acceptStake`, `cancelStake`,
-    // `acceptFullSetStake`, `withdrawFullSet`, `claim`, `rejectEvent`) are
-    // intentionally omitted here because Solidity restricts them by sender.
+    /// # Get deterministic OrderBook address
+    ///
+    /// Original contract method: `getOrderBookAddress`
+    pub async fn get_order_book_address(&self) -> KitResult<ResultOfGetOrderBookAddress> {
+        self.call_get_method::<ResultOfGetOrderBookAddress>("getOrderBookAddress").await
+    }
 }

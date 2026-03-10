@@ -43,8 +43,8 @@ mod tests {
     pub const NETWORK_GIVER_ADDRESS: &str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
     pub const NETWORK_GIVER_ABI_PATHS: &[&str] = &[
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../abi/giver/GiverV3.abi.json"),
         "../abi/giver/GiverV3.abi.json",
-        "/Users/dronbas/Projects/ackinacki/acki-nacki/contracts/giver/GiverV3.abi.json",
     ];
 
     fn read_giver_abi_json() -> String {

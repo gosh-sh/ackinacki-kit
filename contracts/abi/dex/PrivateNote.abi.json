@@ -10,8 +10,11 @@
 				{"name":"ethemeral_pubkey","type":"uint256"},
 				{"name":"token_type","type":"uint32"},
 				{"name":"pmpCode","type":"cell"},
-				{"name":"oracleEventList","type":"cell"},
-				{"name":"oracleCode","type":"cell"}
+				{"name":"orderBookCode","type":"cell"},
+				{"name":"oracleCodeHash","type":"uint256"},
+				{"name":"oracleCodeDepth","type":"uint16"},
+				{"name":"oracleEventListCodeHash","type":"uint256"},
+				{"name":"oracleEventListCodeDepth","type":"uint16"}
 			],
 			"outputs": [
 			]
@@ -114,6 +117,51 @@
 			]
 		},
 		{
+			"name": "splitFullSet",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"collateral","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onSplitAccepted",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"amounts","type":"uint128[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "mergeFullSet",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"amount","type":"uint128[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onMergeAccepted",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"collateral","type":"uint128"},
+				{"name":"amounts","type":"uint128[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "setStake",
 			"inputs": [
 				{"name":"event_id","type":"uint256"},
@@ -205,6 +253,47 @@
 			]
 		},
 		{
+			"name": "initTransfer",
+			"inputs": [
+				{"name":"dest_deposit_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"amount","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "offerTransfer",
+			"inputs": [
+				{"name":"token_type","type":"uint32"},
+				{"name":"amount","type":"uint128"},
+				{"name":"sender_deposit_hash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onTransferAccepted",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "clearTransferBusy",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "discardCoupon",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "withdrawTokens",
 			"inputs": [
 				{"name":"flags","type":"uint8"},
@@ -219,6 +308,73 @@
 			"inputs": [
 				{"name":"token_type","type":"uint32"},
 				{"name":"value","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "placeOrder",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"outcomeId","type":"uint32"},
+				{"name":"isBuy","type":"bool"},
+				{"name":"priceBps","type":"uint128"},
+				{"name":"amount","type":"uint128"},
+				{"name":"flags","type":"uint8"},
+				{"name":"minAmount","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onOrderPlaced",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"orderId","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "cancelOrder",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"orderId","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onOrderCancelled",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"orderId","type":"uint128"},
+				{"name":"outcomeId","type":"uint32"},
+				{"name":"isBuy","type":"bool"},
+				{"name":"amount","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onOrderFilled",
+			"inputs": [
+				{"name":"event_id","type":"uint256"},
+				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"outcomeId","type":"uint32"},
+				{"name":"filledAmount","type":"uint128"},
+				{"name":"clearingPrice","type":"uint128"},
+				{"name":"isBuy","type":"bool"},
+				{"name":"refundAmount","type":"uint128"}
 			],
 			"outputs": [
 			]
@@ -242,7 +398,9 @@
 				{"name":"balance","type":"map(uint32,uint128)"},
 				{"name":"pmpCodeHash","type":"uint256"},
 				{"name":"privateNoteCodeHash","type":"uint256"},
-				{"name":"busyAddress","type":"optional(address)"}
+				{"name":"busyAddress","type":"optional(address)"},
+				{"name":"couponsValue","type":"uint128"},
+				{"name":"hasWithdrawn","type":"bool"}
 			]
 		},
 		{
@@ -340,6 +498,26 @@
 			],
 			"outputs": [
 			]
+		},
+		{
+			"name": "TransferInitiated",
+			"inputs": [
+				{"name":"dest","type":"address"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"amount","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "TransferReceived",
+			"inputs": [
+				{"name":"from","type":"address"},
+				{"name":"token_type","type":"uint32"},
+				{"name":"amount","type":"uint128"}
+			],
+			"outputs": [
+			]
 		}
 	],
 	"fields": [
@@ -351,11 +529,16 @@
 		{"init":false,"name":"_ethemeral_pubkey","type":"uint256"},
 		{"init":false,"name":"_pmpCode","type":"cell"},
 		{"init":false,"name":"_PrivateNoteCode","type":"cell"},
-		{"init":false,"name":"_oracleCode","type":"cell"},
-		{"init":false,"name":"_oracleEventList","type":"cell"},
+		{"init":false,"name":"_oracleCodeHash","type":"uint256"},
+		{"init":false,"name":"_oracleCodeDepth","type":"uint16"},
+		{"init":false,"name":"_oracleEventListCodeHash","type":"uint256"},
+		{"init":false,"name":"_oracleEventListCodeDepth","type":"uint16"},
+		{"init":false,"name":"_orderBookCode","type":"cell"},
 		{"components":[{"name":"amount","type":"uint128[]"},{"name":"debt_amount","type":"uint128[]"},{"name":"coupons_amount","type":"uint128[]"},{"name":"candidate_amount","type":"uint128"},{"name":"candidate_outcome","type":"uint32"},{"name":"candidate_bet_type","type":"uint8"},{"name":"token_type","type":"uint32"},{"name":"oracle_list_hash","type":"uint256"}],"init":false,"name":"_stakes","type":"map(uint256,tuple)"},
 		{"init":false,"name":"_busy","type":"optional(address)"},
 		{"init":false,"name":"_lastHash","type":"uint256"},
+		{"init":false,"name":"_pendingTransferAmount","type":"uint128"},
+		{"init":false,"name":"_pendingTransferTokenType","type":"uint32"},
 		{"init":false,"name":"_balance","type":"map(uint32,uint128)"},
 		{"init":false,"name":"_debt","type":"uint128"},
 		{"init":false,"name":"_debt_token_type","type":"uint32"},
