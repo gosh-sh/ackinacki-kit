@@ -14,6 +14,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_map;
 use crate::error::DexModule;
 use crate::error::KitModule;
@@ -106,6 +107,115 @@ pub struct ParamsOfWithdrawFullSet {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onInitialStakesAccepted`.
+pub struct ParamsOfOnInitialStakesAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub amounts: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onInitialStakesFailed`.
+pub struct ParamsOfOnInitialStakesFailed {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    #[serde(rename(serialize = "refundTotal"))]
+    pub refund_total: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onStakeCancelled`.
+pub struct ParamsOfOnStakeCancelled {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub value: u128,
+    pub coupon_value: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onFullSetStakeCancelled`.
+pub struct ParamsOfOnFullSetStakeCancelled {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub amount: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.splitFullSet`.
+pub struct ParamsOfSplitFullSet {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub collateral: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onSplitAccepted`.
+pub struct ParamsOfOnSplitAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub amounts: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onMergeAccepted`.
+pub struct ParamsOfOnMergeAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub collateral: u128,
+    pub amounts: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onStakeAccepted`.
+pub struct ParamsOfOnStakeAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub outcome_count: u128,
+    pub bet_type: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onFullSetStakeAccepted`.
+pub struct ParamsOfOnFullSetStakeAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub amount: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onClaimAccepted`.
+pub struct ParamsOfOnClaimAccepted {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub outcome: Option<u32>,
+    #[serde(rename(serialize = "payoutClean"))]
+    pub payout_clean: u128,
+    pub payout_debt: u128,
+    pub payout_coupon: u128,
+    #[serde(rename(serialize = "debtPaid"))]
+    pub debt_paid: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.acceptFee`.
+pub struct ParamsOfAcceptFee {
+    pub fee: u128,
+    pub token_type: u32,
+    pub event_id: String,
+    pub oracle_list_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 /// Parameters for `PrivateNote.setStake`.
 pub struct ParamsOfSetStake {
     pub event_id: String,
@@ -132,11 +242,95 @@ pub struct ParamsOfGenerateCoupon {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.initTransfer`.
+pub struct ParamsOfInitTransfer {
+    pub dest_deposit_hash: String,
+    pub token_type: u32,
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.offerTransfer`.
+pub struct ParamsOfOfferTransfer {
+    pub token_type: u32,
+    pub amount: u128,
+    pub sender_deposit_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
     pub flags: u8,
     pub dest_wallet_addr: String,
     pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.revertWithdraw`.
+pub struct ParamsOfRevertWithdraw {
+    pub token_type: u32,
+    pub value: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.placeOrder`.
+pub struct ParamsOfPlaceOrder {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    #[serde(rename(serialize = "outcomeId"))]
+    pub outcome_id: u32,
+    #[serde(rename(serialize = "isBuy"))]
+    pub is_buy: bool,
+    #[serde(rename(serialize = "priceBps"))]
+    pub price_bps: u128,
+    pub amount: u128,
+    pub flags: u8,
+    #[serde(rename(serialize = "minAmount"))]
+    pub min_amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onOrderPlaced` and `PrivateNote.cancelOrder`.
+pub struct ParamsOfOrderId {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    #[serde(rename(serialize = "orderId"))]
+    pub order_id: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onOrderCancelled`.
+pub struct ParamsOfOnOrderCancelled {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    #[serde(rename(serialize = "orderId"))]
+    pub order_id: u128,
+    #[serde(rename(serialize = "outcomeId"))]
+    pub outcome_id: u32,
+    #[serde(rename(serialize = "isBuy"))]
+    pub is_buy: bool,
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `PrivateNote.onOrderFilled`.
+pub struct ParamsOfOnOrderFilled {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    #[serde(rename(serialize = "outcomeId"))]
+    pub outcome_id: u32,
+    #[serde(rename(serialize = "filledAmount"))]
+    pub filled_amount: u128,
+    #[serde(rename(serialize = "clearingPrice"))]
+    pub clearing_price: u128,
+    #[serde(rename(serialize = "isBuy"))]
+    pub is_buy: bool,
+    #[serde(rename(serialize = "refundAmount"))]
+    pub refund_amount: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -163,6 +357,10 @@ pub struct ResultOfGetDetails {
     pub private_note_code_hash: String,
     #[serde(rename = "busyAddress")]
     pub busy_address: Option<String>,
+    #[serde(rename = "couponsValue", deserialize_with = "deserialize_u128")]
+    pub coupons_value: u128,
+    #[serde(rename = "hasWithdrawn")]
+    pub has_withdrawn: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -224,6 +422,38 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Process callback for accepted initial full-set stakes
+    ///
+    /// Original contract method: `onInitialStakesAccepted`
+    pub async fn on_initial_stakes_accepted(
+        &self,
+        params: ParamsOfOnInitialStakesAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onInitialStakesAccepted".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for failed initial full-set stakes
+    ///
+    /// Original contract method: `onInitialStakesFailed`
+    pub async fn on_initial_stakes_failed(
+        &self,
+        params: ParamsOfOnInitialStakesFailed,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onInitialStakesFailed".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Delete stake record
     ///
     /// Original contract method: `deleteStake`
@@ -260,6 +490,22 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Process callback for canceled stake
+    ///
+    /// Original contract method: `onStakeCancelled`
+    pub async fn on_stake_cancelled(
+        &self,
+        params: ParamsOfOnStakeCancelled,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onStakeCancelled".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Withdraw full-set stake from PMP
     ///
     /// Original contract method: `withdrawFullSet`
@@ -272,6 +518,86 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "withdrawFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for canceled full-set stake
+    ///
+    /// Original contract method: `onFullSetStakeCancelled`
+    pub async fn on_full_set_stake_cancelled(
+        &self,
+        params: ParamsOfOnFullSetStakeCancelled,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onFullSetStakeCancelled".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Split full set on PMP
+    ///
+    /// Original contract method: `splitFullSet`
+    pub async fn split_full_set(
+        &self,
+        params: ParamsOfSplitFullSet,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "splitFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for accepted split
+    ///
+    /// Original contract method: `onSplitAccepted`
+    pub async fn on_split_accepted(
+        &self,
+        params: ParamsOfOnSplitAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onSplitAccepted".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Merge full set on PMP
+    ///
+    /// Original contract method: `mergeFullSet`
+    pub async fn merge_full_set(
+        &self,
+        params: ParamsOfWithdrawFullSet,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "mergeFullSet".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for accepted merge
+    ///
+    /// Original contract method: `onMergeAccepted`
+    pub async fn on_merge_accepted(
+        &self,
+        params: ParamsOfOnMergeAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onMergeAccepted".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -314,6 +640,38 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Process callback for accepted stake
+    ///
+    /// Original contract method: `onStakeAccepted`
+    pub async fn on_stake_accepted(
+        &self,
+        params: ParamsOfOnStakeAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onStakeAccepted".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for accepted full-set stake
+    ///
+    /// Original contract method: `onFullSetStakeAccepted`
+    pub async fn on_full_set_stake_accepted(
+        &self,
+        params: ParamsOfOnFullSetStakeAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onFullSetStakeAccepted".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Claim PMP payout
     ///
     /// Original contract method: `claim`
@@ -326,6 +684,38 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "claim".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for accepted claim
+    ///
+    /// Original contract method: `onClaimAccepted`
+    pub async fn on_claim_accepted(
+        &self,
+        params: ParamsOfOnClaimAccepted,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onClaimAccepted".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Accept creator fee from PMP
+    ///
+    /// Original contract method: `acceptFee`
+    pub async fn accept_fee(
+        &self,
+        params: ParamsOfAcceptFee,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "acceptFee".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -350,6 +740,65 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Initiate transfer to another PrivateNote
+    ///
+    /// Original contract method: `initTransfer`
+    pub async fn init_transfer(
+        &self,
+        params: ParamsOfInitTransfer,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "initTransfer".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Receive transfer offer callback
+    ///
+    /// Original contract method: `offerTransfer`
+    pub async fn offer_transfer(
+        &self,
+        params: ParamsOfOfferTransfer,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "offerTransfer".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Confirm accepted transfer callback
+    ///
+    /// Original contract method: `onTransferAccepted`
+    pub async fn on_transfer_accepted(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "onTransferAccepted".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Clear busy transfer state
+    ///
+    /// Original contract method: `clearTransferBusy`
+    pub async fn clear_transfer_busy(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "clearTransferBusy".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Discard unused coupon
+    ///
+    /// Original contract method: `discardCoupon`
+    pub async fn discard_coupon(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "discardCoupon".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Withdraw tokens via RootPN vault
     ///
     /// Original contract method: `withdrawTokens`
@@ -362,6 +811,102 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "withdrawTokens".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Revert token withdraw callback
+    ///
+    /// Original contract method: `revertWithdraw`
+    pub async fn revert_withdraw(
+        &self,
+        params: ParamsOfRevertWithdraw,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "revertWithdraw".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Place order on PMP order book
+    ///
+    /// Original contract method: `placeOrder`
+    pub async fn place_order(
+        &self,
+        params: ParamsOfPlaceOrder,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "placeOrder".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for placed order
+    ///
+    /// Original contract method: `onOrderPlaced`
+    pub async fn on_order_placed(
+        &self,
+        params: ParamsOfOrderId,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderPlaced".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Cancel order on PMP order book
+    ///
+    /// Original contract method: `cancelOrder`
+    pub async fn cancel_order(
+        &self,
+        params: ParamsOfOrderId,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelOrder".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for canceled order
+    ///
+    /// Original contract method: `onOrderCancelled`
+    pub async fn on_order_cancelled(
+        &self,
+        params: ParamsOfOnOrderCancelled,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderCancelled".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback for filled order
+    ///
+    /// Original contract method: `onOrderFilled`
+    pub async fn on_order_filled(
+        &self,
+        params: ParamsOfOnOrderFilled,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderFilled".to_string(),
             header: None,
             input: Some(json!(params)),
         };

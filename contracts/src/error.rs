@@ -5,6 +5,7 @@ use tvm_client::error::ClientError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KitModule {
     Token(TokenModule),
+    Giver(GiverModule),
     Event,
     Account,
     AuthService(AuthServiceModule),
@@ -22,6 +23,11 @@ pub enum TokenModule {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GiverModule {
+    V3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AuthServiceModule {
     Root,
     Profile,
@@ -33,6 +39,7 @@ pub enum DexModule {
     RootPn,
     Oracle,
     OracleEventList,
+    OrderBook,
     PrivateNote,
     Pmp,
     Nullifier,
@@ -62,6 +69,12 @@ pub enum BkSystemModule {
 impl From<TokenModule> for KitModule {
     fn from(value: TokenModule) -> Self {
         KitModule::Token(value)
+    }
+}
+
+impl From<GiverModule> for KitModule {
+    fn from(value: GiverModule) -> Self {
+        KitModule::Giver(value)
     }
 }
 

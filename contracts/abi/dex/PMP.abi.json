@@ -10,7 +10,8 @@
 				{"name":"token_type","type":"uint32"},
 				{"name":"oracle_event_lists","type":"address[]"},
 				{"name":"oracle_fees","type":"uint128[]"},
-				{"name":"initialStakes","type":"uint128[]"}
+				{"name":"initialStakes","type":"uint128[]"},
+				{"name":"orderBookCode","type":"cell"}
 			],
 			"outputs": [
 			]
@@ -67,6 +68,31 @@
 		},
 		{
 			"name": "withdrawFullSet",
+			"inputs": [
+				{"name":"amount","type":"uint128[]"},
+				{"name":"deposit_identifier_hash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "freezeBasePools",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "splitFullSet",
+			"inputs": [
+				{"name":"collateral","type":"uint128"},
+				{"name":"deposit_identifier_hash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "mergeFullSet",
 			"inputs": [
 				{"name":"amount","type":"uint128[]"},
 				{"name":"deposit_identifier_hash","type":"uint256"}
@@ -135,7 +161,17 @@
 				{"name":"approvedOracleEvents","type":"uint128"},
 				{"name":"typedOutcomePools","type":"map(uint32,map(uint8,uint128))"},
 				{"name":"outcomeNames","type":"map(uint32,string)"},
-				{"name":"creatorFee","type":"uint128"}
+				{"name":"creatorFee","type":"uint128"},
+				{"name":"frozen","type":"bool"},
+				{"name":"baseTotalPool","type":"uint128"}
+			]
+		},
+		{
+			"name": "getOrderBookAddress",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"orderBookAddress","type":"address"}
 			]
 		},
 		{
@@ -235,6 +271,32 @@
 			],
 			"outputs": [
 			]
+		},
+		{
+			"name": "PoolsFrozen",
+			"inputs": [
+				{"name":"baseTotalPool","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "SplitProcessed",
+			"inputs": [
+				{"name":"note","type":"address"},
+				{"name":"collateral","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "MergeProcessed",
+			"inputs": [
+				{"name":"note","type":"address"},
+				{"name":"collateral","type":"uint128"}
+			],
+			"outputs": [
+			]
 		}
 	],
 	"fields": [
@@ -279,6 +341,10 @@
 		{"init":false,"name":"_resolveHashCount","type":"map(uint256,uint128)"},
 		{"init":false,"name":"_cancelOracleVoted","type":"map(uint256,bool)"},
 		{"init":false,"name":"_cancelVoteCount","type":"uint128"},
-		{"init":false,"name":"_initialStakes","type":"uint128[]"}
+		{"init":false,"name":"_initialStakes","type":"uint128[]"},
+		{"init":false,"name":"_frozen","type":"bool"},
+		{"init":false,"name":"_baseTotalPool","type":"uint128"},
+		{"init":false,"name":"_baseOutcomePools","type":"map(uint32,uint128)"},
+		{"init":false,"name":"_orderBookCode","type":"cell"}
 	]
 }

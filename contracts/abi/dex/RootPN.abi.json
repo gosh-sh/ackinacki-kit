@@ -164,6 +164,7 @@
 		{"init":false,"name":"_nullifierCode","type":"cell"},
 		{"init":false,"name":"_oracleCode","type":"cell"},
 		{"init":false,"name":"_oracleEventListCode","type":"cell"},
+		{"init":false,"name":"_orderBookCode","type":"cell"},
 		{"init":false,"name":"_ownerPubkey","type":"uint256"},
 		{"init":false,"name":"_deployedValues","type":"map(uint32,uint128)"}
 	]

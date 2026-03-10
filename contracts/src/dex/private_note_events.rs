@@ -26,6 +26,8 @@ pub enum PrivateNoteEvent {
     StakeCancelled = 115,
     FullSetStakeConfirmed = 116,
     FullSetStakeCancelled = 117,
+    TransferInitiated = 149,
+    TransferReceived = 150,
 }
 
 impl TryFrom<String> for PrivateNoteEvent {
@@ -49,6 +51,8 @@ impl TryFrom<String> for PrivateNoteEvent {
             115 => Ok(PrivateNoteEvent::StakeCancelled),
             116 => Ok(PrivateNoteEvent::FullSetStakeConfirmed),
             117 => Ok(PrivateNoteEvent::FullSetStakeCancelled),
+            149 => Ok(PrivateNoteEvent::TransferInitiated),
+            150 => Ok(PrivateNoteEvent::TransferReceived),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -79,6 +83,8 @@ pub enum DecodedPrivateNoteEvent {
     StakeCancelled { event: Event, kind: PrivateNoteEvent, data: StakeCancelledData },
     FullSetStakeConfirmed { event: Event, kind: PrivateNoteEvent, data: FullSetStakeConfirmedData },
     FullSetStakeCancelled { event: Event, kind: PrivateNoteEvent, data: FullSetStakeCancelledData },
+    TransferInitiated { event: Event, kind: PrivateNoteEvent, data: TransferInitiatedData },
+    TransferReceived { event: Event, kind: PrivateNoteEvent, data: TransferReceivedData },
 }
 
 impl FromEvent for DecodedPrivateNoteEvent {
@@ -170,6 +176,28 @@ impl FromEvent for DecodedPrivateNoteEvent {
                     data,
                 })
             }
+            PrivateNoteEvent::TransferInitiated => {
+                let decoded = event.decode::<TransferInitiatedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::TransferInitiated { event: event.clone(), kind, data })
+            }
+            PrivateNoteEvent::TransferReceived => {
+                let decoded = event.decode::<TransferReceivedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::TransferReceived { event: event.clone(), kind, data })
+            }
         }
     }
 }
@@ -245,4 +273,24 @@ pub struct PmpDeployedData {
     pub oracle_event_lists: Vec<String>,
     #[serde(rename = "oracleFee", deserialize_with = "deserialize_u128_vec")]
     pub oracle_fee: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PrivateNoteEvent::TransferInitiated`.
+pub struct TransferInitiatedData {
+    pub dest: String,
+    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    pub token_type: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PrivateNoteEvent::TransferReceived`.
+pub struct TransferReceivedData {
+    pub from: String,
+    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    pub token_type: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
 }

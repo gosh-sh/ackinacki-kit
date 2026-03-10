@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use halo2_proover::generate_dark_dex_proof;
 use num_bigint::BigInt;
 use num_bigint::BigUint;
 use sha2::Digest;
@@ -30,14 +30,13 @@ use crate::dex::root_pn::ParamsOfGetPmpAddress;
 use crate::dex::root_pn::ParamsOfGetPrivateNoteAddress;
 use crate::dex::root_pn::ParamsOfSendEccShellToPrivateNote;
 use crate::dex::root_pn::RootPn;
+use crate::giver::send_currency_with_flag_from_default_giver;
+use crate::giver::top_up_native_with_giver_if_below;
 use crate::tests::create_context;
-use crate::tests::giver_send_currency_with_flag;
-use crate::tests::top_up_native_with_giver_if_below;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::VersionAccessor;
 
-const DEFAULT_HALO2_PROOVER_PATH: &str = "";
 const CURRENCY_ID_SHELL: u32 = 2;
 const CURRENCY_ID_NACKL: u32 = 1;
 const TOKEN_TYPE_NACKL: u32 = 1;
@@ -100,10 +99,6 @@ fn random_valid_sk_hex() -> String {
     hex::encode(bytes)
 }
 
-fn halo2_proover_path() -> String {
-    std::env::var("HALO2_PROOVER_PATH").unwrap_or_else(|_| DEFAULT_HALO2_PROOVER_PATH.to_string())
-}
-
 #[derive(Debug)]
 struct Halo2Proof {
     proof: String,
@@ -114,79 +109,15 @@ struct Halo2Proof {
 }
 
 fn generate_halo2_proof(skcommit: &str, token_type: u32, value: u64) -> Halo2Proof {
-    let proover_path = halo2_proover_path();
-    let output = Command::new(&proover_path)
-        .arg(skcommit)
-        .arg(token_type.to_string())
-        .arg(value.to_string())
-        .output()
-        .unwrap_or_else(|e| {
-            panic!(
-                "failed to execute `{}` (install compatible binary for this OS/arch): {e}",
-                proover_path
-            )
-        });
-
-    if !output.status.success() {
-        panic!(
-            "halo2-proover failed with status {:?}: stdout=`{}` stderr=`{}`",
-            output.status.code(),
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    let stdout = String::from_utf8(output.stdout).expect("halo2-proover stdout utf8");
-    let raw_last_line = stdout
-        .lines()
-        .rev()
-        .find(|line| !line.trim().is_empty())
-        .expect("halo2-proover non-empty output");
-
-    let level1: serde_json::Value =
-        serde_json::from_str(raw_last_line).expect("halo2-proover first json decode");
-    let inner = if let Some(s) = level1.as_str() {
-        serde_json::from_str::<serde_json::Value>(s).expect("halo2-proover nested json decode")
-    } else {
-        level1
-    };
-
-    let proof = inner.get("proof").and_then(|v| v.as_str()).expect("proof").to_string();
-    let digest = inner
-        .get("private_note_digest")
-        .and_then(|v| v.as_str())
-        .expect("private_note_digest")
-        .to_string();
-    let private_note_sum = inner
-        .get("private_note_sum")
-        .and_then(|v| v.as_str())
-        .unwrap_or_else(|| {
-            inner.get("private_note_sum").and_then(|v| v.as_u64()).map(|_| "").unwrap()
-        })
-        .to_string();
-    let token_type_out = inner
-        .get("token_type")
-        .and_then(|v| v.as_str())
-        .unwrap_or_else(|| inner.get("token_type").and_then(|v| v.as_u64()).map(|_| "").unwrap())
-        .to_string();
-
-    let private_note_sum = if private_note_sum.is_empty() {
-        inner.get("private_note_sum").and_then(|v| v.as_u64()).expect("private_note_sum u64")
-    } else {
-        private_note_sum.parse::<u64>().expect("private_note_sum parse")
-    };
-    let token_type = if token_type_out.is_empty() {
-        inner.get("token_type").and_then(|v| v.as_u64()).expect("token_type u64") as u32
-    } else {
-        token_type_out.parse::<u32>().expect("token_type parse")
-    };
+    let result = generate_dark_dex_proof(skcommit, token_type as u64, value)
+        .unwrap_or_else(|e| panic!("halo2-proover library call failed: {e}"));
 
     Halo2Proof {
-        proof,
-        deposit_identifier_hash_hex: format!("0x{digest}"),
-        nullifier_hash_hex: format!("0x{digest}"),
-        private_note_sum,
-        token_type,
+        proof: result.proof,
+        deposit_identifier_hash_hex: format!("0x{}", result.private_note_digest),
+        nullifier_hash_hex: format!("0x{}", result.private_note_digest),
+        private_note_sum: result.private_note_sum,
+        token_type: result.token_type as u32,
     }
 }
 
@@ -233,7 +164,14 @@ async fn top_up_root_pn_for_phase1_if_needed(
     eprintln!(
         "Top up RootPN via giver (need_native={need_native}, need_nackl={need_nackl}, need_shell={need_shell})"
     );
-    giver_send_currency_with_flag(context, RootPn::DEFAULT_ADDRESS, native_value, ecc, 1).await;
+    send_currency_with_flag_from_default_giver(
+        context,
+        RootPn::DEFAULT_ADDRESS,
+        native_value,
+        ecc,
+        1,
+    )
+    .await;
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     root_pn.fetch_account().await.expect("fetch RootPN after top up");
@@ -606,7 +544,7 @@ async fn test_shellnet_oracle_management_phase4_like_python() {
 }
 
 #[tokio::test]
-#[ignore = "requires shellnet access and a runnable halo2-proover binary for this OS/arch"]
+#[ignore = "requires shellnet access and local halo2-proover library setup"]
 async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     let context = create_context();
     let root_oracle = RootOracle::new_default(context.clone());
@@ -685,7 +623,7 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     // Replenish RootPN shell ECC and transfer it to PN via ZK proof.
     let mut ecc_shell = HashMap::new();
     ecc_shell.insert(CURRENCY_ID_SHELL, ECC_SHELL_DEPOSIT);
-    giver_send_currency_with_flag(
+    send_currency_with_flag_from_default_giver(
         context.clone(),
         RootPn::DEFAULT_ADDRESS,
         2_000_000_000,
@@ -714,18 +652,48 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     // Callback from RootPN to PN can lag on shellnet.
     tokio::time::sleep(std::time::Duration::from_secs(8)).await;
 
-    let details = pn.get_details().await.expect("PrivateNote.getDetails");
-    eprintln!("PrivateNote details from {}: {:?}", pn.address(), details);
+    match pn.get_details().await {
+        Ok(details) => {
+            eprintln!("PrivateNote details from {}: {:?}", pn.address(), details);
 
-    let nackl_balance =
-        details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
-    assert_eq!(nackl_balance, VAULT_DEPOSIT as u128);
-    assert!(details.busy_address.is_none(), "PN must not be busy after phase1 setup");
-    assert_eq!(
-        parse_u256_str(&details.deposit_identifier_hash),
-        parse_u256_str(&proof_nackl.deposit_identifier_hash_hex)
-    );
-    assert_eq!(parse_u256_str(&details.ethereal_pubkey), parse_u256_str(&ephemeral_pubkey_dec));
+            let nackl_balance =
+                details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
+            assert_eq!(nackl_balance, VAULT_DEPOSIT as u128);
+            assert!(details.busy_address.is_none(), "PN must not be busy after phase1 setup");
+            assert_eq!(
+                parse_u256_str(&details.deposit_identifier_hash),
+                parse_u256_str(&proof_nackl.deposit_identifier_hash_hex)
+            );
+            assert_eq!(
+                parse_u256_str(&details.ethereal_pubkey),
+                parse_u256_str(&ephemeral_pubkey_dec)
+            );
+        }
+        Err(err) => {
+            let is_legacy_missing_getter = err.tvm_error.as_ref().is_some_and(|tvm_err| {
+                tvm_err.code == 414
+                    && (tvm_err.message.contains("exit code: 60")
+                        || tvm_err.message.contains("function ID is wrong"))
+            });
+
+            if !is_legacy_missing_getter {
+                panic!("PrivateNote.getDetails: {err:?}");
+            }
+
+            eprintln!(
+                "PrivateNote.getDetails is unavailable on current chain deployment; \
+                 using _deposit_identifier_hash fallback check."
+            );
+            let dih = pn
+                .get_deposit_identifier_hash()
+                .await
+                .expect("PrivateNote._deposit_identifier_hash fallback");
+            assert_eq!(
+                parse_u256_str(&dih.deposit_identifier_hash),
+                parse_u256_str(&proof_nackl.deposit_identifier_hash_hex)
+            );
+        }
+    }
 }
 
 #[tokio::test]

@@ -25,3 +25,6 @@ tvm_block.workspace = true
 tvm_client = { workspace = true, optional = true }
 
 shared = { path = "../shared", optional = true, default-features = false }
+
+[dev-dependencies]
+halo2-proover = { path = "../../halo2-proover" }

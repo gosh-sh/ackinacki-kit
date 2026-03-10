@@ -29,6 +29,9 @@ pub enum PmpEvent {
     EventCancelled = 126,
     PmpCancelled = 132,
     CreatorFeeCollected = 137,
+    PoolsFrozen = 140,
+    SplitProcessed = 141,
+    MergeProcessed = 142,
 }
 
 impl TryFrom<String> for PmpEvent {
@@ -55,6 +58,9 @@ impl TryFrom<String> for PmpEvent {
             126 => Ok(PmpEvent::EventCancelled),
             132 => Ok(PmpEvent::PmpCancelled),
             137 => Ok(PmpEvent::CreatorFeeCollected),
+            140 => Ok(PmpEvent::PoolsFrozen),
+            141 => Ok(PmpEvent::SplitProcessed),
+            142 => Ok(PmpEvent::MergeProcessed),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -88,6 +94,9 @@ pub enum DecodedPmpEvent {
     EventCancelled { event: Event, kind: PmpEvent },
     PmpCancelled { event: Event, kind: PmpEvent },
     CreatorFeeCollected { event: Event, kind: PmpEvent, data: CreatorFeeCollectedData },
+    PoolsFrozen { event: Event, kind: PmpEvent, data: PoolsFrozenData },
+    SplitProcessed { event: Event, kind: PmpEvent, data: SplitProcessedData },
+    MergeProcessed { event: Event, kind: PmpEvent, data: MergeProcessedData },
 }
 
 impl FromEvent for DecodedPmpEvent {
@@ -188,6 +197,39 @@ impl FromEvent for DecodedPmpEvent {
                 })?;
                 Ok(DecodedPmpEvent::CreatorFeeCollected { event: event.clone(), kind, data })
             }
+            PmpEvent::PoolsFrozen => {
+                let decoded = event.decode::<PoolsFrozenData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::PoolsFrozen { event: event.clone(), kind, data })
+            }
+            PmpEvent::SplitProcessed => {
+                let decoded = event.decode::<SplitProcessedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::SplitProcessed { event: event.clone(), kind, data })
+            }
+            PmpEvent::MergeProcessed => {
+                let decoded = event.decode::<MergeProcessedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for PMP event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPmpEvent::MergeProcessed { event: event.clone(), kind, data })
+            }
         }
     }
 }
@@ -261,4 +303,27 @@ pub struct NumOutcomesSetData {
 pub struct CreatorFeeCollectedData {
     #[serde(deserialize_with = "deserialize_u128")]
     pub fee: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::PoolsFrozen`.
+pub struct PoolsFrozenData {
+    #[serde(rename = "baseTotalPool", deserialize_with = "deserialize_u128")]
+    pub base_total_pool: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::SplitProcessed`.
+pub struct SplitProcessedData {
+    pub note: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub collateral: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `PmpEvent::MergeProcessed`.
+pub struct MergeProcessedData {
+    pub note: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub collateral: u128,
 }

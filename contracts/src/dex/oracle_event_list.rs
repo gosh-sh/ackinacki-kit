@@ -85,6 +85,14 @@ pub struct ParamsOfDeleteEvent {
     pub event_id: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `OracleEventList.confirmEvent` and `OracleEventList.cancelEvent`.
+pub struct ParamsOfConfirmOrCancelEvent {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 /// Result of `OracleEventList._events` getter.
 ///
@@ -130,6 +138,42 @@ impl OracleEventList {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "deleteEvent".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Confirm event and deploy PMP
+    ///
+    /// Original contract method: `confirmEvent`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn confirm_event(
+        &self,
+        params: ParamsOfConfirmOrCancelEvent,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "confirmEvent".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Cancel event in PMP
+    ///
+    /// Original contract method: `cancelEvent`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn cancel_event(
+        &self,
+        params: ParamsOfConfirmOrCancelEvent,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelEvent".to_string(),
             header: None,
             input: Some(json!(params)),
         };
