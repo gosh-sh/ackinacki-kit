@@ -4,6 +4,7 @@ use std::sync::Arc;
 use num_bigint::BigInt;
 use serde::Deserialize;
 use serde::Serialize;
+use shared::utils::sleep_ms;
 use tvm_block::Deserializable;
 use tvm_client::account::ParamsOfGetAccount;
 use tvm_client::boc::ParamsOfParse;
@@ -207,23 +208,6 @@ impl Account {
             sleep_ms(timeout).await;
         }
     }
-}
-
-async fn sleep_ms(ms: u64) {
-    sleep_impl(ms).await;
-}
-
-#[cfg(feature = "wasm")]
-async fn sleep_impl(ms: u64) {
-    use gloo_timers::future::TimeoutFuture;
-    TimeoutFuture::new(ms as u32).await;
-}
-
-#[cfg(not(feature = "wasm"))]
-async fn sleep_impl(ms: u64) {
-    use tokio::time::sleep;
-    use tokio::time::Duration;
-    sleep(Duration::from_millis(ms)).await;
 }
 
 #[cfg(test)]
