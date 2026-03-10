@@ -30,9 +30,9 @@ use crate::dex::root_pn::ParamsOfGetPmpAddress;
 use crate::dex::root_pn::ParamsOfGetPrivateNoteAddress;
 use crate::dex::root_pn::ParamsOfSendEccShellToPrivateNote;
 use crate::dex::root_pn::RootPn;
+use crate::giver::send_currency_with_flag_from_default_giver;
+use crate::giver::top_up_native_with_giver_if_below;
 use crate::tests::create_context;
-use crate::tests::giver_send_currency_with_flag;
-use crate::tests::top_up_native_with_giver_if_below;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::VersionAccessor;
@@ -164,7 +164,14 @@ async fn top_up_root_pn_for_phase1_if_needed(
     eprintln!(
         "Top up RootPN via giver (need_native={need_native}, need_nackl={need_nackl}, need_shell={need_shell})"
     );
-    giver_send_currency_with_flag(context, RootPn::DEFAULT_ADDRESS, native_value, ecc, 1).await;
+    send_currency_with_flag_from_default_giver(
+        context,
+        RootPn::DEFAULT_ADDRESS,
+        native_value,
+        ecc,
+        1,
+    )
+    .await;
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     root_pn.fetch_account().await.expect("fetch RootPN after top up");
@@ -616,7 +623,7 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     // Replenish RootPN shell ECC and transfer it to PN via ZK proof.
     let mut ecc_shell = HashMap::new();
     ecc_shell.insert(CURRENCY_ID_SHELL, ECC_SHELL_DEPOSIT);
-    giver_send_currency_with_flag(
+    send_currency_with_flag_from_default_giver(
         context.clone(),
         RootPn::DEFAULT_ADDRESS,
         2_000_000_000,

@@ -496,12 +496,12 @@ mod tests {
     use crate::authservice::profile::AuthProfile;
     use crate::authservice::profile::ParamsOfQueryProfileEvents;
     use crate::error::KitError;
+    use crate::giver::top_up_native_with_giver_if_below;
     use crate::mvsystem::multifactor::AccountData as MultifactorAccountData;
     use crate::mvsystem::multifactor::Multifactor;
     use crate::mvsystem::multifactor::ParamsOfGetEpkExpire;
     use crate::mvsystem::multifactor::ParamsOfSubmitTransaction;
     use crate::tests::create_context;
-    use crate::tests::top_up_native_with_giver_if_below;
     use crate::traits::AccountAccessor;
     use crate::traits::AddressAccessor;
     use crate::traits::DecodeAccountData;
