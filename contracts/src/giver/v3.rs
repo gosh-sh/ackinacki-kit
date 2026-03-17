@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use num_bigint::BigInt;
 use serde::Deserialize;
@@ -8,6 +7,7 @@ use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
+use shared::utils::sleep_ms;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
@@ -412,7 +412,7 @@ pub async fn top_up_native_with_giver_if_below<T>(
                         eprintln!(
                             "{label}: fetch_account {phase} transient network error on attempt {attempt}/{max_attempts}: {err:?}"
                         );
-                        tokio::time::sleep(Duration::from_millis(700)).await;
+                        sleep_ms(700).await;
                         continue;
                     }
 
@@ -447,7 +447,7 @@ pub async fn top_up_native_with_giver_if_below<T>(
     )
     .await;
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    sleep_ms(3_000).await;
     fetch_account_with_retry(contract, label, "after top-up").await;
 
     let guard = contract.account().lock().await;
