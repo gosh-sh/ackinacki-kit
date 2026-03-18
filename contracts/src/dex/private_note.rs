@@ -282,12 +282,15 @@ pub struct ParamsOfPlaceOrder {
     pub outcome_id: u32,
     #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
+    /// `uint256` encoded as decimal or hex string.
     #[serde(rename(serialize = "priceBps"))]
-    pub price_bps: u128,
+    pub price_bps: String,
     pub amount: u128,
     pub flags: u8,
     #[serde(rename(serialize = "minAmount"))]
     pub min_amount: u128,
+    #[serde(rename(serialize = "epochId"))]
+    pub epoch_id: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -325,12 +328,15 @@ pub struct ParamsOfOnOrderFilled {
     pub outcome_id: u32,
     #[serde(rename(serialize = "filledAmount"))]
     pub filled_amount: u128,
+    /// `uint256` encoded as decimal or hex string.
     #[serde(rename(serialize = "clearingPrice"))]
-    pub clearing_price: u128,
+    pub clearing_price: String,
     #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
     #[serde(rename(serialize = "refundAmount"))]
     pub refund_amount: u128,
+    #[serde(rename(serialize = "feeAmount"))]
+    pub fee_amount: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -80,6 +80,16 @@ pub struct ParamsOfSendTransaction {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `GiverV3.sendWithBody`.
+pub struct ParamsOfSendWithBody {
+    pub dest: String,
+    pub value: u64,
+    pub bounce: bool,
+    pub flag: u8,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 /// Parameters for `GiverV3.sendCurrency`.
 pub struct ParamsOfSendCurrency {
     pub dest: String,
@@ -94,6 +104,16 @@ pub struct ParamsOfSendCurrencyWithFlag {
     pub value: u64,
     pub ecc: HashMap<u32, u64>,
     pub flag: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `GiverV3.sendCurrencyWithBody`.
+pub struct ParamsOfSendCurrencyWithBody {
+    pub dest: String,
+    pub value: u64,
+    pub ecc: HashMap<u32, u64>,
+    pub flag: u8,
+    pub body: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -166,7 +186,26 @@ pub struct ParamsOfGetDataForVault {
 pub struct ParamsOfGetDataForAuthService {
     #[serde(rename(serialize = "profileCode"))]
     pub profile_code: String,
+    /// `uint256` encoded as decimal or hex string.
     pub pubkey: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `GiverV3.getAccumulatorData`.
+pub struct ParamsOfGetAccumulatorData {
+    #[serde(rename(serialize = "sellOrderCode"))]
+    pub sell_order_code: String,
+    /// `uint256` encoded as decimal or hex string.
+    pub pubkey: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+/// Parameters for `GiverV3.getExchangeData`.
+pub struct ParamsOfGetExchangeData {
+    /// `uint256` encoded as decimal or hex string.
+    pub pubkey: String,
+    #[serde(rename(serialize = "usdcWallet"))]
+    pub usdc_wallet: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -225,6 +264,20 @@ impl GiverV3 {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// Original contract method: `sendWithBody`.
+    pub async fn send_with_body(
+        &self,
+        params: ParamsOfSendWithBody,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "sendWithBody".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// Original contract method: `sendCurrency`.
     pub async fn send_currency(
         &self,
@@ -247,6 +300,20 @@ impl GiverV3 {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "sendCurrencyWithFlag".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `sendCurrencyWithBody`.
+    pub async fn send_currency_with_body(
+        &self,
+        params: ParamsOfSendCurrencyWithBody,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "sendCurrencyWithBody".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -320,6 +387,30 @@ impl GiverV3 {
     ) -> KitResult<ResultOfGetDataCell> {
         self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForAuthService>(
             "getDataForAuthService",
+            params,
+        )
+        .await
+    }
+
+    /// Original contract method: `getAccumulatorData`.
+    pub async fn get_accumulator_data(
+        &self,
+        params: ParamsOfGetAccumulatorData,
+    ) -> KitResult<ResultOfGetDataCell> {
+        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetAccumulatorData>(
+            "getAccumulatorData",
+            params,
+        )
+        .await
+    }
+
+    /// Original contract method: `getExchangeData`.
+    pub async fn get_exchange_data(
+        &self,
+        params: ParamsOfGetExchangeData,
+    ) -> KitResult<ResultOfGetDataCell> {
+        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetExchangeData>(
+            "getExchangeData",
             params,
         )
         .await

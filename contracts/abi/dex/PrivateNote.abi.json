@@ -320,10 +320,11 @@
 				{"name":"token_type","type":"uint32"},
 				{"name":"outcomeId","type":"uint32"},
 				{"name":"isBuy","type":"bool"},
-				{"name":"priceBps","type":"uint128"},
+				{"name":"priceBps","type":"uint256"},
 				{"name":"amount","type":"uint128"},
 				{"name":"flags","type":"uint8"},
-				{"name":"minAmount","type":"uint128"}
+				{"name":"minAmount","type":"uint128"},
+				{"name":"epochId","type":"uint64"}
 			],
 			"outputs": [
 			]
@@ -372,9 +373,10 @@
 				{"name":"token_type","type":"uint32"},
 				{"name":"outcomeId","type":"uint32"},
 				{"name":"filledAmount","type":"uint128"},
-				{"name":"clearingPrice","type":"uint128"},
+				{"name":"clearingPrice","type":"uint256"},
 				{"name":"isBuy","type":"bool"},
-				{"name":"refundAmount","type":"uint128"}
+				{"name":"refundAmount","type":"uint128"},
+				{"name":"feeAmount","type":"uint128"}
 			],
 			"outputs": [
 			]

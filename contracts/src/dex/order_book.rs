@@ -78,8 +78,9 @@ pub struct ParamsOfExecute {
     pub outcome_id: u32,
     #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
+    /// `uint256` encoded as decimal or hex string.
     #[serde(rename(serialize = "priceBps"))]
-    pub price_bps: u128,
+    pub price_bps: String,
     pub amount: u128,
     #[serde(rename(serialize = "orderId"))]
     pub order_id: u128,
@@ -87,6 +88,8 @@ pub struct ParamsOfExecute {
     pub flags: u8,
     #[serde(rename(serialize = "minAmount"))]
     pub min_amount: u128,
+    #[serde(rename(serialize = "epochId"))]
+    pub epoch_id: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -96,14 +99,14 @@ pub struct ResultOfGetDetails {
     pub oracle_list_hash: String,
     #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
-    #[serde(rename = "epochDuration", deserialize_with = "deserialize_u64")]
-    pub epoch_duration: u64,
-    #[serde(rename = "currentEpochStart", deserialize_with = "deserialize_u64")]
-    pub current_epoch_start: u64,
     #[serde(rename = "nextOrderId", deserialize_with = "deserialize_u128")]
     pub next_order_id: u128,
     #[serde(rename = "orderCount", deserialize_with = "deserialize_u128")]
     pub order_count: u128,
+    #[serde(rename = "totalMakerFees", deserialize_with = "deserialize_u128")]
+    pub total_maker_fees: u128,
+    #[serde(rename = "totalTakerFees", deserialize_with = "deserialize_u128")]
+    pub total_taker_fees: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -123,8 +126,9 @@ pub struct ResultOfGetOrder {
     pub is_buy: bool,
     #[serde(deserialize_with = "deserialize_u8")]
     pub flags: u8,
-    #[serde(rename = "priceBps", deserialize_with = "deserialize_u128")]
-    pub price_bps: u128,
+    /// `uint256` represented as returned by ABI.
+    #[serde(rename = "priceBps")]
+    pub price_bps: String,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
     #[serde(rename = "minAmount", deserialize_with = "deserialize_u128")]

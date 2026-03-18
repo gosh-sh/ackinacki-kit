@@ -140,8 +140,7 @@ pub struct ParamsOfQueryProfilesByMultifactor {
     pub created_at_from: Option<u64>,
     /// Maximum number of decoded records returned to caller.
     pub limit: Option<u32>,
-    /// Pagination cursor placeholder kept for backward compatibility.
-    /// Not used by current `account.events` GraphQL query.
+    /// GraphQL pagination cursor (`events.before`).
     pub before: Option<String>,
 }
 
@@ -156,6 +155,14 @@ impl Default for ParamsOfQueryProfilesByMultifactor {
 pub struct AuthProfileDeployedEventRecord {
     pub event: crate::event::Event,
     pub data: AuthProfileDeployedData,
+}
+
+/// Result of `query_profiles_by_multifactor` with relay cursor pagination state.
+#[derive(Debug, Clone)]
+pub struct QueryProfilesByMultifactorResult {
+    pub records: Vec<AuthProfileDeployedEventRecord>,
+    /// Relay cursor of the oldest edge — pass as `before` to fetch the next (older) page.
+    pub oldest_cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -192,6 +199,7 @@ struct GqlEvents {
 
 #[derive(Debug, Clone, Deserialize)]
 struct GqlEdge {
+    cursor: String,
     node: GqlEventNode,
 }
 
@@ -204,12 +212,17 @@ struct GqlEventNode {
     body: String,
 }
 
+fn oldest_edge_cursor(edges: &[GqlEdge]) -> Option<String> {
+    edges.first().map(|edge| edge.cursor.clone())
+}
+
 const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
-    query($address: String!, $dst: String!) {
+    query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
         account(address: $address) {
-          events(dst: $dst) {
+          events(dst: $dst, last: $last, before: $before) {
             edges {
+              cursor
               node {
                 msg_id
                 dst
@@ -356,7 +369,7 @@ impl AuthServiceRoot {
     pub async fn query_profiles_by_multifactor(
         &self,
         params: ParamsOfQueryProfilesByMultifactor,
-    ) -> KitResult<Vec<AuthProfileDeployedEventRecord>> {
+    ) -> KitResult<QueryProfilesByMultifactorResult> {
         let multifactor_hash = self
             .hash_multifactor(ParamsOfHashMultifactor { multifactor: params.multifactor })
             .await?
@@ -372,6 +385,8 @@ impl AuthServiceRoot {
                 variables: Some(json!({
                     "address": self.address(),
                     "dst": expected_dst,
+                    "last": limit,
+                    "before": params.before,
                 })),
             },
         )
@@ -394,8 +409,10 @@ impl AuthServiceRoot {
         })?;
 
         let created_at_from = params.created_at_from.unwrap_or_default();
+        let oldest_cursor = oldest_edge_cursor(&parsed.data.blockchain.account.events.edges);
         let mut result = Vec::new();
-        for event_node in parsed.data.blockchain.account.events.edges.into_iter().map(|e| e.node) {
+        for edge in parsed.data.blockchain.account.events.edges.into_iter() {
+            let event_node = edge.node;
             if event_node.created_at < created_at_from {
                 continue;
             }
@@ -454,7 +471,7 @@ impl AuthServiceRoot {
             }
         }
 
-        Ok(result)
+        Ok(QueryProfilesByMultifactorResult { records: result, oldest_cursor })
     }
 
     /// # Update root code
@@ -743,7 +760,7 @@ mod tests {
         let expected_profile = expected_profile.as_ref().to_string();
 
         for _ in 0..10 {
-            let records = match root
+            let query_result = match root
                 .query_profiles_by_multifactor(ParamsOfQueryProfilesByMultifactor {
                     multifactor: multifactor_address.clone(),
                     created_at_from: Some(created_at_from),
@@ -759,9 +776,13 @@ mod tests {
                     continue;
                 }
             };
-            eprintln!("query_profiles_by_multifactor fetched {} decoded events", records.len());
+            eprintln!(
+                "query_profiles_by_multifactor fetched {} decoded events (oldest_cursor={:?})",
+                query_result.records.len(),
+                query_result.oldest_cursor
+            );
 
-            for record in records {
+            for record in query_result.records {
                 if record.data.profile.eq_ignore_ascii_case(&expected_profile) {
                     return Some(record);
                 }
@@ -1111,5 +1132,57 @@ mod tests {
         } else {
             eprintln!("Skipped profile cleanup: multifactor rejected destroy");
         }
+    }
+
+    #[test]
+    fn test_query_profiles_gql_includes_relay_cursor() {
+        assert!(GQL_AUTHSERVICE_ROOT_EVENTS_QUERY
+            .contains("events(dst: $dst, last: $last, before: $before)"));
+        assert!(GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.contains("edges"));
+        assert!(GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.contains("cursor"));
+    }
+
+    #[test]
+    fn test_oldest_edge_cursor_is_extracted_from_gql_response() {
+        let raw = serde_json::json!({
+            "data": {
+                "blockchain": {
+                    "account": {
+                        "events": {
+                            "edges": [
+                                {
+                                    "cursor": "cursor_1",
+                                    "node": {
+                                        "msg_id": "msg_1",
+                                        "created_at": 1u64,
+                                        "dst": ":1",
+                                        "body": "te6ccgEBAQEAAgAAAA=="
+                                    }
+                                },
+                                {
+                                    "cursor": "cursor_2",
+                                    "node": {
+                                        "msg_id": "msg_2",
+                                        "created_at": 2u64,
+                                        "dst": ":2",
+                                        "body": "te6ccgEBAQEAAgAAAA=="
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        });
+
+        let parsed: GqlMessagesResponse =
+            serde_json::from_value(raw).expect("Deserialize GraphQL response with edges.cursor");
+        let cursor = oldest_edge_cursor(&parsed.data.blockchain.account.events.edges);
+        assert_eq!(cursor.as_deref(), Some("cursor_1"));
+    }
+
+    #[test]
+    fn test_oldest_edge_cursor_is_none_for_empty_edges() {
+        assert_eq!(oldest_edge_cursor(&[]), None);
     }
 }

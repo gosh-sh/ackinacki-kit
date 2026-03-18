@@ -135,8 +135,9 @@ pub struct OrderPlacedData {
     pub is_buy: bool,
     #[serde(deserialize_with = "deserialize_u8")]
     pub flags: u8,
-    #[serde(rename = "priceBps", deserialize_with = "deserialize_u128")]
-    pub price_bps: u128,
+    /// `uint256` represented as returned by ABI.
+    #[serde(rename = "priceBps")]
+    pub price_bps: String,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
 }
@@ -164,6 +165,11 @@ pub struct OrderFilledData {
     pub order_id: u128,
     #[serde(rename = "filledAmount", deserialize_with = "deserialize_u128")]
     pub filled_amount: u128,
-    #[serde(rename = "clearingPrice", deserialize_with = "deserialize_u128")]
-    pub clearing_price: u128,
+    /// `uint256` represented as returned by ABI.
+    #[serde(rename = "clearingPrice")]
+    pub clearing_price: String,
+    #[serde(rename = "feeAmount", deserialize_with = "deserialize_u128")]
+    pub fee_amount: u128,
+    #[serde(rename = "isTaker")]
+    pub is_taker: bool,
 }
