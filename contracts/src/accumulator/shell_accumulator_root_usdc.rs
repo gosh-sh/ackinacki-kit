@@ -188,9 +188,18 @@ impl Default for ParamsOfQueryAccumulatorRootEvents {
 }
 
 impl ShellAccumulatorRootUsdc {
+    /// Default zerostate accumulator root address.
+    pub const DEFAULT_ADDRESS: &'static str =
+        "0:3535353535353535353535353535353535353535353535353535353535353535";
+
     /// Create a wrapper for a deployed `ShellAccumulatorRootUSDC`.
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
         Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Create a wrapper bound to the default zerostate accumulator root.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(context, Self::DEFAULT_ADDRESS)
     }
 
     /// Original contract method: `claimUSDC`.
