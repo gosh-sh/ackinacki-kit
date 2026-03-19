@@ -1,4 +1,5 @@
 pub mod account;
+pub mod accumulator;
 pub mod authservice;
 pub mod bksystem;
 pub mod deserialize;

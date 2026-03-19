@@ -6,6 +6,7 @@ use tvm_client::error::ClientError;
 pub enum KitModule {
     Token(TokenModule),
     Giver(GiverModule),
+    Accumulator(AccumulatorModule),
     Event,
     Account,
     AuthService(AuthServiceModule),
@@ -25,6 +26,12 @@ pub enum TokenModule {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GiverModule {
     V3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AccumulatorModule {
+    ShellAccumulatorRootUsdc,
+    ShellSellOrderLot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -78,6 +85,12 @@ impl From<GiverModule> for KitModule {
     }
 }
 
+impl From<AccumulatorModule> for KitModule {
+    fn from(value: AccumulatorModule) -> Self {
+        KitModule::Accumulator(value)
+    }
+}
+
 impl From<MvSystemModule> for KitModule {
     fn from(value: MvSystemModule) -> Self {
         KitModule::MvSystem(value)
@@ -105,6 +118,7 @@ pub enum KitErrorCode {
     EmptyResult = 102,
     Decode = 103,
     Convert = 104,
+    InvalidInput = 105,
 
     // account
     AccountIsNotActive = 200,
