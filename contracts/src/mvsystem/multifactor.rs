@@ -297,6 +297,14 @@ pub struct ParamsOfDeleteJwkModulusByFactor {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetWhitelist {
+    /// Address to whitelist directly.
+    pub new_addr: String,
+    /// Slot index (any free u128 value).
+    pub index: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfUpdateWhitelist {
     pub epk_expire_at: u64,
     /// Destination contract enum
@@ -577,6 +585,28 @@ impl Multifactor {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "updateWhiteList".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Set whitelist entry directly by address
+    ///
+    /// Original contract method: `setWhiteList`
+    ///
+    /// Adds `new_addr` to `white_list_of_address` directly (no address
+    /// derivation). Use this for contract types where the destination
+    /// address cannot be computed from index/mirror (e.g. Accumulator
+    /// SellOrderLot).
+    pub async fn set_whitelist(
+        &self,
+        params: ParamsOfSetWhitelist,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setWhiteList".to_string(),
             header: None,
             input: Some(json!(params)),
         };

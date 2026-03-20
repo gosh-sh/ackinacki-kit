@@ -46,7 +46,7 @@ use crate::traits::SendMessage;
 use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/accumulator/ShellAccumulatorRootUSDC.abi.json");
-const ROOT_EVENT_KIND_COUNT: usize = 4;
+const ROOT_EVENT_KIND_COUNT: usize = 5;
 const ROOT_EVENT_PREFETCH_PER_KIND: usize = 2;
 const SELL_ORDER_CREATED_PAGE_SIZE: i32 = 100;
 const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY: &str = r#"

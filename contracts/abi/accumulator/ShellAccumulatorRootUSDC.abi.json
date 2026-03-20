@@ -140,6 +140,17 @@
 			]
 		},
 		{
+			"name": "MatchedOrders",
+			"inputs": [
+				{"name":"lastSold1","type":"uint64"},
+				{"name":"lastSold10","type":"uint64"},
+				{"name":"lastSold100","type":"uint64"},
+				{"name":"lastSold1000","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "UsdcClaimed",
 			"inputs": [
 				{"name":"orderId","type":"uint64"},

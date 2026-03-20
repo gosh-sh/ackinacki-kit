@@ -21,6 +21,7 @@ pub enum AccumulatorRootEvent {
     ShellPurchased = 611,
     UsdcClaimed = 612,
     NacklRedeemed = 613,
+    MatchedOrders = 617,
 }
 
 // TODO(contracts/accumulator): modifiers.sol also defines external ids
@@ -30,8 +31,13 @@ pub enum AccumulatorRootEvent {
 // Add typed support here as soon as corresponding Solidity `emit` paths appear.
 
 impl AccumulatorRootEvent {
-    pub const ALL: [Self; 4] =
-        [Self::SellOrderCreated, Self::ShellPurchased, Self::UsdcClaimed, Self::NacklRedeemed];
+    pub const ALL: [Self; 5] = [
+        Self::SellOrderCreated,
+        Self::ShellPurchased,
+        Self::UsdcClaimed,
+        Self::NacklRedeemed,
+        Self::MatchedOrders,
+    ];
 
     /// Returns external destination form used by GraphQL / query_collection.
     pub fn to_external_address(&self) -> String {
@@ -57,6 +63,7 @@ impl TryFrom<String> for AccumulatorRootEvent {
             611 => Ok(Self::ShellPurchased),
             612 => Ok(Self::UsdcClaimed),
             613 => Ok(Self::NacklRedeemed),
+            617 => Ok(Self::MatchedOrders),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -77,6 +84,7 @@ pub enum DecodedAccumulatorRootEvent {
     ShellPurchased { event: Event, kind: AccumulatorRootEvent, data: ShellPurchasedData },
     UsdcClaimed { event: Event, kind: AccumulatorRootEvent, data: UsdcClaimedData },
     NacklRedeemed { event: Event, kind: AccumulatorRootEvent, data: NacklRedeemedData },
+    MatchedOrders { event: Event, kind: AccumulatorRootEvent, data: MatchedOrdersData },
 }
 
 impl DecodedAccumulatorRootEvent {
@@ -86,6 +94,7 @@ impl DecodedAccumulatorRootEvent {
             Self::ShellPurchased { event, .. } => event,
             Self::UsdcClaimed { event, .. } => event,
             Self::NacklRedeemed { event, .. } => event,
+            Self::MatchedOrders { event, .. } => event,
         }
     }
 }
@@ -138,6 +147,17 @@ impl FromEvent for DecodedAccumulatorRootEvent {
                 })?;
                 Ok(Self::NacklRedeemed { event: event.clone(), kind, data })
             }
+            AccumulatorRootEvent::MatchedOrders => {
+                let decoded = event.decode::<MatchedOrdersData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for accumulator root event `{}`", event.dst),
+                    )
+                })?;
+                Ok(Self::MatchedOrders { event: event.clone(), kind, data })
+            }
         }
     }
 }
@@ -182,6 +202,18 @@ pub struct NacklRedeemedData {
     pub burn_amount: u128,
     #[serde(deserialize_with = "deserialize_u128")]
     pub payout: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MatchedOrdersData {
+    #[serde(rename = "lastSold1", deserialize_with = "deserialize_u64")]
+    pub last_sold_1: u64,
+    #[serde(rename = "lastSold10", deserialize_with = "deserialize_u64")]
+    pub last_sold_10: u64,
+    #[serde(rename = "lastSold100", deserialize_with = "deserialize_u64")]
+    pub last_sold_100: u64,
+    #[serde(rename = "lastSold1000", deserialize_with = "deserialize_u64")]
+    pub last_sold_1000: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -299,5 +331,10 @@ mod tests {
         let parsed_prefixed =
             AccumulatorRootEvent::try_from(dst_with_workchain_prefix).expect("parse 0:... form");
         assert_eq!(parsed_prefixed, AccumulatorRootEvent::NacklRedeemed);
+
+        let matched_orders_dst = AccumulatorRootEvent::MatchedOrders.to_external_address();
+        let parsed_matched =
+            AccumulatorRootEvent::try_from(matched_orders_dst).expect("parse MatchedOrders");
+        assert_eq!(parsed_matched, AccumulatorRootEvent::MatchedOrders);
     }
 }
