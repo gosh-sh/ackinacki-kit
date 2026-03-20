@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde::Deserialize;
@@ -8,15 +10,20 @@ use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
+use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
+use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::accumulator::events::AccumulatorRootEvent;
 use crate::accumulator::events::DecodedAccumulatorRootEvent;
+use crate::accumulator::events::SellOrderCreatedData;
 use crate::accumulator::is_unsupported_created_at_filter_error;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
+use crate::accumulator::VALID_DENOMS;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
@@ -25,6 +32,7 @@ use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
 use crate::event::query_events as query_external_events;
+use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::AutoContract;
@@ -40,6 +48,26 @@ use crate::KitResult;
 const ABI: &str = include_str!("../../abi/accumulator/ShellAccumulatorRootUSDC.abi.json");
 const ROOT_EVENT_KIND_COUNT: usize = 4;
 const ROOT_EVENT_PREFETCH_PER_KIND: usize = 2;
+const SELL_ORDER_CREATED_PAGE_SIZE: i32 = 100;
+const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY: &str = r#"
+    query($address: String!, $dst: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(address: $address) {
+          events(dst: $dst, last: $last, before: $before) {
+            edges {
+              cursor
+              node {
+                msg_id
+                created_at
+                dst
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+"#;
 
 #[derive(Debug, Clone)]
 /// Wrapper for the accumulator root `ShellAccumulatorRootUSDC` contract.
@@ -181,6 +209,18 @@ pub struct ParamsOfQueryAccumulatorRootEvents {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, Clone)]
+/// Aggregated seller order status for wallet/UI usage.
+pub struct SellerOrderInfo {
+    pub denom: u16,
+    pub order_id: u64,
+    pub sell_order_address: String,
+    pub claimed: bool,
+    pub sold: bool,
+    /// Current queue position for unsold orders (`1..N`), `0` for sold ones.
+    pub position_in_queue: u64,
+}
+
 impl Default for ParamsOfQueryAccumulatorRootEvents {
     fn default() -> Self {
         Self { created_at_from: None, limit: Some(50) }
@@ -282,6 +322,62 @@ impl ShellAccumulatorRootUsdc {
             .sell_order_addr;
         let sell_order_lot = ShellSellOrderLot::new(self.context().clone(), &sell_order_addr);
         sell_order_lot.claim(signer).await
+    }
+
+    /// Returns active sell orders for `seller` using seller-directed
+    /// `SellOrderCreated` events and local status derivation from queues.
+    ///
+    /// New accumulator contract emits `SellOrderCreated` twice:
+    /// 1. to seller external address (`dest = :<seller.value>`)
+    /// 2. to shared event channel (`dest = :...0262`, id=610)
+    ///
+    /// This method primarily uses seller-specific `dest`, which allows fetching
+    /// orders for one seller without scanning global sell-order history.
+    pub async fn get_orders_by_seller(&self, seller: &str) -> KitResult<Vec<SellerOrderInfo>> {
+        let created_orders = self.query_created_orders_by_seller(seller).await?;
+
+        let mut queue_states = HashMap::new();
+        for denom in VALID_DENOMS {
+            let state = self.get_queue_state(ParamsOfGetQueueState { d: denom }).await?;
+            queue_states.insert(denom, state);
+        }
+
+        let mut result = Vec::new();
+        for (denom, order_id) in created_orders {
+            let Some(queue_state) = queue_states.get(&denom) else {
+                continue;
+            };
+            let status = order_status_from_queue(queue_state, order_id);
+            if !status.active {
+                continue;
+            }
+
+            let sell_order_address = self
+                .get_sell_order_address(ParamsOfGetSellOrderAddress { d: denom, order_id })
+                .await?
+                .sell_order_addr;
+
+            let sell_order_lot =
+                ShellSellOrderLot::new(self.context().clone(), &sell_order_address);
+            let details = sell_order_lot.get_details().await?;
+            if !addresses_equal(&details.owner, seller) {
+                continue;
+            }
+
+            result.push(SellerOrderInfo {
+                denom,
+                order_id,
+                sell_order_address,
+                claimed: details.claimed,
+                sold: status.sold,
+                position_in_queue: status.position_in_queue,
+            });
+        }
+
+        result.sort_by(|left, right| {
+            left.denom.cmp(&right.denom).then_with(|| left.order_id.cmp(&right.order_id))
+        });
+        Ok(result)
     }
 
     /// Original contract method: `owedUsdcTotal`.
@@ -391,5 +487,272 @@ impl ShellAccumulatorRootUsdc {
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
+    }
+
+    async fn query_created_orders_by_seller(&self, seller: &str) -> KitResult<Vec<(u16, u64)>> {
+        let seller_normalized = normalize_address(seller);
+        let seller_dst = internal_to_external_address(seller);
+        let by_seller_dst =
+            self.query_created_orders_by_dst(&seller_dst, &seller_normalized).await?;
+        if !by_seller_dst.is_empty() {
+            return Ok(by_seller_dst);
+        }
+
+        // Backward compatibility for older accumulator deployments where
+        // `SellOrderCreated` was emitted only to fixed external id `610`.
+        let legacy_dst = AccumulatorRootEvent::SellOrderCreated.to_external_address();
+        self.query_created_orders_by_dst(&legacy_dst, &seller_normalized).await
+    }
+
+    async fn query_created_orders_by_dst(
+        &self,
+        dst: &str,
+        seller_normalized: &str,
+    ) -> KitResult<Vec<(u16, u64)>> {
+        let mut before: Option<String> = None;
+        let mut seen = BTreeSet::<(u16, u64)>::new();
+
+        loop {
+            let raw = net::query(
+                self.context().clone(),
+                net::ParamsOfQuery {
+                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
+                    variables: Some(json!({
+                        "address": self.address(),
+                        "dst": dst,
+                        "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                        "before": before,
+                    })),
+                },
+            )
+            .await
+            .map_err(|e| {
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::QueryEvents,
+                    "Query SellOrderCreated events with GraphQL",
+                )
+                .with_tvm_error(e)
+            })?;
+
+            let parsed: GqlMessagesResponse = serde_json::from_value(raw.result).map_err(|e| {
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::DeserializeFailed,
+                    format!("Deserialize SellOrderCreated GraphQL response ({e})"),
+                )
+            })?;
+
+            let edges = parsed.data.blockchain.account.events.edges;
+            if edges.is_empty() {
+                break;
+            }
+
+            let next_before = edges.first().map(|edge| edge.cursor.clone());
+            for edge in edges {
+                let node = edge.node;
+                let decoded = tvm_client::abi::decode_message_body(
+                    self.context().clone(),
+                    ParamsOfDecodeMessageBody {
+                        abi: self.abi().clone(),
+                        body: node.body,
+                        is_internal: false,
+                        allow_partial: true,
+                        function_name: None,
+                        data_layout: None,
+                    },
+                )
+                .map_err(|e| {
+                    KitError::new(
+                        Self::MODULE,
+                        KitErrorCode::Decode,
+                        "Decode SellOrderCreated body",
+                    )
+                    .with_tvm_error(e)
+                })?;
+
+                if decoded.name != "SellOrderCreated" {
+                    continue;
+                }
+
+                let raw_value = decoded.value.ok_or_else(|| {
+                    KitError::new(
+                        Self::MODULE,
+                        KitErrorCode::EmptyData,
+                        "Empty SellOrderCreated payload",
+                    )
+                })?;
+                let data =
+                    serde_json::from_value::<SellOrderCreatedData>(raw_value).map_err(|e| {
+                        KitError::new(
+                            Self::MODULE,
+                            KitErrorCode::DeserializeFailed,
+                            format!("Deserialize SellOrderCreated payload ({e})"),
+                        )
+                    })?;
+
+                if normalize_address(&data.seller) == seller_normalized {
+                    seen.insert((data.denom, data.order_id));
+                }
+            }
+
+            match (before.as_ref(), next_before) {
+                (_, None) => break,
+                (Some(current), Some(next)) if current == &next => break,
+                (_, Some(next)) => before = Some(next),
+            }
+        }
+
+        Ok(seen.into_iter().collect())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlMessagesResponse {
+    data: GqlMessagesData,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlMessagesData {
+    blockchain: GqlBlockchain,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlBlockchain {
+    account: GqlAccount,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlAccount {
+    events: GqlEvents,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEvents {
+    edges: Vec<GqlEdge>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEdge {
+    cursor: String,
+    node: GqlEventNode,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventNode {
+    #[serde(rename = "msg_id")]
+    _msg_id: String,
+    #[serde(rename = "created_at")]
+    _created_at: u64,
+    #[serde(rename = "dst")]
+    _dst: String,
+    body: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct OrderQueueStatus {
+    active: bool,
+    sold: bool,
+    position_in_queue: u64,
+}
+
+fn order_status_from_queue(state: &ResultOfGetQueueState, order_id: u64) -> OrderQueueStatus {
+    if order_id == 0 {
+        return OrderQueueStatus { active: false, sold: false, position_in_queue: 0 };
+    }
+
+    let unsold = order_id > state.sold_prefix && order_id < state.next_id;
+    if unsold {
+        return OrderQueueStatus {
+            active: true,
+            sold: false,
+            position_in_queue: order_id.saturating_sub(state.sold_prefix),
+        };
+    }
+
+    let sold_start = if state.owed_count == 0 {
+        1
+    } else {
+        state.sold_prefix.saturating_sub(state.owed_count.saturating_sub(1)).max(1)
+    };
+    let sold_unclaimed =
+        state.owed_count > 0 && order_id >= sold_start && order_id <= state.sold_prefix;
+    if sold_unclaimed {
+        return OrderQueueStatus { active: true, sold: true, position_in_queue: 0 };
+    }
+
+    OrderQueueStatus { active: false, sold: false, position_in_queue: 0 }
+}
+
+fn normalize_address(address: &str) -> String {
+    address
+        .strip_prefix("0x")
+        .or_else(|| address.strip_prefix("0X"))
+        .or_else(|| address.strip_prefix("0:"))
+        .or_else(|| address.strip_prefix(':'))
+        .unwrap_or(address)
+        .to_ascii_lowercase()
+}
+
+fn internal_to_external_address(address: &str) -> String {
+    format!(":{}", normalize_address(address))
+}
+
+fn addresses_equal(left: &str, right: &str) -> bool {
+    normalize_address(left) == normalize_address(right)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::addresses_equal;
+    use super::internal_to_external_address;
+    use super::order_status_from_queue;
+    use super::OrderQueueStatus;
+    use super::ResultOfGetQueueState;
+
+    #[test]
+    fn order_status_marks_unsold_and_position() {
+        let state =
+            ResultOfGetQueueState { next_id: 11, available: 4, sold_prefix: 6, owed_count: 2 };
+        let status = order_status_from_queue(&state, 9);
+        assert_eq!(status, OrderQueueStatus { active: true, sold: false, position_in_queue: 3 });
+    }
+
+    #[test]
+    fn order_status_marks_sold_unclaimed() {
+        let state =
+            ResultOfGetQueueState { next_id: 21, available: 8, sold_prefix: 12, owed_count: 3 };
+        let status = order_status_from_queue(&state, 10);
+        assert_eq!(status, OrderQueueStatus { active: true, sold: true, position_in_queue: 0 });
+    }
+
+    #[test]
+    fn order_status_skips_inactive_or_claimed_orders() {
+        let state =
+            ResultOfGetQueueState { next_id: 21, available: 8, sold_prefix: 12, owed_count: 3 };
+        let status = order_status_from_queue(&state, 5);
+        assert_eq!(status, OrderQueueStatus { active: false, sold: false, position_in_queue: 0 });
+    }
+
+    #[test]
+    fn addresses_equal_accepts_common_prefix_forms() {
+        assert!(addresses_equal(
+            "0:12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c",
+            ":12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c",
+        ));
+        assert!(addresses_equal(
+            "0x12F6B8EEEC7E417F9B56ED3635AED523D362A1AABE504AE4731D97C03A4ED60C",
+            "12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c",
+        ));
+    }
+
+    #[test]
+    fn internal_to_external_address_normalizes_internal_forms() {
+        assert_eq!(
+            internal_to_external_address(
+                "0:12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c"
+            ),
+            ":12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c"
+        );
     }
 }
