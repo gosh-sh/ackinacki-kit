@@ -6,6 +6,7 @@ pub mod deserialize;
 pub mod dex;
 pub mod error;
 pub mod event;
+pub mod exchange;
 pub mod giver;
 pub mod mvconfig;
 pub mod mvsystem;

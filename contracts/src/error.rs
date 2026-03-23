@@ -7,6 +7,7 @@ pub enum KitModule {
     Token(TokenModule),
     Giver(GiverModule),
     Accumulator(AccumulatorModule),
+    Exchange(ExchangeModule),
     Event,
     Account,
     AuthService(AuthServiceModule),
@@ -32,6 +33,11 @@ pub enum GiverModule {
 pub enum AccumulatorModule {
     ShellAccumulatorRootUsdc,
     ShellSellOrderLot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ExchangeModule {
+    Exchange,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -88,6 +94,12 @@ impl From<GiverModule> for KitModule {
 impl From<AccumulatorModule> for KitModule {
     fn from(value: AccumulatorModule) -> Self {
         KitModule::Accumulator(value)
+    }
+}
+
+impl From<ExchangeModule> for KitModule {
+    fn from(value: ExchangeModule) -> Self {
+        KitModule::Exchange(value)
     }
 }
 

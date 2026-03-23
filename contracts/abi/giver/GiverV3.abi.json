@@ -98,55 +98,6 @@
 			]
 		},
 		{
-			"name": "getDataForPMP",
-			"inputs": [
-				{"name":"PMPCode","type":"cell"},
-				{"name":"PMPWalletCode","type":"cell"},
-				{"name":"NullifierCode","type":"cell"},
-				{"name":"OracleCode","type":"cell"},
-				{"name":"OracleEventListCode","type":"cell"},
-				{"name":"OrderBookCode","type":"cell"},
-				{"name":"pubkey","type":"uint256"}
-			],
-			"outputs": [
-				{"name":"value0","type":"cell"}
-			]
-		},
-		{
-			"name": "getDataForOracle",
-			"inputs": [
-				{"name":"PMPCode","type":"cell"},
-				{"name":"PMPWalletCode","type":"cell"},
-				{"name":"OracleCode","type":"cell"},
-				{"name":"OracleEventListCode","type":"cell"},
-				{"name":"pubkey","type":"uint256"}
-			],
-			"outputs": [
-				{"name":"value0","type":"cell"}
-			]
-		},
-		{
-			"name": "getDataForVault",
-			"inputs": [
-				{"name":"PMPWalletCode","type":"cell"},
-				{"name":"pubkey","type":"uint256"},
-				{"name":"root","type":"address"}
-			],
-			"outputs": [
-				{"name":"value0","type":"cell"}
-			]
-		},
-		{
-			"name": "getDataForAuthService",
-			"inputs": [
-				{"name":"profileCode","type":"cell"},
-				{"name":"pubkey","type":"uint256"}
-			],
-			"outputs": [
-				{"name":"value0","type":"cell"}
-			]
-		},
-		{
 			"name": "getAccumulatorData",
 			"inputs": [
 				{"name":"sellOrderCode","type":"cell"},
