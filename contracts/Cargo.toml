@@ -26,4 +26,4 @@ tvm_client = { workspace = true, optional = true }
 shared = { path = "../shared", optional = true, default-features = false }
 
 [dev-dependencies]
-halo2-proover = { path = "../../halo2-proover" }
+halo2-proover = { git = "ssh://git@github.com/gosh-sh/halo2-proover", branch = "lib" }
