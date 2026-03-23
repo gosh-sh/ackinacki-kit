@@ -30,6 +30,14 @@
 			"outputs": []
 		},
 		{
+			"name": "mintAndSendAccumulator",
+			"inputs": [
+				{ "name": "buyer", "type": "address" },
+				{ "name": "value", "type": "uint128" }
+			],
+			"outputs": []
+		},
+		{
 			"name": "setPubkey",
 			"inputs": [{ "name": "pubkey", "type": "uint256" }],
 			"outputs": []
@@ -56,6 +64,11 @@
 			"name": "getOwnerPubkey",
 			"inputs": [],
 			"outputs": [{ "name": "value0", "type": "uint256" }]
+		},
+		{
+			"name": "getTotalMinted",
+			"inputs": [],
+			"outputs": [{ "name": "value0", "type": "uint128" }]
 		},
 		{
 			"name": "getVersion",
@@ -89,6 +102,7 @@
 		{ "init": false, "name": "_timestamp", "type": "uint64" },
 		{ "init": false, "name": "_constructorFlag", "type": "bool" },
 		{ "init": false, "name": "_ownerPubkey", "type": "uint256" },
-		{ "init": false, "name": "_usdcWallet", "type": "address" }
+		{ "init": false, "name": "_usdcWallet", "type": "address" },
+		{ "init": false, "name": "_totalMinted", "type": "uint128" }
 	]
 }
