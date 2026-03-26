@@ -73,6 +73,14 @@ pub struct ParamsOfMintAndSend {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `Exchange.mintAndSendAccumulator`.
+pub struct ParamsOfMintAndSendAccumulator {
+    #[serde(rename(serialize = "buyer"))]
+    pub recipient: String,
+    pub value: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
 /// Parameters for `Exchange.setPubkey`.
 pub struct ParamsOfSetPubkey {
     /// `uint256` encoded as decimal or hex string.
@@ -130,6 +138,20 @@ impl Exchange {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "mintAndSend".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `mintAndSendAccumulator`.
+    pub async fn mint_and_send_accumulator(
+        &self,
+        params: ParamsOfMintAndSendAccumulator,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "mintAndSendAccumulator".to_string(),
             header: None,
             input: Some(json!(params)),
         };

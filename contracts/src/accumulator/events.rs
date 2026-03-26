@@ -79,6 +79,7 @@ impl Display for AccumulatorRootEvent {
     }
 }
 
+#[derive(Debug)]
 pub enum DecodedAccumulatorRootEvent {
     SellOrderCreated { event: Event, kind: AccumulatorRootEvent, data: SellOrderCreatedData },
     ShellPurchased { event: Event, kind: AccumulatorRootEvent, data: ShellPurchasedData },
