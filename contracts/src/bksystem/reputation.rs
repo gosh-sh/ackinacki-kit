@@ -76,6 +76,7 @@ impl AccountAccessor for ReputationCoefficientCalculator {
             data: None,
             balance: None,
             acc_type: AccountStatus::Active,
+            code_hash: None,
             ecc: BTreeMap::new(),
         };
 

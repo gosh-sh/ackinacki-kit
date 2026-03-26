@@ -46,6 +46,7 @@ pub struct Account {
     pub data: Option<String>,
     pub balance: Option<BigInt>,
     pub acc_type: AccountStatus,
+    pub code_hash: Option<String>,
     pub ecc: BTreeMap<u32, BigInt>,
 }
 
@@ -56,6 +57,7 @@ struct AccountData {
     #[serde(deserialize_with = "deserialize_account_balance")]
     balance: Option<BigInt>,
     acc_type: AccountStatus,
+    code_hash: Option<String>,
 }
 
 #[derive(Debug)]
@@ -80,6 +82,7 @@ impl Account {
             data: None,
             balance: None,
             acc_type: AccountStatus::NonExist,
+            code_hash: None,
             ecc: BTreeMap::new(),
         }
     }
@@ -89,6 +92,7 @@ impl Account {
         self.data = None;
         self.acc_type = AccountStatus::NonExist;
         self.balance = None;
+        self.code_hash = None;
         self.ecc = BTreeMap::new();
     }
 
@@ -159,6 +163,7 @@ impl Account {
         self.data = deserialized.data;
         self.acc_type = deserialized.acc_type;
         self.balance = deserialized.balance;
+        self.code_hash = deserialized.code_hash;
         self.ecc = match tvm_account.balance() {
             Some(balance) => {
                 let mut map = BTreeMap::new();
