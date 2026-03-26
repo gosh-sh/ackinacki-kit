@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use base64::Engine;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -20,6 +22,7 @@ use crate::account::Account;
 use crate::accumulator::events::AccumulatorRootEvent;
 use crate::accumulator::events::DecodedAccumulatorRootEvent;
 use crate::accumulator::events::SellOrderCreatedData;
+use crate::accumulator::events::UsdcClaimedData;
 use crate::accumulator::is_unsupported_created_at_filter_error;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
@@ -221,6 +224,23 @@ pub struct SellerOrderInfo {
     pub position_in_queue: u64,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ParamsOfGetOrdersBySeller {
+    pub seller: String,
+    /// Max items per page. Default 20.
+    pub limit: Option<u32>,
+    /// Opaque cursor from previous page. `None` = first page.
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResultOfGetOrdersBySeller {
+    pub orders: Vec<SellerOrderInfo>,
+    /// Cursor for the next page. `None` = last page.
+    pub next_cursor: Option<String>,
+    pub has_next_page: bool,
+}
+
 impl Default for ParamsOfQueryAccumulatorRootEvents {
     fn default() -> Self {
         Self { created_at_from: None, limit: Some(50) }
@@ -333,8 +353,21 @@ impl ShellAccumulatorRootUsdc {
     ///
     /// This method primarily uses seller-specific `dest`, which allows fetching
     /// orders for one seller without scanning global sell-order history.
-    pub async fn get_orders_by_seller(&self, seller: &str) -> KitResult<Vec<SellerOrderInfo>> {
+    /// Returns paginated sell orders for `seller`.
+    pub async fn get_orders_by_seller(
+        &self,
+        params: ParamsOfGetOrdersBySeller,
+    ) -> KitResult<ResultOfGetOrdersBySeller> {
+        let seller = &params.seller;
+        let limit = params.limit.unwrap_or(20).max(1) as usize;
+        let after = params
+            .cursor
+            .as_deref()
+            .map(decode_cursor)
+            .transpose()?;
+
         let created_orders = self.query_created_orders_by_seller(seller).await?;
+        let claimed_orders = self.query_claimed_orders(seller).await?;
 
         let mut queue_states = HashMap::new();
         for denom in VALID_DENOMS {
@@ -342,15 +375,50 @@ impl ShellAccumulatorRootUsdc {
             queue_states.insert(denom, state);
         }
 
-        let mut result = Vec::new();
+        // Build sorted candidate list (cheap — no RPC per item).
+        let mut candidates: Vec<(u16, u64)> = Vec::new();
         for (denom, order_id) in created_orders {
+            if claimed_orders.contains(&(denom, order_id)) {
+                continue;
+            }
             let Some(queue_state) = queue_states.get(&denom) else {
                 continue;
             };
-            let status = order_status_from_queue(queue_state, order_id);
-            if !status.active {
+            if order_id == 0 || order_id >= queue_state.next_id {
                 continue;
             }
+            candidates.push((denom, order_id));
+        }
+        candidates.sort();
+
+        // Skip past cursor.
+        let start = match after {
+            Some(cursor_key) => {
+                candidates
+                    .iter()
+                    .position(|k| *k > cursor_key)
+                    .unwrap_or(candidates.len())
+            }
+            None => 0,
+        };
+
+        // Take limit+1 to detect next page.
+        let page_candidates = &candidates[start..candidates.len().min(start + limit + 1)];
+
+        // Fetch details only for this page (expensive part).
+        let mut result = Vec::new();
+        for &(denom, order_id) in page_candidates {
+            if result.len() >= limit + 1 {
+                break;
+            }
+
+            let queue_state = &queue_states[&denom];
+            let sold = order_id <= queue_state.sold_prefix;
+            let position_in_queue = if sold {
+                0
+            } else {
+                order_id.saturating_sub(queue_state.sold_prefix)
+            };
 
             let sell_order_address = self
                 .get_sell_order_address(ParamsOfGetSellOrderAddress { d: denom, order_id })
@@ -359,7 +427,10 @@ impl ShellAccumulatorRootUsdc {
 
             let sell_order_lot =
                 ShellSellOrderLot::new(self.context().clone(), &sell_order_address);
-            let details = sell_order_lot.get_details().await?;
+            let details = match sell_order_lot.get_details().await {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
             if !addresses_equal(&details.owner, seller) {
                 continue;
             }
@@ -369,15 +440,23 @@ impl ShellAccumulatorRootUsdc {
                 order_id,
                 sell_order_address,
                 claimed: details.claimed,
-                sold: status.sold,
-                position_in_queue: status.position_in_queue,
+                sold,
+                position_in_queue,
             });
         }
 
-        result.sort_by(|left, right| {
-            left.denom.cmp(&right.denom).then_with(|| left.order_id.cmp(&right.order_id))
-        });
-        Ok(result)
+        let has_next_page = result.len() > limit;
+        if has_next_page {
+            result.truncate(limit);
+        }
+
+        let next_cursor = if has_next_page {
+            result.last().map(|o| encode_cursor(o.denom, o.order_id))
+        } else {
+            None
+        };
+
+        Ok(ResultOfGetOrdersBySeller { orders: result, next_cursor, has_next_page })
     }
 
     /// Original contract method: `owedUsdcTotal`.
@@ -605,6 +684,105 @@ impl ShellAccumulatorRootUsdc {
 
         Ok(seen.into_iter().collect())
     }
+
+    /// Queries `UsdcClaimed` events emitted by the root contract and returns
+    /// the set of `(denom, order_id)` pairs that have been fully claimed by `seller`.
+    async fn query_claimed_orders(&self, seller: &str) -> KitResult<BTreeSet<(u16, u64)>> {
+        let seller_normalized = normalize_address(seller);
+        let dst = AccumulatorRootEvent::UsdcClaimed.to_external_address();
+        let mut before: Option<String> = None;
+        let mut claimed = BTreeSet::<(u16, u64)>::new();
+
+        loop {
+            let raw = net::query(
+                self.context().clone(),
+                net::ParamsOfQuery {
+                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
+                    variables: Some(json!({
+                        "address": self.address(),
+                        "dst": dst,
+                        "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                        "before": before,
+                    })),
+                },
+            )
+            .await
+            .map_err(|e| {
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::QueryEvents,
+                    "Query UsdcClaimed events with GraphQL",
+                )
+                .with_tvm_error(e)
+            })?;
+
+            let parsed: GqlMessagesResponse =
+                serde_json::from_value(raw.result).map_err(|e| {
+                    KitError::new(
+                        Self::MODULE,
+                        KitErrorCode::DeserializeFailed,
+                        format!("Deserialize UsdcClaimed GraphQL response ({e})"),
+                    )
+                })?;
+
+            let edges = parsed.data.blockchain.account.events.edges;
+            if edges.is_empty() {
+                break;
+            }
+
+            let next_before = edges.first().map(|edge| edge.cursor.clone());
+            for edge in edges {
+                let node = edge.node;
+                let decoded = tvm_client::abi::decode_message_body(
+                    self.context().clone(),
+                    ParamsOfDecodeMessageBody {
+                        abi: self.abi().clone(),
+                        body: node.body,
+                        is_internal: false,
+                        allow_partial: true,
+                        function_name: None,
+                        data_layout: None,
+                    },
+                )
+                .map_err(|e| {
+                    KitError::new(Self::MODULE, KitErrorCode::Decode, "Decode UsdcClaimed body")
+                        .with_tvm_error(e)
+                })?;
+
+                if decoded.name != "UsdcClaimed" {
+                    continue;
+                }
+
+                let raw_value = decoded.value.ok_or_else(|| {
+                    KitError::new(
+                        Self::MODULE,
+                        KitErrorCode::EmptyData,
+                        "Empty UsdcClaimed payload",
+                    )
+                })?;
+                let data =
+                    serde_json::from_value::<UsdcClaimedData>(raw_value).map_err(|e| {
+                        KitError::new(
+                            Self::MODULE,
+                            KitErrorCode::DeserializeFailed,
+                            format!("Deserialize UsdcClaimed payload ({e})"),
+                        )
+                    })?;
+
+                if normalize_address(&data.seller) == seller_normalized {
+                    claimed.insert((data.denom, data.order_id));
+                }
+            }
+
+            match (before.as_ref(), next_before) {
+                (_, None) => break,
+                (Some(current), Some(next)) if current == &next => break,
+                (_, Some(next)) => before = Some(next),
+            }
+        }
+
+        Ok(claimed)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -649,39 +827,49 @@ struct GqlEventNode {
     body: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct OrderQueueStatus {
-    active: bool,
-    sold: bool,
-    position_in_queue: u64,
+fn encode_cursor(denom: u16, order_id: u64) -> String {
+    base64::engine::general_purpose::STANDARD.encode(format!("{denom}:{order_id}"))
 }
 
-fn order_status_from_queue(state: &ResultOfGetQueueState, order_id: u64) -> OrderQueueStatus {
-    if order_id == 0 {
-        return OrderQueueStatus { active: false, sold: false, position_in_queue: 0 };
-    }
-
-    let unsold = order_id > state.sold_prefix && order_id < state.next_id;
-    if unsold {
-        return OrderQueueStatus {
-            active: true,
-            sold: false,
-            position_in_queue: order_id.saturating_sub(state.sold_prefix),
-        };
-    }
-
-    let sold_start = if state.owed_count == 0 {
-        1
-    } else {
-        state.sold_prefix.saturating_sub(state.owed_count.saturating_sub(1)).max(1)
-    };
-    let sold_unclaimed =
-        state.owed_count > 0 && order_id >= sold_start && order_id <= state.sold_prefix;
-    if sold_unclaimed {
-        return OrderQueueStatus { active: true, sold: true, position_in_queue: 0 };
-    }
-
-    OrderQueueStatus { active: false, sold: false, position_in_queue: 0 }
+fn decode_cursor(cursor: &str) -> KitResult<(u16, u64)> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(cursor)
+        .map_err(|e| {
+            KitError::new(
+                KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+                KitErrorCode::InvalidInput,
+                format!("Invalid cursor ({e})"),
+            )
+        })?;
+    let s = String::from_utf8(bytes).map_err(|e| {
+        KitError::new(
+            KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+            KitErrorCode::InvalidInput,
+            format!("Invalid cursor ({e})"),
+        )
+    })?;
+    let (denom_str, order_id_str) = s.split_once(':').ok_or_else(|| {
+        KitError::new(
+            KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+            KitErrorCode::InvalidInput,
+            format!("Invalid cursor format: {s}"),
+        )
+    })?;
+    let denom = denom_str.parse::<u16>().map_err(|e| {
+        KitError::new(
+            KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+            KitErrorCode::InvalidInput,
+            format!("Invalid cursor denom ({e})"),
+        )
+    })?;
+    let order_id = order_id_str.parse::<u64>().map_err(|e| {
+        KitError::new(
+            KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+            KitErrorCode::InvalidInput,
+            format!("Invalid cursor order_id ({e})"),
+        )
+    })?;
+    Ok((denom, order_id))
 }
 
 fn normalize_address(address: &str) -> String {
@@ -705,34 +893,9 @@ fn addresses_equal(left: &str, right: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::addresses_equal;
+    use super::decode_cursor;
+    use super::encode_cursor;
     use super::internal_to_external_address;
-    use super::order_status_from_queue;
-    use super::OrderQueueStatus;
-    use super::ResultOfGetQueueState;
-
-    #[test]
-    fn order_status_marks_unsold_and_position() {
-        let state =
-            ResultOfGetQueueState { next_id: 11, available: 4, sold_prefix: 6, owed_count: 2 };
-        let status = order_status_from_queue(&state, 9);
-        assert_eq!(status, OrderQueueStatus { active: true, sold: false, position_in_queue: 3 });
-    }
-
-    #[test]
-    fn order_status_marks_sold_unclaimed() {
-        let state =
-            ResultOfGetQueueState { next_id: 21, available: 8, sold_prefix: 12, owed_count: 3 };
-        let status = order_status_from_queue(&state, 10);
-        assert_eq!(status, OrderQueueStatus { active: true, sold: true, position_in_queue: 0 });
-    }
-
-    #[test]
-    fn order_status_skips_inactive_or_claimed_orders() {
-        let state =
-            ResultOfGetQueueState { next_id: 21, available: 8, sold_prefix: 12, owed_count: 3 };
-        let status = order_status_from_queue(&state, 5);
-        assert_eq!(status, OrderQueueStatus { active: false, sold: false, position_in_queue: 0 });
-    }
 
     #[test]
     fn addresses_equal_accepts_common_prefix_forms() {
@@ -754,5 +917,22 @@ mod tests {
             ),
             ":12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c"
         );
+    }
+
+    #[test]
+    fn cursor_roundtrip() {
+        let cursor = encode_cursor(100, 42);
+        let (denom, order_id) = decode_cursor(&cursor).unwrap();
+        assert_eq!(denom, 100);
+        assert_eq!(order_id, 42);
+    }
+
+    #[test]
+    fn decode_cursor_rejects_invalid_input() {
+        use base64::Engine;
+        assert!(decode_cursor("not-base64!!!").is_err());
+        // Valid base64 but wrong format (no colon).
+        let no_colon = base64::engine::general_purpose::STANDARD.encode("12345");
+        assert!(decode_cursor(&no_colon).is_err());
     }
 }
