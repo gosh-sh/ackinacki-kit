@@ -70,6 +70,7 @@ impl AsyncGuardedMut<Account> for Exchange {
 pub struct ParamsOfMintAndSend {
     pub recipient: String,
     pub value: u128,
+    pub nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,6 +79,7 @@ pub struct ParamsOfMintAndSendAccumulator {
     #[serde(rename(serialize = "buyer"))]
     pub recipient: String,
     pub value: u128,
+    pub nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -106,6 +108,15 @@ pub struct ParamsOfUpdateCode {
 pub struct ResultOfGetUsdcWallet {
     #[serde(rename = "value0")]
     pub usdc_wallet: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `Exchange.getNonces`.
+pub struct ResultOfGetNonces {
+    #[serde(rename = "value0")]
+    pub mint: u64,
+    #[serde(rename = "value1")]
+    pub swap: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -208,6 +219,11 @@ impl Exchange {
     /// Original contract method: `getOwnerPubkey`.
     pub async fn get_owner_pubkey(&self) -> KitResult<ResultOfGetOwnerPubkey> {
         self.call_get_method::<ResultOfGetOwnerPubkey>("getOwnerPubkey").await
+    }
+
+    /// Original contract method: `getOwnerPubkey`.
+    pub async fn get_nonces(&self) -> KitResult<ResultOfGetNonces> {
+        self.call_get_method::<ResultOfGetNonces>("getNonces").await
     }
 }
 

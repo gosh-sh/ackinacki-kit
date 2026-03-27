@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use base64::Engine;
-
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -360,11 +359,7 @@ impl ShellAccumulatorRootUsdc {
     ) -> KitResult<ResultOfGetOrdersBySeller> {
         let seller = &params.seller;
         let limit = params.limit.unwrap_or(20).max(1) as usize;
-        let after = params
-            .cursor
-            .as_deref()
-            .map(decode_cursor)
-            .transpose()?;
+        let after = params.cursor.as_deref().map(decode_cursor).transpose()?;
 
         let created_orders = self.query_created_orders_by_seller(seller).await?;
         let claimed_orders = self.query_claimed_orders(seller).await?;
@@ -394,10 +389,7 @@ impl ShellAccumulatorRootUsdc {
         // Skip past cursor.
         let start = match after {
             Some(cursor_key) => {
-                candidates
-                    .iter()
-                    .position(|k| *k > cursor_key)
-                    .unwrap_or(candidates.len())
+                candidates.iter().position(|k| *k > cursor_key).unwrap_or(candidates.len())
             }
             None => 0,
         };
@@ -414,11 +406,8 @@ impl ShellAccumulatorRootUsdc {
 
             let queue_state = &queue_states[&denom];
             let sold = order_id <= queue_state.sold_prefix;
-            let position_in_queue = if sold {
-                0
-            } else {
-                order_id.saturating_sub(queue_state.sold_prefix)
-            };
+            let position_in_queue =
+                if sold { 0 } else { order_id.saturating_sub(queue_state.sold_prefix) };
 
             let sell_order_address = self
                 .get_sell_order_address(ParamsOfGetSellOrderAddress { d: denom, order_id })
@@ -716,14 +705,13 @@ impl ShellAccumulatorRootUsdc {
                 .with_tvm_error(e)
             })?;
 
-            let parsed: GqlMessagesResponse =
-                serde_json::from_value(raw.result).map_err(|e| {
-                    KitError::new(
-                        Self::MODULE,
-                        KitErrorCode::DeserializeFailed,
-                        format!("Deserialize UsdcClaimed GraphQL response ({e})"),
-                    )
-                })?;
+            let parsed: GqlMessagesResponse = serde_json::from_value(raw.result).map_err(|e| {
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::DeserializeFailed,
+                    format!("Deserialize UsdcClaimed GraphQL response ({e})"),
+                )
+            })?;
 
             let edges = parsed.data.blockchain.account.events.edges;
             if edges.is_empty() {
@@ -760,14 +748,13 @@ impl ShellAccumulatorRootUsdc {
                         "Empty UsdcClaimed payload",
                     )
                 })?;
-                let data =
-                    serde_json::from_value::<UsdcClaimedData>(raw_value).map_err(|e| {
-                        KitError::new(
-                            Self::MODULE,
-                            KitErrorCode::DeserializeFailed,
-                            format!("Deserialize UsdcClaimed payload ({e})"),
-                        )
-                    })?;
+                let data = serde_json::from_value::<UsdcClaimedData>(raw_value).map_err(|e| {
+                    KitError::new(
+                        Self::MODULE,
+                        KitErrorCode::DeserializeFailed,
+                        format!("Deserialize UsdcClaimed payload ({e})"),
+                    )
+                })?;
 
                 if normalize_address(&data.seller) == seller_normalized {
                     claimed.insert((data.denom, data.order_id));
@@ -832,15 +819,13 @@ fn encode_cursor(denom: u16, order_id: u64) -> String {
 }
 
 fn decode_cursor(cursor: &str) -> KitResult<(u16, u64)> {
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(cursor)
-        .map_err(|e| {
-            KitError::new(
-                KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
-                KitErrorCode::InvalidInput,
-                format!("Invalid cursor ({e})"),
-            )
-        })?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(cursor).map_err(|e| {
+        KitError::new(
+            KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),
+            KitErrorCode::InvalidInput,
+            format!("Invalid cursor ({e})"),
+        )
+    })?;
     let s = String::from_utf8(bytes).map_err(|e| {
         KitError::new(
             KitModule::Accumulator(AccumulatorModule::ShellAccumulatorRootUsdc),

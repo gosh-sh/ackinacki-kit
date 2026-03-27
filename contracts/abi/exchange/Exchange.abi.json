@@ -25,7 +25,8 @@
 			"name": "mintAndSend",
 			"inputs": [
 				{ "name": "recipient", "type": "address" },
-				{ "name": "value", "type": "uint128" }
+				{ "name": "value", "type": "uint128" },
+				{ "name": "nonce", "type": "uint64" }
 			],
 			"outputs": []
 		},
@@ -33,7 +34,8 @@
 			"name": "mintAndSendAccumulator",
 			"inputs": [
 				{ "name": "buyer", "type": "address" },
-				{ "name": "value", "type": "uint128" }
+				{ "name": "value", "type": "uint128" },
+				{ "name": "nonce", "type": "uint64" }
 			],
 			"outputs": []
 		},
@@ -71,6 +73,14 @@
 			"outputs": [{ "name": "value0", "type": "uint128" }]
 		},
 		{
+			"name": "getNonces",
+			"inputs": [],
+			"outputs": [
+				{ "name": "mintNonce", "type": "uint64" },
+				{ "name": "mintAccumulatorNonce", "type": "uint64" }
+			]
+		},
+		{
 			"name": "getVersion",
 			"inputs": [],
 			"outputs": [
@@ -103,6 +113,8 @@
 		{ "init": false, "name": "_constructorFlag", "type": "bool" },
 		{ "init": false, "name": "_ownerPubkey", "type": "uint256" },
 		{ "init": false, "name": "_usdcWallet", "type": "address" },
-		{ "init": false, "name": "_totalMinted", "type": "uint128" }
+		{ "init": false, "name": "_totalMinted", "type": "uint128" },
+		{ "init": false, "name": "_mintNonce", "type": "uint64" },
+		{ "init": false, "name": "_mintAccumulatorNonce", "type": "uint64" }
 	]
 }
