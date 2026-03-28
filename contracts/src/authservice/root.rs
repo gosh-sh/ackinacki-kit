@@ -1080,7 +1080,7 @@ mod tests {
                 })
                 .await
             {
-                Ok(events) => events,
+                Ok(result) => result.events,
                 Err(err) => {
                     if is_transient_network_error(&err) {
                         eprintln!("query_context_added_events transient network error: {err:?}");

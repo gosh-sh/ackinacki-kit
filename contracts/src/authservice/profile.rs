@@ -118,6 +118,21 @@ pub struct ContextAddedTextData {
     pub text: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PageInfo {
+    /// Cursor pointing to the first (oldest) edge in the returned page.
+    /// Pass this as `before` to fetch the next (older) page.
+    pub cursor: Option<String>,
+    /// `true` when there are more (older) events before this page.
+    pub has_previous_page: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResultOfQueryProfileEvents {
+    pub events: Vec<DecodedAuthProfileEvent>,
+    pub page_info: PageInfo,
+}
+
 /// Convenience record for `ContextAdded` profile history entries.
 ///
 /// This is a sugar type over `DecodedAuthProfileEvent::ContextAdded` so callers
@@ -127,6 +142,12 @@ pub struct ContextAddedTextData {
 pub struct ContextAddedEventRecord {
     pub event: crate::event::Event,
     pub data: ContextAddedTextData,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResultOfQueryContextAddedEvents {
+    pub events: Vec<ContextAddedEventRecord>,
+    pub page_info: PageInfo,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -157,6 +178,16 @@ struct GqlAccount {
 #[derive(Debug, Clone, Deserialize)]
 struct GqlEvents {
     edges: Vec<GqlEdge>,
+    #[serde(rename = "pageInfo")]
+    page_info: GqlPageInfo,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlPageInfo {
+    #[serde(rename = "startCursor")]
+    start_cursor: Option<String>,
+    #[serde(rename = "hasPreviousPage")]
+    has_previous_page: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -174,10 +205,10 @@ struct GqlEventNode {
 }
 
 const GQL_PROFILE_EVENTS_QUERY: &str = r#"
-    query($address: String!, $dst: String!) {
+    query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
         account(address: $address) {
-          events(dst: $dst) {
+          events(dst: $dst, last: $last, before: $before) {
             edges {
               node {
                 msg_id
@@ -185,6 +216,10 @@ const GQL_PROFILE_EVENTS_QUERY: &str = r#"
                 created_at
                 body
               }
+            }
+            pageInfo {
+              startCursor
+              hasPreviousPage
             }
           }
         }
@@ -275,12 +310,14 @@ impl AuthProfile {
     pub async fn query_profile_events(
         &self,
         params: ParamsOfQueryProfileEvents,
-    ) -> KitResult<Vec<DecodedAuthProfileEvent>> {
-        let limit = params.limit.unwrap_or(50) as usize;
+    ) -> KitResult<ResultOfQueryProfileEvents> {
+        let limit = params.limit.unwrap_or(50);
         let expected_dst = profile_internal_to_external_address(self.address());
         let variables = json!({
             "address": self.address(),
             "dst": expected_dst,
+            "last": limit,
+            "before": params.before,
         });
 
         let raw = net::query(
@@ -307,6 +344,11 @@ impl AuthProfile {
                 format!("Deserialize AuthProfile GraphQL response ({e})"),
             )
         })?;
+
+        let page_info = PageInfo {
+            cursor: parsed.data.blockchain.account.events.page_info.start_cursor,
+            has_previous_page: parsed.data.blockchain.account.events.page_info.has_previous_page,
+        };
 
         let mut result = Vec::new();
         for event_node in parsed.data.blockchain.account.events.edges.into_iter().map(|e| e.node) {
@@ -366,12 +408,9 @@ impl AuthProfile {
                 event,
                 data: ContextAddedTextData { text },
             });
-            if result.len() >= limit {
-                break;
-            }
         }
 
-        Ok(result)
+        Ok(ResultOfQueryProfileEvents { events: result, page_info })
     }
 
     /// # Query only `ContextAdded` events
@@ -381,16 +420,16 @@ impl AuthProfile {
     pub async fn query_context_added_events(
         &self,
         params: ParamsOfQueryProfileEvents,
-    ) -> KitResult<Vec<ContextAddedEventRecord>> {
-        let events = self.query_profile_events(params).await?;
-        let mut result = Vec::with_capacity(events.len());
+    ) -> KitResult<ResultOfQueryContextAddedEvents> {
+        let result = self.query_profile_events(params).await?;
+        let mut events = Vec::with_capacity(result.events.len());
 
-        for event in events {
+        for event in result.events {
             let DecodedAuthProfileEvent::ContextAdded { event, data } = event;
-            result.push(ContextAddedEventRecord { event, data });
+            events.push(ContextAddedEventRecord { event, data });
         }
 
-        Ok(result)
+        Ok(ResultOfQueryContextAddedEvents { events, page_info: result.page_info })
     }
 
     /// # Decode `addContext` cell payload into plain text
