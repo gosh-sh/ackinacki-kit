@@ -212,12 +212,38 @@ pub struct ParamsOfSubmitTransaction {
     pub value: u128,
     pub cc: HashMap<u32, u64>,
     pub bounce: bool,
-    pub flags: u8,
+    #[serde(rename(serialize = "allBalance"))]
+    pub all_balance: bool,
     pub epk_expire_at: u64,
     pub payload: String,
 }
 
 impl Default for ParamsOfSubmitTransaction {
+    fn default() -> Self {
+        Self {
+            dest: Default::default(),
+            value: 100_000_000,
+            cc: Default::default(),
+            bounce: true,
+            all_balance: false,
+            epk_expire_at: Default::default(),
+            payload: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSendTransaction {
+    pub dest: String,
+    pub value: u128,
+    pub cc: HashMap<u32, u64>,
+    pub bounce: bool,
+    pub flags: u8,
+    pub epk_expire_at: u64,
+    pub payload: String,
+}
+
+impl Default for ParamsOfSendTransaction {
     fn default() -> Self {
         Self {
             dest: Default::default(),
@@ -414,6 +440,25 @@ impl Multifactor {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "submitTransaction".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Send transaction
+    ///
+    /// Original contract method: `sendTransaction`
+    ///
+    /// Direct transfer with explicit flags. Only works when security card is off.
+    /// Should be signed by any valid ephemeral keypair.
+    pub async fn send_transaction(
+        &self,
+        params: ParamsOfSendTransaction,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "sendTransaction".to_string(),
             header: None,
             input: Some(json!(params)),
         };

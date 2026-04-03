@@ -632,7 +632,7 @@ mod tests {
                         value: 1_000_000_000,
                         cc: HashMap::new(),
                         bounce: false,
-                        flags: 0,
+                        all_balance: false,
                         epk_expire_at,
                         payload: String::new(),
                     },
