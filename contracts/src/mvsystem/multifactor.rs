@@ -731,7 +731,7 @@ mod tests {
 
         let multifactor = Multifactor::new(
             context,
-            "0:372e7644281159ef3df9c7e06e5a247ea889986868c63909f069efc2a5250129",
+            crate::tests::MULTIFACTOR_ADDRESS,
         );
         let fetch = multifactor.fetch_account().await;
         assert!(fetch.is_ok());

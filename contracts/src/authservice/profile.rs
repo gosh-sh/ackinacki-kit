@@ -399,10 +399,9 @@ impl AuthProfile {
             let text = self.decode_context_text_cell(&raw_data.context)?;
             let event = crate::event::Event {
                 id: event_node.msg_id,
-                src: self.address().to_string(),
                 dst: event_node.dst,
                 created_at: event_node.created_at,
-                boc: event_node.body,
+                body: event_node.body,
             };
             result.push(DecodedAuthProfileEvent::ContextAdded {
                 event,

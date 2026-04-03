@@ -460,10 +460,9 @@ impl AuthServiceRoot {
 
             let event = crate::event::Event {
                 id: event_node.msg_id,
-                src: self.address().to_string(),
                 dst: event_node.dst,
                 created_at: event_node.created_at,
-                boc: event_node.body,
+                body: event_node.body,
             };
             result.push(AuthProfileDeployedEventRecord { event, data });
             if result.len() >= limit as usize {
@@ -525,13 +524,10 @@ mod tests {
     use crate::traits::VersionAccessor;
 
     const AUTH_SERVICE_ROOT_ADDRESS: &str = AuthServiceRoot::DEFAULT_ADDRESS;
-    const AUTH_SERVICE_MULTIFACTOR_ADDRESS: &str =
-        "0:12f6b8eeec7e417f9b56ed3635aed523d362a1aabe504ae4731d97c03a4ed60c";
-    const AUTH_SERVICE_MULTIFACTOR_EPK: &str =
-        "61a5ae9ced72c645f7e5e0094f8d6a5508b379a5e02e1f7c070280856672c54a";
-    const AUTH_SERVICE_MULTIFACTOR_ESK: &str =
-        "9b8d83c85af652415c989aa0ef53ed803d9c34d1c1f0e88497db5fae5c03921d";
-    const AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT: u64 = 1_788_096_991;
+    const AUTH_SERVICE_MULTIFACTOR_ADDRESS: &str = crate::tests::MULTIFACTOR_ADDRESS;
+    const AUTH_SERVICE_MULTIFACTOR_EPK: &str = crate::tests::MULTIFACTOR_EPK;
+    const AUTH_SERVICE_MULTIFACTOR_ESK: &str = crate::tests::MULTIFACTOR_ESK;
+    const AUTH_SERVICE_MULTIFACTOR_EPK_EXPIRE_AT: u64 = crate::tests::MULTIFACTOR_EPK_EXPIRE_AT;
 
     fn gen_signer_keys(
         context: std::sync::Arc<tvm_client::ClientContext>,
@@ -1096,7 +1092,6 @@ mod tests {
                 let event = decoded_event.event;
                 let data = decoded_event.data;
                 assert_eq!(data.text, context_text);
-                assert_eq!(event.src.to_lowercase(), profile.address().to_lowercase());
                 assert_eq!(profile.decode_context_text_cell(&context_cell).unwrap(), context_text);
                 eprintln!("ContextAdded raw event: {:?}", event);
                 eprintln!("ContextAdded decoded event: {:?}", data);

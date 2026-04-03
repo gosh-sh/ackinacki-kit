@@ -2,34 +2,74 @@ use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use tvm_client::net::OrderBy;
-use tvm_client::net::ParamsOfQueryCollection;
-use tvm_client::net::{self};
+use tvm_client::abi::ParamsOfDecodeMessageBody;
+use tvm_client::net;
 use tvm_client::ClientContext;
 
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
-use crate::traits::DecodeMessage;
+use crate::traits::AbiAccessor;
+use crate::traits::ContextAccessor;
+use crate::traits::ModuleAccessor;
 use crate::KitResult;
 
-#[derive(Debug, Clone, Deserialize)]
+const DEFAULT_PAGE_SIZE: i32 = 100;
+
+const GQL_ACCOUNT_EVENTS_QUERY: &str = r#"
+    query($address: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(address: $address) {
+          events(last: $last, before: $before) {
+            edges {
+              cursor
+              node {
+                msg_id
+                created_at
+                dst
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+"#;
+
+#[derive(Debug, Clone)]
 pub struct Event {
     pub id: String,
-    pub src: String,
     pub dst: String,
     pub created_at: u64,
-    pub boc: String,
+    pub body: String,
 }
 
 impl Event {
     pub fn decode<T: DeserializeOwned>(
         &self,
-        contract: &impl DecodeMessage,
+        contract: &(impl ContextAccessor + AbiAccessor + ModuleAccessor),
     ) -> KitResult<Option<T>> {
-        let decoded = contract.decode_message(self.boc.clone())?.value;
+        let decoded = tvm_client::abi::decode_message_body(
+            contract.context().clone(),
+            ParamsOfDecodeMessageBody {
+                abi: contract.abi().clone(),
+                body: self.body.clone(),
+                is_internal: false,
+                allow_partial: true,
+                function_name: None,
+                data_layout: None,
+            },
+        )
+        .map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::Decode,
+                format!("Decode event body ({e})"),
+            )
+            .with_tvm_error(e)
+        })?;
 
-        if let Some(value) = decoded {
+        if let Some(value) = decoded.value {
             let deserialized = serde_json::from_value::<T>(value).map_err(|e| {
                 KitError::new(
                     KitModule::Event,
@@ -46,38 +86,109 @@ impl Event {
 
 pub async fn query_events(
     context: Arc<ClientContext>,
-    filter: Option<serde_json::Value>,
-    order: Option<Vec<OrderBy>>,
+    address: &str,
     limit: Option<u32>,
 ) -> KitResult<Vec<Event>> {
-    let events = net::query_collection(
-        context,
-        ParamsOfQueryCollection {
-            collection: "messages".to_string(),
-            filter,
-            result: "id src dst created_at boc".to_string(),
-            order,
-            limit,
-        },
-    )
-    .await
-    .map_err(|e| {
-        KitError::new(KitModule::Event, KitErrorCode::QueryEvents, format!("Query events ({e})"))
-    })?
-    .result
-    .iter()
-    .map(|row| serde_json::from_value::<Event>(row.clone()))
-    .collect::<Result<Vec<Event>, _>>()
-    .map_err(|e| {
-        KitError::new(
-            KitModule::Event,
-            KitErrorCode::DeserializeFailed,
-            format!("Deserialize events ({e})"),
-        )
-    })?
-    .into_iter()
-    .filter(|event| event.dst.starts_with(":"))
-    .collect::<Vec<_>>();
+    let page_size = limit.map(|l| l as i32).unwrap_or(DEFAULT_PAGE_SIZE);
+    let mut all_events = Vec::new();
+    let mut before: Option<String> = None;
 
-    Ok(events)
+    loop {
+        let raw = net::query(
+            context.clone(),
+            net::ParamsOfQuery {
+                query: GQL_ACCOUNT_EVENTS_QUERY.to_string(),
+                variables: Some(serde_json::json!({
+                    "address": address,
+                    "last": page_size,
+                    "before": before,
+                })),
+            },
+        )
+        .await
+        .map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::QueryEvents,
+                "Query events with GraphQL",
+            )
+            .with_tvm_error(e)
+        })?;
+
+        let parsed: GqlEventsResponse =
+            serde_json::from_value(raw.result).map_err(|e| {
+                KitError::new(
+                    KitModule::Event,
+                    KitErrorCode::DeserializeFailed,
+                    format!("Deserialize events GraphQL response ({e})"),
+                )
+            })?;
+
+        let edges = parsed.data.blockchain.account.events.edges;
+        if edges.is_empty() {
+            break;
+        }
+
+        let next_before = edges.first().map(|edge| edge.cursor.clone());
+        for edge in edges {
+            let node = edge.node;
+            all_events.push(Event {
+                id: node.msg_id,
+                dst: node.dst,
+                created_at: node.created_at,
+                body: node.body,
+            });
+        }
+
+        if limit.is_some() {
+            break;
+        }
+
+        match (before.as_ref(), next_before) {
+            (_, None) => break,
+            (Some(current), Some(next)) if current == &next => break,
+            (_, Some(next)) => before = Some(next),
+        }
+    }
+
+    Ok(all_events)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventsResponse {
+    data: GqlEventsData,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventsData {
+    blockchain: GqlBlockchain,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlBlockchain {
+    account: GqlAccount,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlAccount {
+    events: GqlEventsList,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventsList {
+    edges: Vec<GqlEdge>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEdge {
+    cursor: String,
+    node: GqlEventNode,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GqlEventNode {
+    msg_id: String,
+    created_at: u64,
+    dst: String,
+    body: String,
 }

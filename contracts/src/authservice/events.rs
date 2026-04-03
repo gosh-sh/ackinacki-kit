@@ -68,7 +68,25 @@ pub enum DecodedAuthServiceEvent {
 
 impl FromEvent for DecodedAuthServiceEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
-        let decoded = contract.decode_message(event.boc.clone())?;
+        let decoded = tvm_client::abi::decode_message_body(
+            contract.context().clone(),
+            tvm_client::abi::ParamsOfDecodeMessageBody {
+                abi: contract.abi().clone(),
+                body: event.body.clone(),
+                is_internal: false,
+                allow_partial: true,
+                function_name: None,
+                data_layout: None,
+            },
+        )
+        .map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::Decode,
+                format!("Decode event body ({e})"),
+            )
+            .with_tvm_error(e)
+        })?;
         let kind = match decoded.name.as_str() {
             "AuthProfileDeployed" => AuthServiceEvent::AuthProfileDeployed,
             other => {

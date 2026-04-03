@@ -22,7 +22,6 @@ use crate::accumulator::events::AccumulatorRootEvent;
 use crate::accumulator::events::DecodedAccumulatorRootEvent;
 use crate::accumulator::events::SellOrderCreatedData;
 use crate::accumulator::events::UsdcClaimedData;
-use crate::accumulator::is_unsupported_created_at_filter_error;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
 use crate::accumulator::VALID_DENOMS;
@@ -478,45 +477,15 @@ impl ShellAccumulatorRootUsdc {
     ) -> KitResult<Vec<DecodedAccumulatorRootEvent>> {
         let created_at_from = params.created_at_from.unwrap_or_default();
         let limit = params.limit.unwrap_or(50) as usize;
-        // Prefetch with slack to compensate for mixed event types and decode filtering.
         let prefetch_limit = limit
             .saturating_mul(ROOT_EVENT_KIND_COUNT)
             .saturating_mul(ROOT_EVENT_PREFETCH_PER_KIND);
-        let src_only_filter = json!({
-            "src": { "eq": self.address() },
-        });
-        let with_created_at_filter = if created_at_from == 0 {
-            src_only_filter.clone()
-        } else {
-            json!({
-                "src": { "eq": self.address() },
-                "created_at": { "ge": created_at_from },
-            })
-        };
-        let raw_events = match query_external_events(
+        let raw_events = query_external_events(
             self.context().clone(),
-            Some(with_created_at_filter),
-            None,
+            self.address(),
             Some(prefetch_limit as u32),
         )
-        .await
-        {
-            Ok(events) => events,
-            // TODO(shellnet-index): confirm current indexer/GraphQL supports
-            // `messages.created_at: { ge: ... }` inside `query_collection` filter.
-            // Fallback strategy (kept here intentionally): retry with src-only query
-            // and apply `created_at_from` cutoff locally in Rust.
-            Err(err) if created_at_from > 0 && is_unsupported_created_at_filter_error(&err) => {
-                query_external_events(
-                    self.context().clone(),
-                    Some(src_only_filter),
-                    None,
-                    Some(prefetch_limit as u32),
-                )
-                .await?
-            }
-            Err(err) => return Err(err),
-        };
+        .await?;
         let mut decoded_events = Vec::new();
         for event in raw_events {
             if event.created_at < created_at_from {
