@@ -13,6 +13,7 @@ use tvm_client::abi::DecodedMessageBody;
 use tvm_client::abi::DeploySet;
 use tvm_client::abi::ParamsOfDecodeAccountData;
 use tvm_client::abi::ParamsOfDecodeMessage;
+use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::ParamsOfEncodeMessage;
 use tvm_client::abi::ParamsOfEncodeMessageBody;
 use tvm_client::abi::ResultOfEncodeMessage;
@@ -240,6 +241,28 @@ pub trait DecodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor {
         .map_err(|e| {
             KitError::new(Self::MODULE, KitErrorCode::None, format!("Decode message ({e:?})"))
                 .with_tvm_error(e)
+        })
+    }
+
+    fn decode_message_body(&self, body: impl AsRef<str>) -> KitResult<DecodedMessageBody> {
+        abi::decode_message_body(
+            self.context().clone(),
+            ParamsOfDecodeMessageBody {
+                abi: self.abi().clone(),
+                body: body.as_ref().to_string(),
+                is_internal: false,
+                allow_partial: true,
+                function_name: None,
+                data_layout: None,
+            },
+        )
+        .map_err(|e| {
+            KitError::new(
+                Self::MODULE,
+                KitErrorCode::Decode,
+                format!("Decode message body ({e:?})"),
+            )
+            .with_tvm_error(e)
         })
     }
 }

@@ -2,16 +2,13 @@ use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::net;
 use tvm_client::ClientContext;
 
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
-use crate::traits::AbiAccessor;
-use crate::traits::ContextAccessor;
-use crate::traits::ModuleAccessor;
+use crate::traits::DecodeMessage;
 use crate::KitResult;
 
 const DEFAULT_PAGE_SIZE: i32 = 100;
@@ -47,27 +44,9 @@ pub struct Event {
 impl Event {
     pub fn decode<T: DeserializeOwned>(
         &self,
-        contract: &(impl ContextAccessor + AbiAccessor + ModuleAccessor),
+        contract: &impl DecodeMessage,
     ) -> KitResult<Option<T>> {
-        let decoded = tvm_client::abi::decode_message_body(
-            contract.context().clone(),
-            ParamsOfDecodeMessageBody {
-                abi: contract.abi().clone(),
-                body: self.body.clone(),
-                is_internal: false,
-                allow_partial: true,
-                function_name: None,
-                data_layout: None,
-            },
-        )
-        .map_err(|e| {
-            KitError::new(
-                KitModule::Event,
-                KitErrorCode::Decode,
-                format!("Decode event body ({e})"),
-            )
-            .with_tvm_error(e)
-        })?;
+        let decoded = contract.decode_message_body(&self.body)?;
 
         if let Some(value) = decoded.value {
             let deserialized = serde_json::from_value::<T>(value).map_err(|e| {
