@@ -68,6 +68,15 @@ pub async fn query_events(
     address: &str,
     limit: Option<u32>,
 ) -> KitResult<Vec<Event>> {
+    query_events_while(context, address, limit, |_| true).await
+}
+
+pub async fn query_events_while(
+    context: Arc<ClientContext>,
+    address: &str,
+    limit: Option<u32>,
+    predicate: impl Fn(&Event) -> bool,
+) -> KitResult<Vec<Event>> {
     let page_size = limit.map(|l| l as i32).unwrap_or(DEFAULT_PAGE_SIZE);
     let mut all_events = Vec::new();
     let mut before: Option<String> = None;
@@ -86,22 +95,17 @@ pub async fn query_events(
         )
         .await
         .map_err(|e| {
-            KitError::new(
-                KitModule::Event,
-                KitErrorCode::QueryEvents,
-                "Query events with GraphQL",
-            )
-            .with_tvm_error(e)
+            KitError::new(KitModule::Event, KitErrorCode::QueryEvents, "Query events with GraphQL")
+                .with_tvm_error(e)
         })?;
 
-        let parsed: GqlEventsResponse =
-            serde_json::from_value(raw.result).map_err(|e| {
-                KitError::new(
-                    KitModule::Event,
-                    KitErrorCode::DeserializeFailed,
-                    format!("Deserialize events GraphQL response ({e})"),
-                )
-            })?;
+        let parsed: GqlEventsResponse = serde_json::from_value(raw.result).map_err(|e| {
+            KitError::new(
+                KitModule::Event,
+                KitErrorCode::DeserializeFailed,
+                format!("Deserialize events GraphQL response ({e})"),
+            )
+        })?;
 
         let edges = parsed.data.blockchain.account.events.edges;
         if edges.is_empty() {
@@ -109,17 +113,23 @@ pub async fn query_events(
         }
 
         let next_before = edges.first().map(|edge| edge.cursor.clone());
+        let mut stop = false;
         for edge in edges {
             let node = edge.node;
-            all_events.push(Event {
+            let event = Event {
                 id: node.msg_id,
                 dst: node.dst,
                 created_at: node.created_at,
                 body: node.body,
-            });
+            };
+            if predicate(&event) {
+                all_events.push(event);
+            } else {
+                stop = true;
+            }
         }
 
-        if limit.is_some() {
+        if stop || limit.is_some() {
             break;
         }
 
