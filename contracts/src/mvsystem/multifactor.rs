@@ -212,8 +212,7 @@ pub struct ParamsOfSubmitTransaction {
     pub value: u128,
     pub cc: HashMap<u32, u64>,
     pub bounce: bool,
-    #[serde(rename(serialize = "allBalance"))]
-    pub all_balance: bool,
+    pub flags: u8,
     pub epk_expire_at: u64,
     pub payload: String,
 }
@@ -225,7 +224,7 @@ impl Default for ParamsOfSubmitTransaction {
             value: 100_000_000,
             cc: Default::default(),
             bounce: true,
-            all_balance: false,
+            flags: 0,
             epk_expire_at: Default::default(),
             payload: Default::default(),
         }
