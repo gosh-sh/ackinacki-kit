@@ -68,7 +68,7 @@ pub enum DecodedAuthServiceEvent {
 
 impl FromEvent for DecodedAuthServiceEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
-        let decoded = contract.decode_message(event.boc.clone())?;
+        let decoded = contract.decode_message_body(&event.body)?;
         let kind = match decoded.name.as_str() {
             "AuthProfileDeployed" => AuthServiceEvent::AuthProfileDeployed,
             other => {

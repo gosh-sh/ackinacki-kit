@@ -264,7 +264,7 @@ impl DecodedSellOrderLotEvent {
 
 impl FromEvent for DecodedSellOrderLotEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
-        let decoded = contract.decode_message(event.boc.clone())?;
+        let decoded = contract.decode_message_body(&event.body)?;
         let kind = SellOrderLotEvent::try_from(decoded.name.as_str())?;
         let raw = decoded.value.ok_or_else(|| {
             KitError::new(

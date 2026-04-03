@@ -33,23 +33,6 @@ pub const fn is_valid_denom(d: u16) -> bool {
     matches!(d, DENOM_1 | DENOM_10 | DENOM_100 | DENOM_1000)
 }
 
-/// Returns `true` when error likely means that indexer/network does not
-/// support `created_at` in `query_collection` filter.
-pub(crate) fn is_unsupported_created_at_filter_error(err: &crate::error::KitError) -> bool {
-    let msg = err
-        .tvm_error
-        .as_ref()
-        .map(|e| e.message.to_ascii_lowercase())
-        .unwrap_or_else(|| err.message.to_ascii_lowercase());
-
-    msg.contains("created_at")
-        && (msg.contains("unknown")
-            || msg.contains("unsupported")
-            || msg.contains("invalid")
-            || msg.contains("field")
-            || msg.contains("filter"))
-}
-
 /// Converts denomination `D` (USDC units) to seller Shell deposit amount
 /// in nanoShell: `D * SHELL_PER_USDC`.
 pub fn shell_amount_for_denom(d: u16) -> Option<u128> {
