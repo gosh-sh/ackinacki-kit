@@ -21,6 +21,17 @@ use crate::dex::oracle::ParamsOfGetEventListAddress;
 use crate::dex::oracle_event_list::OracleEventList;
 use crate::dex::oracle_event_list::ParamsOfAddEvent;
 use crate::dex::oracle_event_list::ParamsOfDeleteEvent;
+use crate::dex::oracle::ParamsOfWithdrawFees;
+use crate::dex::pmp::ParamsOfSubmitResolve;
+use crate::dex::pmp::ParamsOfSubmitSetTimings;
+use crate::dex::pmp::Pmp;
+use crate::dex::private_note::ParamsOfGenerateCoupon;
+use crate::dex::private_note::ParamsOfChangeOwner;
+use crate::dex::private_note::ParamsOfDeployPmp;
+use crate::dex::private_note::ParamsOfInitTransfer;
+use crate::dex::private_note::ParamsOfSetStake;
+use crate::dex::private_note::ParamsOfStakeKey;
+use crate::dex::private_note::ParamsOfWithdrawTokens;
 use crate::dex::private_note::PrivateNote;
 use crate::dex::root_oracle::ParamsOfDeployOracle;
 use crate::dex::root_oracle::ParamsOfGetOracleAddress;
@@ -198,7 +209,7 @@ async fn assert_version<T: VersionAccessor>(contract: &T, expected_name: &str) {
         .inspect_err(|e| eprintln!("getVersion failed: {e:?}"))
         .expect("getVersion");
 
-    assert_eq!(version.version, "1.0.0");
+    assert_eq!(version.version, "1.0.2");
     assert_eq!(version.contract_name, expected_name);
 }
 
@@ -218,7 +229,7 @@ async fn deploy_test_oracle(
     context: std::sync::Arc<tvm_client::ClientContext>,
     root: &RootOracle,
     oracle_name_prefix: &str,
-) -> (KeyPair, Oracle, OracleEventList) {
+) -> (KeyPair, String, Oracle, OracleEventList) {
     let oracle_owner_keys =
         gen_signer_keys(context.clone(), 24).expect("Generate oracle owner keys");
     let ephemeral_keys = gen_signer_keys(context.clone(), 24).expect("Generate ephemeral keys");
@@ -240,7 +251,7 @@ async fn deploy_test_oracle(
     });
 
     let oracle_address = root
-        .get_oracle_address(ParamsOfGetOracleAddress { name: oracle_name })
+        .get_oracle_address(ParamsOfGetOracleAddress { name: oracle_name.clone() })
         .await
         .expect("getOracleAddress")
         .oracle_address;
@@ -261,12 +272,12 @@ async fn deploy_test_oracle(
     wait_active(&event_list0, "OracleEventList[0]").await;
     assert_version(&event_list0, "OracleEventList").await;
 
-    (oracle_owner_keys, oracle, event_list0)
+    (oracle_owner_keys, oracle_name, oracle, event_list0)
 }
 
 #[tokio::test]
-#[ignore = "requires shellnet access and performs real DEX Oracle/EventList calls"]
-async fn test_shellnet_oracle_flow_from_python_oracle_test() {
+#[ignore = "requires network access"]
+async fn test_oracle_deploy_and_add_event() {
     let context = create_context();
     let root = RootOracle::new_default(context.clone());
 
@@ -409,8 +420,8 @@ async fn test_shellnet_oracle_flow_from_python_oracle_test() {
 }
 
 #[tokio::test]
-#[ignore = "requires shellnet access and performs real DEX Oracle management calls"]
-async fn test_shellnet_oracle_management_phase4_like_python() {
+#[ignore = "requires network access"]
+async fn test_oracle_multi_shard_management() {
     let context = create_context();
     let root = RootOracle::new_default(context.clone());
 
@@ -418,7 +429,7 @@ async fn test_shellnet_oracle_management_phase4_like_python() {
     assert_version(&root, "RootOracle").await;
     top_up_root_oracle_if_needed(context.clone(), &root).await;
 
-    let (oracle_owner_keys, oracle, event_list0) =
+    let (oracle_owner_keys, _oracle_name, oracle, event_list0) =
         deploy_test_oracle(context.clone(), &root, "KitOraclePhase4-").await;
 
     let mut outcomes0 = HashMap::new();
@@ -544,8 +555,8 @@ async fn test_shellnet_oracle_management_phase4_like_python() {
 }
 
 #[tokio::test]
-#[ignore = "requires shellnet access and local halo2-proover library setup"]
-async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
+#[ignore = "requires network access and halo2-proover"]
+async fn test_private_note_deploy() {
     let context = create_context();
     let root_oracle = RootOracle::new_default(context.clone());
     let root_pn = RootPn::new_default(context.clone());
@@ -558,7 +569,7 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
     top_up_root_oracle_if_needed(context.clone(), &root_oracle).await;
     top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
 
-    let (oracle_owner_keys, _oracle, event_list0) =
+    let (oracle_owner_keys, _oracle_name, _oracle, event_list0) =
         deploy_test_oracle(context.clone(), &root_oracle, "KitPhase1Oracle-").await;
 
     let event_name = "Winner of match X".to_string();
@@ -598,7 +609,7 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
             ParamsOfDeployPrivateNote {
                 zkproof: proof_nackl.proof.clone(),
                 deposit_identifier_hash: dih_dec.clone(),
-                ethemeral_pubkey: ephemeral_pubkey_dec.clone(),
+                ephemeral_pubkey: ephemeral_pubkey_dec.clone(),
                 value: proof_nackl.private_note_sum,
                 token_type: proof_nackl.token_type,
             },
@@ -665,7 +676,7 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
                 parse_u256_str(&proof_nackl.deposit_identifier_hash_hex)
             );
             assert_eq!(
-                parse_u256_str(&details.ethereal_pubkey),
+                parse_u256_str(&details.ephemeral_pubkey),
                 parse_u256_str(&ephemeral_pubkey_dec)
             );
         }
@@ -697,8 +708,8 @@ async fn test_shellnet_phase1_private_note_setup_like_python_requires_prover() {
 }
 
 #[tokio::test]
-#[ignore = "requires shellnet access; no halo2-proover required"]
-async fn test_shellnet_root_pn_smoke_getters_no_prover() {
+#[ignore = "requires network access"]
+async fn test_root_pn_getters() {
     let context = create_context();
     let root_pn = RootPn::new_default(context.clone());
 
@@ -754,4 +765,951 @@ async fn test_shellnet_root_pn_smoke_getters_no_prover() {
         .expect("getPrivateNoteAddress repeat")
         .private_note_address;
     assert_eq!(pn_addr_repeat, pn_addr);
+}
+
+const GIVER_ADDRESS: &str = "0:1111111111111111111111111111111111111111111111111111111111111111";
+const TRANSFER_AMOUNT: u128 = 10_000_000;
+
+// PMP test constants (matching Python main_test.py).
+const PMP_DEPOSIT: u64 = 50_000_000_000; // 50 NACKL – enough for initial stakes + regular stake
+const DEPLOYER_SEED_AMOUNT: u128 = 15_000_000_000; // 15 NACKL per outcome
+const STAKE_AMOUNT: u128 = 200_000_000; // 0.2 NACKL
+const STAKE_OUTCOME: u32 = 0;
+const ORACLE_FEE: u128 = 100;
+const STAKE_PERIOD: u64 = 60; // seconds until result window opens
+const LOSING_OUTCOME: u32 = 1;
+const NACKL_COUPON_VALUE: u128 = 100_000_000_000; // 100 NACKL
+
+/// Deployed PrivateNote with its ephemeral keys and deposit identifier hash.
+struct DeployedPrivateNote {
+    pn: PrivateNote,
+    ephemeral_keys: KeyPair,
+    dih_dec: String,
+}
+
+/// Deploy a PrivateNote with default `VAULT_DEPOSIT` balance.
+async fn deploy_test_private_note(
+    context: std::sync::Arc<tvm_client::ClientContext>,
+    root_pn: &RootPn,
+) -> DeployedPrivateNote {
+    deploy_test_private_note_with_deposit(context, root_pn, VAULT_DEPOSIT).await
+}
+
+/// Deploy a PrivateNote with a custom NACKL `deposit`.
+async fn deploy_test_private_note_with_deposit(
+    context: std::sync::Arc<tvm_client::ClientContext>,
+    root_pn: &RootPn,
+    deposit: u64,
+) -> DeployedPrivateNote {
+    let proof = generate_halo2_proof(&random_valid_sk_hex(), TOKEN_TYPE_NACKL, deposit);
+    let ephemeral_keys =
+        gen_signer_keys(context.clone(), 24).expect("Generate ephemeral owner keys");
+    let ephemeral_pubkey_dec = hex_u256_to_dec(&pubkey_hex_0x(&ephemeral_keys.public));
+    let dih_dec = hex_u256_to_dec(&proof.deposit_identifier_hash_hex);
+
+    root_pn
+        .deploy_private_note(
+            ParamsOfDeployPrivateNote {
+                zkproof: proof.proof,
+                deposit_identifier_hash: dih_dec.clone(),
+                ephemeral_pubkey: ephemeral_pubkey_dec,
+                value: proof.private_note_sum,
+                token_type: proof.token_type,
+            },
+            Signer::Keys { keys: ephemeral_keys.clone() },
+        )
+        .await
+        .expect("deployPrivateNote");
+
+    let pn_address = root_pn
+        .get_private_note_address(ParamsOfGetPrivateNoteAddress {
+            deposit_identifier_hash: dih_dec.clone(),
+        })
+        .await
+        .expect("getPrivateNoteAddress")
+        .private_note_address;
+    eprintln!("PrivateNote address: {pn_address}");
+
+    let pn = PrivateNote::new(context, &pn_address);
+    wait_active(&pn, "PrivateNote").await;
+    assert_version(&pn, "PrivateNote").await;
+
+    DeployedPrivateNote { pn, ephemeral_keys, dih_dec }
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_private_note_change_owner() {
+    let context = create_context();
+    let root_pn = RootPn::new_default(context.clone());
+
+    wait_active(&root_pn, "RootPN").await;
+    top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
+
+    let deployed = deploy_test_private_note(context.clone(), &root_pn).await;
+
+    // Generate new owner keys.
+    let new_keys = gen_signer_keys(context.clone(), 24).expect("Generate new owner keys");
+    let new_pubkey_dec = hex_u256_to_dec(&pubkey_hex_0x(&new_keys.public));
+
+    // Change owner to new key.
+    deployed
+        .pn
+        .change_owner(
+            ParamsOfChangeOwner { new_pubkey: new_pubkey_dec.clone() },
+            Signer::Keys { keys: deployed.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("changeOwner to new key");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let details = deployed.pn.get_details().await.expect("getDetails after changeOwner");
+    assert_eq!(
+        parse_u256_str(&details.ephemeral_pubkey),
+        parse_u256_str(&new_pubkey_dec),
+        "ephemeralPubkey must match new key"
+    );
+    assert!(details.busy_address.is_none(), "PN must not be busy after changeOwner");
+
+    // Change owner back to original key.
+    let orig_pubkey_dec = hex_u256_to_dec(&pubkey_hex_0x(&deployed.ephemeral_keys.public));
+    deployed
+        .pn
+        .change_owner(
+            ParamsOfChangeOwner { new_pubkey: orig_pubkey_dec.clone() },
+            Signer::Keys { keys: new_keys },
+        )
+        .await
+        .expect("changeOwner back to original");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let details = deployed.pn.get_details().await.expect("getDetails after restore");
+    assert_eq!(
+        parse_u256_str(&details.ephemeral_pubkey),
+        parse_u256_str(&orig_pubkey_dec),
+        "ephemeralPubkey must be restored to original"
+    );
+    assert!(details.busy_address.is_none(), "PN must not be busy after restore");
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_private_note_transfer() {
+    let context = create_context();
+    let root_pn = RootPn::new_default(context.clone());
+
+    wait_active(&root_pn, "RootPN").await;
+    top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
+
+    let pn1 = deploy_test_private_note(context.clone(), &root_pn).await;
+    let pn2 = deploy_test_private_note(context.clone(), &root_pn).await;
+
+    let balance1_before = pn1
+        .pn
+        .get_details()
+        .await
+        .expect("pn1 getDetails before")
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+    let balance2_before = pn2
+        .pn
+        .get_details()
+        .await
+        .expect("pn2 getDetails before")
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+
+    assert!(balance1_before >= TRANSFER_AMOUNT, "pn1 must have enough balance to transfer");
+
+    // Transfer tokens from PN1 to PN2.
+    pn1.pn
+        .init_transfer(
+            ParamsOfInitTransfer {
+                dest_deposit_hash: pn2.dih_dec.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+                amount: TRANSFER_AMOUNT,
+            },
+            Signer::Keys { keys: pn1.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("initTransfer");
+
+    // Allow offerTransfer + onTransferAccepted round trip.
+    tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+
+    let details1 = pn1.pn.get_details().await.expect("pn1 getDetails after");
+    let details2 = pn2.pn.get_details().await.expect("pn2 getDetails after");
+    let balance1_after = details1
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+    let balance2_after = details2
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+
+    assert_eq!(
+        balance1_after,
+        balance1_before - TRANSFER_AMOUNT,
+        "pn1 balance must decrease by TRANSFER_AMOUNT"
+    );
+    assert_eq!(
+        balance2_after,
+        balance2_before + TRANSFER_AMOUNT,
+        "pn2 balance must increase by TRANSFER_AMOUNT"
+    );
+    assert!(details1.busy_address.is_none(), "pn1 must not be busy after transfer");
+    assert!(details2.busy_address.is_none(), "pn2 must not be busy after transfer");
+    assert!(!details1.has_withdrawn, "pn1 has_withdrawn must be false after transfer");
+    assert!(!details2.has_withdrawn, "pn2 has_withdrawn must be false after transfer");
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_private_note_withdraw() {
+    let context = create_context();
+    let root_pn = RootPn::new_default(context.clone());
+
+    wait_active(&root_pn, "RootPN").await;
+    top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
+
+    let deployed = deploy_test_private_note(context.clone(), &root_pn).await;
+
+    let details_before = deployed.pn.get_details().await.expect("getDetails before withdraw");
+    let balance_before = details_before
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+    assert!(balance_before > 0, "PN must have NACKL balance before withdraw");
+
+    let stakes = deployed.pn.get_stakes().await.expect("get_stakes");
+    assert!(stakes.stakes.is_empty(), "PN must have no active stakes before withdraw");
+
+    // Withdraw full NACKL balance.
+    deployed
+        .pn
+        .withdraw_tokens(
+            ParamsOfWithdrawTokens {
+                flags: 1,
+                dest_wallet_addr: GIVER_ADDRESS.to_string(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: deployed.ephemeral_keys },
+        )
+        .await
+        .expect("withdrawTokens");
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let details_after = deployed.pn.get_details().await.expect("getDetails after withdraw");
+    let balance_after = details_after
+        .balance
+        .get(&TOKEN_TYPE_NACKL.to_string())
+        .copied()
+        .unwrap_or_default();
+
+    assert_eq!(balance_after, 0, "PN NACKL balance must be 0 after withdraw");
+    assert!(details_after.busy_address.is_none(), "PN must not be busy after withdraw");
+}
+
+/// Ensure RootPN has enough NACKL ECC for a large PN deploy.
+async fn ensure_root_pn_nackl(
+    context: std::sync::Arc<tvm_client::ClientContext>,
+    root_pn: &RootPn,
+    required_nackl: u64,
+) {
+    root_pn.fetch_account().await.expect("fetch RootPN account");
+    let ecc_nackl = {
+        let guard = root_pn.account().lock().await;
+        guard.ecc.get(&CURRENCY_ID_NACKL).cloned().unwrap_or_else(|| BigInt::from(0_u8))
+    };
+
+    if ecc_nackl >= BigInt::from(required_nackl) {
+        return;
+    }
+
+    let mut ecc = HashMap::new();
+    ecc.insert(CURRENCY_ID_NACKL, required_nackl * 2);
+    eprintln!("Top up RootPN with {} NACKL ECC", required_nackl * 2);
+    send_currency_with_flag_from_default_giver(
+        context,
+        RootPn::DEFAULT_ADDRESS,
+        2_000_000_000,
+        ecc,
+        1,
+    )
+    .await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+}
+
+/// Poll PMP.getDetails until oracle has approved the event.
+async fn wait_pmp_approved(pmp: &Pmp) -> crate::dex::pmp::ResultOfGetDetails {
+    for _ in 0..30 {
+        if let Ok(details) = pmp.get_details().await {
+            if details.number_of_oracle_events > 0
+                && details.approved_oracle_events >= details.number_of_oracle_events
+            {
+                // Grace period for onInitialStakesAccepted callback to reach PN.
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                return details;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    }
+    panic!("PMP oracle approval timed out");
+}
+
+/// Current Unix timestamp in seconds.
+fn now_unix() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_secs()
+}
+
+/// Extract NACKL balance from PrivateNote details.
+fn pn_nackl_balance(details: &crate::dex::private_note::ResultOfGetDetails) -> u128 {
+    details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default()
+}
+
+/// Full PMP setup: oracle + event + PN + deploy PMP + wait approval.
+struct PmpTestContext {
+    pn: DeployedPrivateNote,
+    pmp: Pmp,
+    oracle_owner_keys: KeyPair,
+    oracle_list_hash: String,
+    event_id: String,
+}
+
+/// Deploy oracle, event, PN, PMP and wait for oracle approval.
+async fn setup_pmp_test(
+    context: std::sync::Arc<tvm_client::ClientContext>,
+) -> PmpTestContext {
+    let root_oracle = RootOracle::new_default(context.clone());
+    let root_pn = RootPn::new_default(context.clone());
+
+    wait_active(&root_oracle, "RootOracle").await;
+    wait_active(&root_pn, "RootPN").await;
+
+    top_up_root_oracle_if_needed(context.clone(), &root_oracle).await;
+    top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
+    ensure_root_pn_nackl(context.clone(), &root_pn, PMP_DEPOSIT).await;
+
+    let (oracle_owner_keys, oracle_name, _oracle, event_list0) =
+        deploy_test_oracle(context.clone(), &root_oracle, "KitPmpOracle-").await;
+
+    let event_name = "Winner of match X".to_string();
+    let mut outcomes = HashMap::new();
+    outcomes.insert(1_u32, "Team A".to_string());
+    outcomes.insert(2_u32, "Team B".to_string());
+
+    event_list0
+        .add_event(
+            ParamsOfAddEvent {
+                event_name: event_name.clone(),
+                oracle_fee: ORACLE_FEE,
+                deadline: 2_000_000_000,
+                describe: "Who will win match X".to_string(),
+                outcome_names: outcomes,
+                trust_addr: None,
+            },
+            Signer::Keys { keys: oracle_owner_keys.clone() },
+        )
+        .await
+        .expect("addEvent for PMP test");
+
+    // Wait for event to appear and get its ID.
+    let mut event_id = String::new();
+    for _ in 0..15 {
+        let events = event_list0.get_events().await.expect("_events");
+        if let Some((id, _)) = events
+            .events
+            .iter()
+            .find(|(_, entry)| event_entry_name(entry) == Some(event_name.as_str()))
+        {
+            event_id = id.clone();
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+    assert!(!event_id.is_empty(), "event must appear in EventList");
+
+    // Deploy PN with enough balance for PMP.
+    let pn = deploy_test_private_note_with_deposit(context.clone(), &root_pn, PMP_DEPOSIT).await;
+
+    // Send ECC shell tokens to PN (required for internal message processing).
+    let mut shell_ecc = HashMap::new();
+    shell_ecc.insert(CURRENCY_ID_SHELL, ECC_SHELL_DEPOSIT);
+    send_currency_with_flag_from_default_giver(
+        context.clone(),
+        RootPn::DEFAULT_ADDRESS,
+        2_000_000_000,
+        shell_ecc,
+        1,
+    )
+    .await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let proof_ecc = generate_halo2_proof(&random_valid_sk_hex(), TOKEN_TYPE_ECC, ECC_SHELL_DEPOSIT);
+    let nullifier_dec = hex_u256_to_dec(&proof_ecc.nullifier_hash_hex);
+    root_pn
+        .send_ecc_shell_to_private_note(
+            ParamsOfSendEccShellToPrivateNote {
+                proof: proof_ecc.proof,
+                nullifier_hash: nullifier_dec,
+                deposit_identifier_hash: pn.dih_dec.clone(),
+                value: ECC_SHELL_DEPOSIT,
+            },
+            Signer::Keys { keys: pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("sendEccShellToPrivateNote");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Fund PN with native tokens for gas.
+    send_currency_with_flag_from_default_giver(
+        context.clone(),
+        pn.pn.address(),
+        20_000_000_000,
+        HashMap::new(),
+        1,
+    )
+    .await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // Deploy PMP via PN.deployPMP.
+    pn.pn
+        .deploy_pmp(
+            ParamsOfDeployPmp {
+                event_id: event_id.clone(),
+                oracle_fee: vec![ORACLE_FEE],
+                token_type: TOKEN_TYPE_NACKL,
+                names: vec![oracle_name.clone()],
+                index: vec![0],
+                initial_stakes: vec![DEPLOYER_SEED_AMOUNT, DEPLOYER_SEED_AMOUNT],
+            },
+            Signer::Keys { keys: pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("deployPMP");
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Get PMP address from RootPN.
+    let pmp_address = root_pn
+        .get_pmp_address(ParamsOfGetPmpAddress {
+            event_id: event_id.clone(),
+            names: vec![oracle_name],
+            token_type: TOKEN_TYPE_NACKL,
+        })
+        .await
+        .expect("getPMPAddress")
+        .pmp_address;
+    eprintln!("PMP address: {pmp_address}");
+
+    let pmp = Pmp::new(context, &pmp_address);
+    wait_active(&pmp, "PMP").await;
+    assert_version(&pmp, "PMP").await;
+
+    // Wait for oracle approval.
+    let details = wait_pmp_approved(&pmp).await;
+    let oracle_list_hash = details.oracle_list_hash.clone();
+    eprintln!("oracle_list_hash: {oracle_list_hash}");
+
+    PmpTestContext { pn, pmp, oracle_owner_keys, oracle_list_hash, event_id }
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_pmp_happy_path() {
+    let context = create_context();
+    let ctx = setup_pmp_test(context).await;
+
+    // Verify PMP initial state.
+    let details = ctx.pmp.get_details().await.expect("PMP getDetails");
+    assert_eq!(details.num_outcomes, 2);
+    assert_eq!(details.token_type, TOKEN_TYPE_NACKL);
+    assert!(!details.is_cancelled);
+    assert!(details.resolved_outcome.is_none());
+    assert_eq!(details.total_pool, 2 * DEPLOYER_SEED_AMOUNT);
+
+    // Oracle sets timings.
+    let result_start = now_unix() + STAKE_PERIOD;
+    ctx.pmp
+        .submit_set_timings(
+            ParamsOfSubmitSetTimings { result_start },
+            Signer::Keys { keys: ctx.oracle_owner_keys.clone() },
+        )
+        .await
+        .expect("submitSetTimings");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let details = ctx.pmp.get_details().await.expect("PMP getDetails after timings");
+    assert!(details.approved, "PMP must be approved after timings");
+    assert_eq!(details.result_start, result_start);
+
+    // Record PN balance before stake.
+    let pn_details = ctx.pn.pn.get_details().await.expect("PN getDetails before stake");
+    let bal_before_stake = pn_nackl_balance(&pn_details);
+    assert_eq!(
+        bal_before_stake,
+        PMP_DEPOSIT as u128 - 2 * DEPLOYER_SEED_AMOUNT,
+        "PN balance must reflect initial stakes deduction"
+    );
+
+    // PN places clean stake (within regular window).
+    ctx.pn
+        .pn
+        .set_stake(
+            ParamsOfSetStake {
+                event_id: ctx.event_id.clone(),
+                oracle_list_hash: ctx.oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+                outcome: STAKE_OUTCOME,
+                amount: STAKE_AMOUNT,
+                use_coupon: false,
+            },
+            Signer::Keys { keys: ctx.pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("setStake");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Verify stake accepted.
+    let pn_after_stake = ctx.pn.pn.get_details().await.expect("PN getDetails after stake");
+    assert_eq!(
+        pn_nackl_balance(&pn_after_stake),
+        bal_before_stake - STAKE_AMOUNT,
+        "PN balance must decrease by STAKE_AMOUNT"
+    );
+    assert!(pn_after_stake.busy_address.is_none(), "PN must not be busy after stake");
+
+    let pmp_after_stake = ctx.pmp.get_details().await.expect("PMP getDetails after stake");
+    assert_eq!(
+        pmp_after_stake.total_pool,
+        2 * DEPLOYER_SEED_AMOUNT + STAKE_AMOUNT,
+        "PMP totalPool must include stake"
+    );
+
+    // Wait for result window.
+    let wait_secs = result_start.saturating_sub(now_unix()) + 5;
+    if wait_secs > 0 {
+        eprintln!("Waiting {wait_secs}s for result window...");
+        tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+    }
+
+    // Oracle resolves to STAKE_OUTCOME (win).
+    ctx.pmp
+        .submit_resolve(
+            ParamsOfSubmitResolve { outcome_id: STAKE_OUTCOME },
+            Signer::Keys { keys: ctx.oracle_owner_keys.clone() },
+        )
+        .await
+        .expect("submitResolve");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let pmp_resolved = ctx.pmp.get_details().await.expect("PMP getDetails after resolve");
+    assert_eq!(pmp_resolved.resolved_outcome, Some(STAKE_OUTCOME));
+    assert!(!pmp_resolved.is_cancelled);
+    assert!(pmp_resolved.creator_fee > 0, "creatorFee must be > 0");
+
+    // PN claims winnings.
+    ctx.pn
+        .pn
+        .claim(
+            ParamsOfStakeKey {
+                event_id: ctx.event_id.clone(),
+                oracle_list_hash: ctx.oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: ctx.pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("claim");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Verify PN balance restored (initial stakes + stake refunded via winning).
+    let pn_after_claim = ctx.pn.pn.get_details().await.expect("PN getDetails after claim");
+    let bal_after_claim = pn_nackl_balance(&pn_after_claim);
+    let expected = bal_before_stake + 2 * DEPLOYER_SEED_AMOUNT;
+    assert_eq!(bal_after_claim, expected, "PN balance must be restored after winning claim");
+    assert!(pn_after_claim.busy_address.is_none(), "PN must not be busy after claim");
+
+    let stakes = ctx.pn.pn.get_stakes().await.expect("get_stakes after claim");
+    assert!(stakes.stakes.is_empty(), "PN must have no stakes after claim");
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_pmp_cancel_path() {
+    let context = create_context();
+    let ctx = setup_pmp_test(context).await;
+
+    // Oracle sets timings (longer period for cancel test).
+    let result_start = now_unix() + STAKE_PERIOD;
+    ctx.pmp
+        .submit_set_timings(
+            ParamsOfSubmitSetTimings { result_start },
+            Signer::Keys { keys: ctx.oracle_owner_keys.clone() },
+        )
+        .await
+        .expect("submitSetTimings");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // Record PN balance before stake.
+    let pn_before = ctx.pn.pn.get_details().await.expect("PN getDetails before stake");
+    let bal_before_stake = pn_nackl_balance(&pn_before);
+
+    // PN places clean stake.
+    ctx.pn
+        .pn
+        .set_stake(
+            ParamsOfSetStake {
+                event_id: ctx.event_id.clone(),
+                oracle_list_hash: ctx.oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+                outcome: STAKE_OUTCOME,
+                amount: STAKE_AMOUNT,
+                use_coupon: false,
+            },
+            Signer::Keys { keys: ctx.pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("setStake");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let pn_after_stake = ctx.pn.pn.get_details().await.expect("PN getDetails after stake");
+    assert_eq!(
+        pn_nackl_balance(&pn_after_stake),
+        bal_before_stake - STAKE_AMOUNT,
+        "PN balance must decrease by STAKE_AMOUNT"
+    );
+
+    // Oracle cancels event.
+    ctx.pmp
+        .submit_cancel_event(Signer::Keys { keys: ctx.oracle_owner_keys.clone() })
+        .await
+        .expect("submitCancelEvent");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let pmp_cancelled = ctx.pmp.get_details().await.expect("PMP getDetails after cancel");
+    assert!(pmp_cancelled.is_cancelled, "PMP must be cancelled");
+    assert!(pmp_cancelled.resolved_outcome.is_none(), "cancelled PMP must not be resolved");
+
+    // PN cancels stake (refund).
+    ctx.pn
+        .pn
+        .cancel_stake(
+            ParamsOfStakeKey {
+                event_id: ctx.event_id.clone(),
+                oracle_list_hash: ctx.oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: ctx.pn.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("cancelStake");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Verify PN balance fully restored (initial stakes + regular stake refunded).
+    let pn_after_cancel = ctx.pn.pn.get_details().await.expect("PN getDetails after cancel");
+    let bal_after_cancel = pn_nackl_balance(&pn_after_cancel);
+    let expected = bal_before_stake + 2 * DEPLOYER_SEED_AMOUNT;
+    assert_eq!(bal_after_cancel, expected, "PN balance must be fully restored after cancel");
+    assert!(pn_after_cancel.busy_address.is_none(), "PN must not be busy after cancel");
+
+    let stakes = ctx.pn.pn.get_stakes().await.expect("get_stakes after cancel");
+    assert!(stakes.stakes.is_empty(), "PN must have no stakes after cancel");
+}
+
+#[tokio::test]
+#[ignore = "requires network access and halo2-proover"]
+async fn test_coupon_generate_and_discard() {
+    let context = create_context();
+    let root_oracle = RootOracle::new_default(context.clone());
+    let root_pn = RootPn::new_default(context.clone());
+
+    wait_active(&root_oracle, "RootOracle").await;
+    wait_active(&root_pn, "RootPN").await;
+    top_up_root_oracle_if_needed(context.clone(), &root_oracle).await;
+    top_up_root_pn_for_phase1_if_needed(context.clone(), &root_pn).await;
+    ensure_root_pn_nackl(context.clone(), &root_pn, PMP_DEPOSIT * 2).await;
+
+    // Deploy oracle and add event.
+    let (oracle_owner_keys, oracle_name, oracle, event_list0) =
+        deploy_test_oracle(context.clone(), &root_oracle, "KitCouponOracle-").await;
+
+    let event_name = "Coupon test event".to_string();
+    let mut outcomes = HashMap::new();
+    outcomes.insert(1_u32, "Team A".to_string());
+    outcomes.insert(2_u32, "Team B".to_string());
+
+    event_list0
+        .add_event(
+            ParamsOfAddEvent {
+                event_name: event_name.clone(),
+                oracle_fee: ORACLE_FEE,
+                deadline: 2_000_000_000,
+                describe: "Coupon test".to_string(),
+                outcome_names: outcomes,
+                trust_addr: None,
+            },
+            Signer::Keys { keys: oracle_owner_keys.clone() },
+        )
+        .await
+        .expect("addEvent");
+
+    let mut event_id = String::new();
+    for _ in 0..15 {
+        let events = event_list0.get_events().await.expect("_events");
+        if let Some((id, _)) = events
+            .events
+            .iter()
+            .find(|(_, entry)| event_entry_name(entry) == Some(event_name.as_str()))
+        {
+            event_id = id.clone();
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+    assert!(!event_id.is_empty(), "event must appear");
+
+    // Fund RootPN with enough shell for both PNs at once.
+    let mut shell_ecc = HashMap::new();
+    shell_ecc.insert(CURRENCY_ID_SHELL, ECC_SHELL_DEPOSIT * 3);
+    send_currency_with_flag_from_default_giver(
+        context.clone(),
+        RootPn::DEFAULT_ADDRESS,
+        5_000_000_000,
+        shell_ecc,
+        1,
+    )
+    .await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // Deploy PN1 (deployer/winner) and PN2 (loser).
+    let pn1 = deploy_test_private_note_with_deposit(context.clone(), &root_pn, PMP_DEPOSIT).await;
+    let pn2 = deploy_test_private_note_with_deposit(context.clone(), &root_pn, PMP_DEPOSIT).await;
+
+    // Send ECC shell to both PNs and fund with native tokens.
+    for (pn, label) in [(&pn1, "PN1"), (&pn2, "PN2")] {
+        let proof_ecc =
+            generate_halo2_proof(&random_valid_sk_hex(), TOKEN_TYPE_ECC, ECC_SHELL_DEPOSIT);
+        let nullifier_dec = hex_u256_to_dec(&proof_ecc.nullifier_hash_hex);
+        root_pn
+            .send_ecc_shell_to_private_note(
+                ParamsOfSendEccShellToPrivateNote {
+                    proof: proof_ecc.proof,
+                    nullifier_hash: nullifier_dec,
+                    deposit_identifier_hash: pn.dih_dec.clone(),
+                    value: ECC_SHELL_DEPOSIT,
+                },
+                Signer::Keys { keys: pn.ephemeral_keys.clone() },
+            )
+            .await
+            .unwrap_or_else(|e| panic!("sendEccShellToPrivateNote {label}: {e}"));
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+        send_currency_with_flag_from_default_giver(
+            context.clone(),
+            pn.pn.address(),
+            20_000_000_000,
+            HashMap::new(),
+            1,
+        )
+        .await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+
+    // PN1 deploys PMP.
+    pn1.pn
+        .deploy_pmp(
+            ParamsOfDeployPmp {
+                event_id: event_id.clone(),
+                oracle_fee: vec![ORACLE_FEE],
+                token_type: TOKEN_TYPE_NACKL,
+                names: vec![oracle_name.clone()],
+                index: vec![0],
+                initial_stakes: vec![DEPLOYER_SEED_AMOUNT, DEPLOYER_SEED_AMOUNT],
+            },
+            Signer::Keys { keys: pn1.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("deployPMP");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let pmp_address = root_pn
+        .get_pmp_address(ParamsOfGetPmpAddress {
+            event_id: event_id.clone(),
+            names: vec![oracle_name],
+            token_type: TOKEN_TYPE_NACKL,
+        })
+        .await
+        .expect("getPMPAddress")
+        .pmp_address;
+
+    let pmp = Pmp::new(context.clone(), &pmp_address);
+    wait_active(&pmp, "PMP").await;
+    let details = wait_pmp_approved(&pmp).await;
+    let oracle_list_hash = details.oracle_list_hash.clone();
+
+    // Set timings (longer period — regular window must fit 2 stakes).
+    let coupon_stake_period = 180; // 18s regular window
+    let result_start = now_unix() + coupon_stake_period;
+    pmp.submit_set_timings(
+        ParamsOfSubmitSetTimings { result_start },
+        Signer::Keys { keys: oracle_owner_keys.clone() },
+    )
+    .await
+    .expect("submitSetTimings");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // PN1 stakes on winning side.
+    pn1.pn
+        .set_stake(
+            ParamsOfSetStake {
+                event_id: event_id.clone(),
+                oracle_list_hash: oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+                outcome: STAKE_OUTCOME,
+                amount: STAKE_AMOUNT,
+                use_coupon: false,
+            },
+            Signer::Keys { keys: pn1.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("PN1 setStake");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // PN2 stakes entire NACKL balance on losing side.
+    let pn2_details = pn2.pn.get_details().await.expect("PN2 getDetails");
+    let pn2_balance = pn_nackl_balance(&pn2_details);
+    assert!(pn2_balance > 0, "PN2 must have balance to stake");
+
+    pn2.pn
+        .set_stake(
+            ParamsOfSetStake {
+                event_id: event_id.clone(),
+                oracle_list_hash: oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+                outcome: LOSING_OUTCOME,
+                amount: pn2_balance,
+                use_coupon: false,
+            },
+            Signer::Keys { keys: pn2.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("PN2 setStake");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Verify PN2 balance is 0 after staking everything.
+    let pn2_after_stake = pn2.pn.get_details().await.expect("PN2 after stake");
+    assert_eq!(pn_nackl_balance(&pn2_after_stake), 0, "PN2 must have 0 balance after full stake");
+
+    // Wait for result window.
+    let wait_secs = result_start.saturating_sub(now_unix()) + 5;
+    if wait_secs > 0 {
+        eprintln!("Waiting {wait_secs}s for result window...");
+        tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+    }
+
+    // Resolve to STAKE_OUTCOME (PN1 wins, PN2 loses).
+    pmp.submit_resolve(
+        ParamsOfSubmitResolve { outcome_id: STAKE_OUTCOME },
+        Signer::Keys { keys: oracle_owner_keys.clone() },
+    )
+    .await
+    .expect("submitResolve");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // PN2 claims (loser, payout=0).
+    pn2.pn
+        .claim(
+            ParamsOfStakeKey {
+                event_id: event_id.clone(),
+                oracle_list_hash: oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: pn2.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("PN2 claim");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let pn2_after_claim = pn2.pn.get_details().await.expect("PN2 after claim");
+    assert_eq!(pn_nackl_balance(&pn2_after_claim), 0, "PN2 balance must be 0 after losing claim");
+
+    // PN1 claims (winner) — PMP self-destructs.
+    pn1.pn
+        .claim(
+            ParamsOfStakeKey {
+                event_id: event_id.clone(),
+                oracle_list_hash: oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: pn1.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("PN1 claim");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // ── generateCoupon ──
+    // PN2 has: balance=0, no stakes, has_withdrawn=false → eligible for coupon.
+    pn2.pn
+        .generate_coupon(
+            ParamsOfGenerateCoupon { token_type: TOKEN_TYPE_NACKL },
+            Signer::Keys { keys: pn2.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("generateCoupon");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let pn2_with_coupon = pn2.pn.get_details().await.expect("PN2 after generateCoupon");
+    assert_eq!(
+        pn2_with_coupon.coupons_value, NACKL_COUPON_VALUE,
+        "coupon value must equal NACKL_COUPON_VALUE"
+    );
+    assert_eq!(pn_nackl_balance(&pn2_with_coupon), 0, "balance must still be 0 after coupon");
+    assert!(pn2_with_coupon.busy_address.is_none(), "PN2 must not be busy after generateCoupon");
+
+    // ── discardCoupon ──
+    pn2.pn
+        .discard_coupon(Signer::Keys { keys: pn2.ephemeral_keys.clone() })
+        .await
+        .expect("discardCoupon");
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let pn2_after_discard = pn2.pn.get_details().await.expect("PN2 after discardCoupon");
+    assert_eq!(pn2_after_discard.coupons_value, 0, "coupon must be 0 after discard");
+    assert!(pn2_after_discard.busy_address.is_none(), "PN2 must not be busy after discard");
+
+    // ── deleteStake (idempotent cleanup) ──
+    pn2.pn
+        .delete_stake(
+            ParamsOfStakeKey {
+                event_id: event_id.clone(),
+                oracle_list_hash: oracle_list_hash.clone(),
+                token_type: TOKEN_TYPE_NACKL,
+            },
+            Signer::Keys { keys: pn2.ephemeral_keys.clone() },
+        )
+        .await
+        .expect("deleteStake");
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    let pn2_after_delete = pn2.pn.get_details().await.expect("PN2 after deleteStake");
+    assert!(pn2_after_delete.busy_address.is_none(), "PN2 must not be busy after deleteStake");
+
+    // ── withdrawFees (oracle collects fees) ──
+    oracle
+        .withdraw_fees(
+            ParamsOfWithdrawFees { to: GIVER_ADDRESS.to_string(), amount: 10 },
+            Signer::Keys { keys: oracle_owner_keys },
+        )
+        .await
+        .expect("withdrawFees");
 }

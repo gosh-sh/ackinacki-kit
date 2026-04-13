@@ -353,8 +353,8 @@ pub struct ResultOfGetPmpCode {
 pub struct ResultOfGetDetails {
     #[serde(rename = "depositIdentifierHash")]
     pub deposit_identifier_hash: String,
-    #[serde(rename = "etherealPubkey")]
-    pub ethereal_pubkey: String,
+    #[serde(rename = "ephemeralPubkey")]
+    pub ephemeral_pubkey: String,
     #[serde(deserialize_with = "deserialize_u128_map")]
     pub balance: HashMap<String, u128>,
     #[serde(rename = "pmpCodeHash")]

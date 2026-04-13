@@ -80,7 +80,7 @@ pub struct ParamsOfSendEccShellToPrivateNote {
 pub struct ParamsOfDeployPrivateNote {
     pub zkproof: String,
     pub deposit_identifier_hash: String,
-    pub ethemeral_pubkey: String,
+    pub ephemeral_pubkey: String,
     pub value: u64,
     pub token_type: u32,
 }

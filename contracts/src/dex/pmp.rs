@@ -74,14 +74,8 @@ impl AsyncGuardedMut<Account> for Pmp {
 #[derive(Debug, Clone, Serialize)]
 /// Parameters for `PMP.submitSetTimings`.
 pub struct ParamsOfSubmitSetTimings {
-    #[serde(rename(serialize = "stakeStart"))]
-    pub stake_start: u64,
-    #[serde(rename(serialize = "stakeEnd"))]
-    pub stake_end: u64,
     #[serde(rename(serialize = "resultStart"))]
     pub result_start: u64,
-    #[serde(rename(serialize = "resultEnd"))]
-    pub result_end: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
