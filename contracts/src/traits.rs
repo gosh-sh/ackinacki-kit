@@ -473,7 +473,7 @@ pub trait GetMethodAccessor: ModuleAccessor + Executor {
 
             serde_json::from_value::<T>(output).map_err(|e| {
                 KitError::new(
-                    KitModule::from(Self::MODULE),
+                    Self::MODULE,
                     KitErrorCode::DeserializeFailed,
                     format!("Deserialize output ({e})"),
                 )

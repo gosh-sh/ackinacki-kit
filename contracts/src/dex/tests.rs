@@ -18,16 +18,16 @@ use crate::account::ParamsOfWaitAccount;
 use crate::dex::oracle::Oracle;
 use crate::dex::oracle::ParamsOfDeployEventList;
 use crate::dex::oracle::ParamsOfGetEventListAddress;
+use crate::dex::oracle::ParamsOfWithdrawFees;
 use crate::dex::oracle_event_list::OracleEventList;
 use crate::dex::oracle_event_list::ParamsOfAddEvent;
 use crate::dex::oracle_event_list::ParamsOfDeleteEvent;
-use crate::dex::oracle::ParamsOfWithdrawFees;
 use crate::dex::pmp::ParamsOfSubmitResolve;
 use crate::dex::pmp::ParamsOfSubmitSetTimings;
 use crate::dex::pmp::Pmp;
-use crate::dex::private_note::ParamsOfGenerateCoupon;
 use crate::dex::private_note::ParamsOfChangeOwner;
 use crate::dex::private_note::ParamsOfDeployPmp;
+use crate::dex::private_note::ParamsOfGenerateCoupon;
 use crate::dex::private_note::ParamsOfInitTransfer;
 use crate::dex::private_note::ParamsOfSetStake;
 use crate::dex::private_note::ParamsOfStakeKey;
@@ -943,16 +943,10 @@ async fn test_private_note_transfer() {
 
     let details1 = pn1.pn.get_details().await.expect("pn1 getDetails after");
     let details2 = pn2.pn.get_details().await.expect("pn2 getDetails after");
-    let balance1_after = details1
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
-    let balance2_after = details2
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance1_after =
+        details1.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
+    let balance2_after =
+        details2.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
 
     assert_eq!(
         balance1_after,
@@ -982,11 +976,8 @@ async fn test_private_note_withdraw() {
     let deployed = deploy_test_private_note(context.clone(), &root_pn).await;
 
     let details_before = deployed.pn.get_details().await.expect("getDetails before withdraw");
-    let balance_before = details_before
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance_before =
+        details_before.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
     assert!(balance_before > 0, "PN must have NACKL balance before withdraw");
 
     let stakes = deployed.pn.get_stakes().await.expect("get_stakes");
@@ -1009,11 +1000,8 @@ async fn test_private_note_withdraw() {
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     let details_after = deployed.pn.get_details().await.expect("getDetails after withdraw");
-    let balance_after = details_after
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance_after =
+        details_after.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
 
     assert_eq!(balance_after, 0, "PN NACKL balance must be 0 after withdraw");
     assert!(details_after.busy_address.is_none(), "PN must not be busy after withdraw");
@@ -1086,9 +1074,7 @@ struct PmpTestContext {
 }
 
 /// Deploy oracle, event, PN, PMP and wait for oracle approval.
-async fn setup_pmp_test(
-    context: std::sync::Arc<tvm_client::ClientContext>,
-) -> PmpTestContext {
+async fn setup_pmp_test(context: std::sync::Arc<tvm_client::ClientContext>) -> PmpTestContext {
     let root_oracle = RootOracle::new_default(context.clone());
     let root_pn = RootPn::new_default(context.clone());
 
