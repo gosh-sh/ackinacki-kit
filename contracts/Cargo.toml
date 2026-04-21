@@ -7,6 +7,7 @@ edition.workspace = true
 [features]
 default = ["tokio/full", "tvm_client/default", "shared/default"]
 wasm = ["tokio/sync", "tvm_client/wasm_web", "shared/wasm"]
+halo2 = []
 
 [dependencies]
 base64.workspace = true

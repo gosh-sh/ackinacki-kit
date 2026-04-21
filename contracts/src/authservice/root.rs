@@ -667,7 +667,7 @@ mod tests {
 
     fn extract_tvm_exit_code(err: &KitError) -> Option<i64> {
         let value =
-            err.tvm_error.as_ref()?.data.pointer("/node_error/extensions/details/exit_code")?;
+            err.tvm_error.as_ref()?.data().pointer("/node_error/extensions/details/exit_code")?;
         value.as_i64().or_else(|| value.as_str().and_then(|s| s.parse::<i64>().ok()))
     }
 
@@ -676,7 +676,7 @@ mod tests {
             return false;
         };
 
-        let msg = tvm_error.message.to_ascii_lowercase();
+        let msg = tvm_error.message().to_ascii_lowercase();
         msg.contains("connection reset by peer")
             || msg.contains("client error (sendrequest)")
             || msg.contains("all attempts failed")

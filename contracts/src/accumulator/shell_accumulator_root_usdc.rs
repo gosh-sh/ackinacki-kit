@@ -399,7 +399,7 @@ impl ShellAccumulatorRootUsdc {
         // Fetch details only for this page (expensive part).
         let mut result = Vec::new();
         for &(denom, order_id) in page_candidates {
-            if result.len() >= limit + 1 {
+            if result.len() > limit {
                 break;
             }
 

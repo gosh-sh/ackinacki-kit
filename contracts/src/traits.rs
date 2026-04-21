@@ -332,6 +332,7 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
+                dst_dapp_id: None,
             };
 
             processing::send_message(self.context().clone(), params, process_message_callback)
@@ -473,7 +474,7 @@ pub trait GetMethodAccessor: ModuleAccessor + Executor {
 
             serde_json::from_value::<T>(output).map_err(|e| {
                 KitError::new(
-                    KitModule::from(Self::MODULE),
+                    Self::MODULE,
                     KitErrorCode::DeserializeFailed,
                     format!("Deserialize output ({e})"),
                 )

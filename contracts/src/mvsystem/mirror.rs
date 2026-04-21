@@ -163,7 +163,11 @@ impl Mirror {
         let index = {
             let number = (public % BigUint::from(1000_u32)) + BigUint::from(1_u32);
             number.to_u64().map(|v| v as u128).ok_or_else(|| {
-                KitError::new(Self::MODULE, KitErrorCode::Convert, format!("Convert index to u64"))
+                KitError::new(
+                    Self::MODULE,
+                    KitErrorCode::Convert,
+                    "Convert index to u64".to_string(),
+                )
             })?
         };
         let address = format!("0:2{index:063x}");

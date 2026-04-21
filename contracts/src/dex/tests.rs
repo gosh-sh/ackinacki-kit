@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+#[cfg(feature = "halo2")]
 use halo2_proover::generate_dark_dex_proof;
 use num_bigint::BigInt;
 use num_bigint::BigUint;
@@ -18,16 +19,16 @@ use crate::account::ParamsOfWaitAccount;
 use crate::dex::oracle::Oracle;
 use crate::dex::oracle::ParamsOfDeployEventList;
 use crate::dex::oracle::ParamsOfGetEventListAddress;
+use crate::dex::oracle::ParamsOfWithdrawFees;
 use crate::dex::oracle_event_list::OracleEventList;
 use crate::dex::oracle_event_list::ParamsOfAddEvent;
 use crate::dex::oracle_event_list::ParamsOfDeleteEvent;
-use crate::dex::oracle::ParamsOfWithdrawFees;
 use crate::dex::pmp::ParamsOfSubmitResolve;
 use crate::dex::pmp::ParamsOfSubmitSetTimings;
 use crate::dex::pmp::Pmp;
-use crate::dex::private_note::ParamsOfGenerateCoupon;
 use crate::dex::private_note::ParamsOfChangeOwner;
 use crate::dex::private_note::ParamsOfDeployPmp;
+use crate::dex::private_note::ParamsOfGenerateCoupon;
 use crate::dex::private_note::ParamsOfInitTransfer;
 use crate::dex::private_note::ParamsOfSetStake;
 use crate::dex::private_note::ParamsOfStakeKey;
@@ -110,6 +111,7 @@ fn random_valid_sk_hex() -> String {
     hex::encode(bytes)
 }
 
+#[cfg(feature = "halo2")]
 #[derive(Debug)]
 struct Halo2Proof {
     proof: String,
@@ -119,6 +121,7 @@ struct Halo2Proof {
     token_type: u32,
 }
 
+#[cfg(feature = "halo2")]
 fn generate_halo2_proof(skcommit: &str, token_type: u32, value: u64) -> Halo2Proof {
     let result = generate_dark_dex_proof(skcommit, token_type as u64, value)
         .unwrap_or_else(|e| panic!("halo2-proover library call failed: {e}"));
@@ -554,6 +557,7 @@ async fn test_oracle_multi_shard_management() {
     assert!(deleted_confirmed, "deleteEvent should remove event from EventList[0]");
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_private_note_deploy() {
@@ -767,19 +771,30 @@ async fn test_root_pn_getters() {
     assert_eq!(pn_addr_repeat, pn_addr);
 }
 
+#[cfg(feature = "halo2")]
 const GIVER_ADDRESS: &str = "0:1111111111111111111111111111111111111111111111111111111111111111";
+#[cfg(feature = "halo2")]
 const TRANSFER_AMOUNT: u128 = 10_000_000;
 
+#[cfg(feature = "halo2")]
 // PMP test constants (matching Python main_test.py).
 const PMP_DEPOSIT: u64 = 50_000_000_000; // 50 NACKL – enough for initial stakes + regular stake
+#[cfg(feature = "halo2")]
 const DEPLOYER_SEED_AMOUNT: u128 = 15_000_000_000; // 15 NACKL per outcome
+#[cfg(feature = "halo2")]
 const STAKE_AMOUNT: u128 = 200_000_000; // 0.2 NACKL
+#[cfg(feature = "halo2")]
 const STAKE_OUTCOME: u32 = 0;
+#[cfg(feature = "halo2")]
 const ORACLE_FEE: u128 = 100;
+#[cfg(feature = "halo2")]
 const STAKE_PERIOD: u64 = 60; // seconds until result window opens
+#[cfg(feature = "halo2")]
 const LOSING_OUTCOME: u32 = 1;
+#[cfg(feature = "halo2")]
 const NACKL_COUPON_VALUE: u128 = 100_000_000_000; // 100 NACKL
 
+#[cfg(feature = "halo2")]
 /// Deployed PrivateNote with its ephemeral keys and deposit identifier hash.
 struct DeployedPrivateNote {
     pn: PrivateNote,
@@ -787,6 +802,7 @@ struct DeployedPrivateNote {
     dih_dec: String,
 }
 
+#[cfg(feature = "halo2")]
 /// Deploy a PrivateNote with default `VAULT_DEPOSIT` balance.
 async fn deploy_test_private_note(
     context: std::sync::Arc<tvm_client::ClientContext>,
@@ -795,6 +811,7 @@ async fn deploy_test_private_note(
     deploy_test_private_note_with_deposit(context, root_pn, VAULT_DEPOSIT).await
 }
 
+#[cfg(feature = "halo2")]
 /// Deploy a PrivateNote with a custom NACKL `deposit`.
 async fn deploy_test_private_note_with_deposit(
     context: std::sync::Arc<tvm_client::ClientContext>,
@@ -837,6 +854,7 @@ async fn deploy_test_private_note_with_deposit(
     DeployedPrivateNote { pn, ephemeral_keys, dih_dec }
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_private_note_change_owner() {
@@ -892,6 +910,7 @@ async fn test_private_note_change_owner() {
     assert!(details.busy_address.is_none(), "PN must not be busy after restore");
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_private_note_transfer() {
@@ -943,16 +962,10 @@ async fn test_private_note_transfer() {
 
     let details1 = pn1.pn.get_details().await.expect("pn1 getDetails after");
     let details2 = pn2.pn.get_details().await.expect("pn2 getDetails after");
-    let balance1_after = details1
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
-    let balance2_after = details2
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance1_after =
+        details1.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
+    let balance2_after =
+        details2.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
 
     assert_eq!(
         balance1_after,
@@ -970,6 +983,7 @@ async fn test_private_note_transfer() {
     assert!(!details2.has_withdrawn, "pn2 has_withdrawn must be false after transfer");
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_private_note_withdraw() {
@@ -982,11 +996,8 @@ async fn test_private_note_withdraw() {
     let deployed = deploy_test_private_note(context.clone(), &root_pn).await;
 
     let details_before = deployed.pn.get_details().await.expect("getDetails before withdraw");
-    let balance_before = details_before
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance_before =
+        details_before.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
     assert!(balance_before > 0, "PN must have NACKL balance before withdraw");
 
     let stakes = deployed.pn.get_stakes().await.expect("get_stakes");
@@ -1009,16 +1020,14 @@ async fn test_private_note_withdraw() {
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     let details_after = deployed.pn.get_details().await.expect("getDetails after withdraw");
-    let balance_after = details_after
-        .balance
-        .get(&TOKEN_TYPE_NACKL.to_string())
-        .copied()
-        .unwrap_or_default();
+    let balance_after =
+        details_after.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default();
 
     assert_eq!(balance_after, 0, "PN NACKL balance must be 0 after withdraw");
     assert!(details_after.busy_address.is_none(), "PN must not be busy after withdraw");
 }
 
+#[cfg(feature = "halo2")]
 /// Ensure RootPN has enough NACKL ECC for a large PN deploy.
 async fn ensure_root_pn_nackl(
     context: std::sync::Arc<tvm_client::ClientContext>,
@@ -1049,6 +1058,7 @@ async fn ensure_root_pn_nackl(
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 }
 
+#[cfg(feature = "halo2")]
 /// Poll PMP.getDetails until oracle has approved the event.
 async fn wait_pmp_approved(pmp: &Pmp) -> crate::dex::pmp::ResultOfGetDetails {
     for _ in 0..30 {
@@ -1066,16 +1076,19 @@ async fn wait_pmp_approved(pmp: &Pmp) -> crate::dex::pmp::ResultOfGetDetails {
     panic!("PMP oracle approval timed out");
 }
 
+#[cfg(feature = "halo2")]
 /// Current Unix timestamp in seconds.
 fn now_unix() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_secs()
 }
 
+#[cfg(feature = "halo2")]
 /// Extract NACKL balance from PrivateNote details.
 fn pn_nackl_balance(details: &crate::dex::private_note::ResultOfGetDetails) -> u128 {
     details.balance.get(&TOKEN_TYPE_NACKL.to_string()).copied().unwrap_or_default()
 }
 
+#[cfg(feature = "halo2")]
 /// Full PMP setup: oracle + event + PN + deploy PMP + wait approval.
 struct PmpTestContext {
     pn: DeployedPrivateNote,
@@ -1085,10 +1098,9 @@ struct PmpTestContext {
     event_id: String,
 }
 
+#[cfg(feature = "halo2")]
 /// Deploy oracle, event, PN, PMP and wait for oracle approval.
-async fn setup_pmp_test(
-    context: std::sync::Arc<tvm_client::ClientContext>,
-) -> PmpTestContext {
+async fn setup_pmp_test(context: std::sync::Arc<tvm_client::ClientContext>) -> PmpTestContext {
     let root_oracle = RootOracle::new_default(context.clone());
     let root_pn = RootPn::new_default(context.clone());
 
@@ -1223,6 +1235,7 @@ async fn setup_pmp_test(
     PmpTestContext { pn, pmp, oracle_owner_keys, oracle_list_hash, event_id }
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_pmp_happy_path() {
@@ -1343,6 +1356,7 @@ async fn test_pmp_happy_path() {
     assert!(stakes.stakes.is_empty(), "PN must have no stakes after claim");
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_pmp_cancel_path() {
@@ -1426,6 +1440,7 @@ async fn test_pmp_cancel_path() {
     assert!(stakes.stakes.is_empty(), "PN must have no stakes after cancel");
 }
 
+#[cfg(feature = "halo2")]
 #[tokio::test]
 #[ignore = "requires network access and halo2-proover"]
 async fn test_coupon_generate_and_discard() {

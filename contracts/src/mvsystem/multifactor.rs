@@ -729,10 +729,7 @@ mod tests {
     async fn test_decode_account_data() {
         let context = create_context();
 
-        let multifactor = Multifactor::new(
-            context,
-            crate::tests::MULTIFACTOR_ADDRESS,
-        );
+        let multifactor = Multifactor::new(context, crate::tests::MULTIFACTOR_ADDRESS);
         let fetch = multifactor.fetch_account().await;
         assert!(fetch.is_ok());
 

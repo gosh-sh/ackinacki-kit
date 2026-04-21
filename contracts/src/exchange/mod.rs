@@ -1,4 +1,4 @@
 //! Exchange contract wrapper.
 
 pub mod events;
-pub mod exchange;
+pub mod exchange_contract;
