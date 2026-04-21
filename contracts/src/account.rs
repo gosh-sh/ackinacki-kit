@@ -4,6 +4,7 @@ use std::sync::Arc;
 use num_bigint::BigInt;
 use serde::Deserialize;
 use serde::Serialize;
+use shared::utils::sleep_ms;
 use tvm_block::Deserializable;
 use tvm_client::account::ParamsOfGetAccount;
 use tvm_client::boc::ParamsOfParse;
@@ -45,6 +46,7 @@ pub struct Account {
     pub data: Option<String>,
     pub balance: Option<BigInt>,
     pub acc_type: AccountStatus,
+    pub code_hash: Option<String>,
     pub ecc: BTreeMap<u32, BigInt>,
 }
 
@@ -55,6 +57,7 @@ struct AccountData {
     #[serde(deserialize_with = "deserialize_account_balance")]
     balance: Option<BigInt>,
     acc_type: AccountStatus,
+    code_hash: Option<String>,
 }
 
 #[derive(Debug)]
@@ -79,6 +82,7 @@ impl Account {
             data: None,
             balance: None,
             acc_type: AccountStatus::NonExist,
+            code_hash: None,
             ecc: BTreeMap::new(),
         }
     }
@@ -88,6 +92,7 @@ impl Account {
         self.data = None;
         self.acc_type = AccountStatus::NonExist;
         self.balance = None;
+        self.code_hash = None;
         self.ecc = BTreeMap::new();
     }
 
@@ -105,7 +110,7 @@ impl Account {
 
         let boc = match get_account_result {
             Ok(result) => result.boc,
-            Err(e) => match e.code {
+            Err(e) => match e.code() {
                 622 => {
                     tracing::warn!(target: "ackinacki_kit", "Get account `{}` ({e})", self.address);
                     self.reset();
@@ -116,7 +121,8 @@ impl Account {
                         KitModule::Account,
                         KitErrorCode::GetAccount,
                         format!("Get account `{}` ({e})", self.address),
-                    ));
+                    )
+                    .with_tvm_error(e));
                 }
             },
         };
@@ -157,6 +163,7 @@ impl Account {
         self.data = deserialized.data;
         self.acc_type = deserialized.acc_type;
         self.balance = deserialized.balance;
+        self.code_hash = deserialized.code_hash;
         self.ecc = match tvm_account.balance() {
             Some(balance) => {
                 let mut map = BTreeMap::new();
@@ -206,23 +213,6 @@ impl Account {
             sleep_ms(timeout).await;
         }
     }
-}
-
-async fn sleep_ms(ms: u64) {
-    sleep_impl(ms).await;
-}
-
-#[cfg(feature = "wasm")]
-async fn sleep_impl(ms: u64) {
-    use gloo_timers::future::TimeoutFuture;
-    TimeoutFuture::new(ms as u32).await;
-}
-
-#[cfg(not(feature = "wasm"))]
-async fn sleep_impl(ms: u64) {
-    use tokio::time::sleep;
-    use tokio::time::Duration;
-    sleep(Duration::from_millis(ms)).await;
 }
 
 #[cfg(test)]

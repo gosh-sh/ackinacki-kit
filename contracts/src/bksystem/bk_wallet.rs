@@ -128,6 +128,7 @@ mod tests {
     use crate::tests::create_context;
 
     #[tokio::test]
+    #[ignore = "requires network access"]
     async fn test_get_details() {
         let context = create_context();
 

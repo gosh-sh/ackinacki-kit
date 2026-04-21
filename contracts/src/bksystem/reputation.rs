@@ -76,6 +76,7 @@ impl AccountAccessor for ReputationCoefficientCalculator {
             data: None,
             balance: None,
             acc_type: AccountStatus::Active,
+            code_hash: None,
             ecc: BTreeMap::new(),
         };
 
@@ -155,7 +156,10 @@ impl ReputationCoefficientCalculator {
     }
 
     pub async fn calculate(&self, params: ParamsOfCalculate) -> KitResult<u128> {
-        self.call_get_method_with::<u128, ParamsOfCalculate>("calcRepCoef", params).await
+        let result = self
+            .call_get_method_with::<ResultOfCalculate, ParamsOfCalculate>("calcRepCoef", params)
+            .await?;
+        Ok(result.value0)
     }
 }
 

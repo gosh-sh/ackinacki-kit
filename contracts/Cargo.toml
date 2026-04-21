@@ -6,12 +6,12 @@ edition.workspace = true
 
 [features]
 default = ["tokio/full", "tvm_client/default", "shared/default"]
-wasm = ["dep:gloo-timers", "tokio/sync", "tvm_client/wasm_web", "shared/wasm"]
+wasm = ["tokio/sync", "tvm_client/wasm_web", "shared/wasm"]
+halo2 = []
 
 [dependencies]
 base64.workspace = true
 chrono.workspace = true
-gloo-timers = { optional = true, version = "0.3", features = ["futures"] }
 hex.workspace = true
 num-bigint.workspace = true
 num-traits = "0.2.19"
@@ -25,3 +25,6 @@ tvm_block.workspace = true
 tvm_client = { workspace = true, optional = true }
 
 shared = { path = "../shared", optional = true, default-features = false }
+
+[dev-dependencies]
+halo2-proover = { git = "ssh://git@github.com/gosh-sh/halo2-proover", branch = "lib" }

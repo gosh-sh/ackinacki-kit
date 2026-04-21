@@ -6,7 +6,8 @@ edition.workspace = true
 
 [features]
 default = ["tokio/full"]
-wasm = ["tokio/sync"]
+wasm = ["dep:gloo-timers", "tokio/sync"]
 
 [dependencies]
+gloo-timers = { optional = true, version = "0.3", features = ["futures"] }
 tokio = { workspace = true, optional = true }

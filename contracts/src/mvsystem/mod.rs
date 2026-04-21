@@ -81,6 +81,8 @@ pub enum ContractIndex {
     Boost = 7,
     Miner = 8,
     Mirror = 9,
+    RootPn = 10,
+    Accumulator = 11,
 }
 
 impl From<u8> for ContractIndex {
@@ -94,6 +96,8 @@ impl From<u8> for ContractIndex {
             7 => ContractIndex::Boost,
             8 => ContractIndex::Miner,
             9 => ContractIndex::Mirror,
+            10 => ContractIndex::RootPn,
+            11 => ContractIndex::Accumulator,
             _ => panic!("Unknown allowed payload destination {value}"),
         }
     }
@@ -102,5 +106,23 @@ impl From<u8> for ContractIndex {
 impl From<ContractIndex> for u8 {
     fn from(value: ContractIndex) -> Self {
         value as u8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ContractIndex;
+
+    #[test]
+    fn contract_index_extended_roundtrip() {
+        let root_pn = ContractIndex::from(10u8);
+        assert!(matches!(root_pn, ContractIndex::RootPn));
+        let root_pn_raw: u8 = root_pn.into();
+        assert_eq!(root_pn_raw, 10);
+
+        let accumulator = ContractIndex::from(11u8);
+        assert!(matches!(accumulator, ContractIndex::Accumulator));
+        let accumulator_raw: u8 = accumulator.into();
+        assert_eq!(accumulator_raw, 11);
     }
 }

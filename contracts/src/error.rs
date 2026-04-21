@@ -5,8 +5,13 @@ use tvm_client::error::ClientError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KitModule {
     Token(TokenModule),
+    Giver(GiverModule),
+    Accumulator(AccumulatorModule),
+    Exchange(ExchangeModule),
     Event,
     Account,
+    AuthService(AuthServiceModule),
+    Dex(DexModule),
     MvSystem(MvSystemModule),
     BkSystem(BkSystemModule),
     MvConfig,
@@ -17,6 +22,40 @@ pub enum TokenModule {
     Root,
     Wallet,
     Transaction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GiverModule {
+    V3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AccumulatorModule {
+    ShellAccumulatorRootUsdc,
+    ShellSellOrderLot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ExchangeModule {
+    Exchange,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AuthServiceModule {
+    Root,
+    Profile,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DexModule {
+    RootOracle,
+    RootPn,
+    Oracle,
+    OracleEventList,
+    OrderBook,
+    PrivateNote,
+    Pmp,
+    Nullifier,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -46,9 +85,39 @@ impl From<TokenModule> for KitModule {
     }
 }
 
+impl From<GiverModule> for KitModule {
+    fn from(value: GiverModule) -> Self {
+        KitModule::Giver(value)
+    }
+}
+
+impl From<AccumulatorModule> for KitModule {
+    fn from(value: AccumulatorModule) -> Self {
+        KitModule::Accumulator(value)
+    }
+}
+
+impl From<ExchangeModule> for KitModule {
+    fn from(value: ExchangeModule) -> Self {
+        KitModule::Exchange(value)
+    }
+}
+
 impl From<MvSystemModule> for KitModule {
     fn from(value: MvSystemModule) -> Self {
         KitModule::MvSystem(value)
+    }
+}
+
+impl From<AuthServiceModule> for KitModule {
+    fn from(value: AuthServiceModule) -> Self {
+        KitModule::AuthService(value)
+    }
+}
+
+impl From<DexModule> for KitModule {
+    fn from(value: DexModule) -> Self {
+        KitModule::Dex(value)
     }
 }
 
@@ -61,6 +130,7 @@ pub enum KitErrorCode {
     EmptyResult = 102,
     Decode = 103,
     Convert = 104,
+    InvalidInput = 105,
 
     // account
     AccountIsNotActive = 200,

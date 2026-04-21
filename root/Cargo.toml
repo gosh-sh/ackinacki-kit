@@ -4,6 +4,9 @@ name = "ackinacki-kit"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+crate-type = ["lib", "cdylib"]
+
 [features]
 contracts = ["dep:contracts"]
 default = ["tvm_client/default", "shared/default", "contracts?/default"]
@@ -14,3 +17,6 @@ tvm_client = { workspace = true, optional = true }
 
 contracts = { path = "../contracts", optional = true, default-features = false }
 shared = { path = "../shared", optional = true, default-features = false }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-sign-ext", "--strip-debug", "--strip-producers"]

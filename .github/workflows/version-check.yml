@@ -1,0 +1,40 @@
+name: Version check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  version-bump:
+    name: Ensure package.version is bumped
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-release') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare version with main
+        run: |
+          extract() {
+            grep -m1 '^package\.version' "$1" | sed -E 's/.*"([^"]+)".*/\1/'
+          }
+
+          PR_VERSION=$(extract Cargo.toml)
+          MAIN_VERSION=$(git show origin/main:Cargo.toml | grep -m1 '^package\.version' | sed -E 's/.*"([^"]+)".*/\1/')
+
+          if [ -z "$PR_VERSION" ] || [ -z "$MAIN_VERSION" ]; then
+            echo "::error::Could not parse package.version"
+            exit 1
+          fi
+
+          echo "main:   $MAIN_VERSION"
+          echo "PR:     $PR_VERSION"
+
+          if [ "$PR_VERSION" = "$MAIN_VERSION" ]; then
+            echo "::error::package.version in Cargo.toml is still $MAIN_VERSION. Bump it, or add the 'skip-release' label to this PR."
+            exit 1
+          fi
+
+          echo "OK: $MAIN_VERSION -> $PR_VERSION"
