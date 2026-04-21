@@ -436,9 +436,9 @@ fn is_duplicate_message_error(err: &KitError) -> bool {
         return false;
     };
 
-    tvm_err.code == 621
+    tvm_err.code() == 621
         && tvm_err
-            .data
+            .data()
             .pointer("/node_error/extensions/code")
             .and_then(|v| v.as_str())
             .map(|v| v.eq_ignore_ascii_case("DUPLICATE_MESSAGE"))
@@ -493,7 +493,7 @@ pub async fn top_up_native_with_giver_if_below<T>(
                     let msg = err
                         .tvm_error
                         .as_ref()
-                        .map(|e| e.message.to_ascii_lowercase())
+                        .map(|e| e.message().to_ascii_lowercase())
                         .unwrap_or_default();
                     let transient = msg.contains("connection reset by peer")
                         || msg.contains("client error (sendrequest)")

@@ -332,6 +332,7 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
+                dst_dapp_id: None,
             };
 
             processing::send_message(self.context().clone(), params, process_message_callback)

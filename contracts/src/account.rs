@@ -110,7 +110,7 @@ impl Account {
 
         let boc = match get_account_result {
             Ok(result) => result.boc,
-            Err(e) => match e.code {
+            Err(e) => match e.code() {
                 622 => {
                     tracing::warn!(target: "ackinacki_kit", "Get account `{}` ({e})", self.address);
                     self.reset();
