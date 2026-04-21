@@ -233,6 +233,31 @@ impl Default for ParamsOfSubmitTransaction {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSendTransaction {
+    pub dest: String,
+    pub value: u128,
+    pub cc: HashMap<u32, u64>,
+    pub bounce: bool,
+    pub flags: u8,
+    pub epk_expire_at: u64,
+    pub payload: String,
+}
+
+impl Default for ParamsOfSendTransaction {
+    fn default() -> Self {
+        Self {
+            dest: Default::default(),
+            value: 100_000_000,
+            cc: Default::default(),
+            bounce: true,
+            flags: 0,
+            epk_expire_at: Default::default(),
+            payload: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetEpkExpire {
     pub epk: String,
 }
@@ -294,6 +319,14 @@ pub struct ParamsOfUpdateJwkUpdateKey {
 pub struct ParamsOfDeleteJwkModulusByFactor {
     pub epk_expire_at: u64,
     pub kid: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetWhitelist {
+    /// Address to whitelist directly.
+    pub new_addr: String,
+    /// Slot index (any free u128 value).
+    pub index: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -407,6 +440,25 @@ impl Multifactor {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "submitTransaction".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Send transaction
+    ///
+    /// Original contract method: `sendTransaction`
+    ///
+    /// Direct transfer with explicit flags. Only works when security card is off.
+    /// Should be signed by any valid ephemeral keypair.
+    pub async fn send_transaction(
+        &self,
+        params: ParamsOfSendTransaction,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "sendTransaction".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -584,6 +636,28 @@ impl Multifactor {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Set whitelist entry directly by address
+    ///
+    /// Original contract method: `setWhiteList`
+    ///
+    /// Adds `new_addr` to `white_list_of_address` directly (no address
+    /// derivation). Use this for contract types where the destination
+    /// address cannot be computed from index/mirror (e.g. Accumulator
+    /// SellOrderLot).
+    pub async fn set_whitelist(
+        &self,
+        params: ParamsOfSetWhitelist,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setWhiteList".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Clean destination payload whitelist
     ///
     /// Original contract method: `cleanWhiteList`
@@ -655,10 +729,7 @@ mod tests {
     async fn test_decode_account_data() {
         let context = create_context();
 
-        let multifactor = Multifactor::new(
-            context,
-            "0:372e7644281159ef3df9c7e06e5a247ea889986868c63909f069efc2a5250129",
-        );
+        let multifactor = Multifactor::new(context, crate::tests::MULTIFACTOR_ADDRESS);
         let fetch = multifactor.fetch_account().await;
         assert!(fetch.is_ok());
 

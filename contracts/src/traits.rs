@@ -13,6 +13,7 @@ use tvm_client::abi::DecodedMessageBody;
 use tvm_client::abi::DeploySet;
 use tvm_client::abi::ParamsOfDecodeAccountData;
 use tvm_client::abi::ParamsOfDecodeMessage;
+use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::ParamsOfEncodeMessage;
 use tvm_client::abi::ParamsOfEncodeMessageBody;
 use tvm_client::abi::ResultOfEncodeMessage;
@@ -40,12 +41,64 @@ pub trait ModuleAccessor {
     const MODULE: KitModule;
 }
 
+/// Shared storage for contract wrappers that keeps the repetitive runtime
+/// dependencies in one place (`context`, `address`, `abi`, `account`).
+///
+/// Migration pattern (incremental, module-by-module):
+/// 1. Replace per-contract fields with `base: ContractBase`.
+/// 2. Implement `HasContractBase` for the wrapper.
+/// 3. Keep `ModuleAccessor` explicit (module identity is contract-specific).
+/// 4. Opt into blanket message/executor impls via `AutoContract`.
+///
+/// This allows reducing boilerplate without forcing a repo-wide refactor.
+#[derive(Debug, Clone)]
+pub struct ContractBase {
+    context: Arc<ClientContext>,
+    address: String,
+    abi: Abi,
+    account: Arc<Mutex<Account>>,
+}
+
+impl ContractBase {
+    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>, abi: Abi) -> Self {
+        let address = address.as_ref().to_string();
+        Self {
+            account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+            context,
+            address,
+            abi,
+        }
+    }
+}
+
+pub trait HasContractBase {
+    fn base(&self) -> &ContractBase;
+}
+
 pub trait AddressAccessor {
     fn address(&self) -> &str;
 }
 
+impl<T> AddressAccessor for T
+where
+    T: HasContractBase,
+{
+    fn address(&self) -> &str {
+        &self.base().address
+    }
+}
+
 pub trait AbiAccessor {
     fn abi(&self) -> &Abi;
+}
+
+impl<T> AbiAccessor for T
+where
+    T: HasContractBase,
+{
+    fn abi(&self) -> &Abi {
+        &self.base().abi
+    }
 }
 
 pub trait AccountAccessor:
@@ -68,6 +121,15 @@ pub trait AccountAccessor:
             let _ = self.fetch_account().await;
             self.async_guarded(|account| account.is_deployed()).await
         }
+    }
+}
+
+impl<T> AccountAccessor for T
+where
+    T: ModuleAccessor + HasContractBase + AsyncGuarded<Account> + AsyncGuardedMut<Account>,
+{
+    fn account(&self) -> &Arc<Mutex<Account>> {
+        &self.base().account
     }
 }
 
@@ -108,6 +170,24 @@ pub trait ContextAccessor {
     fn context(&self) -> &Arc<ClientContext>;
 }
 
+impl<T> ContextAccessor for T
+where
+    T: HasContractBase,
+{
+    fn context(&self) -> &Arc<ClientContext> {
+        &self.base().context
+    }
+}
+
+/// Opt-in marker for gradual migration to blanket impls (`EncodeMessage`,
+/// `DecodeMessage`, `Executor`, `SendMessage`, `VersionAccessor`,
+/// `DecodeAccountData`) without conflicting with existing explicit impls
+/// in modules that have not been migrated yet.
+pub trait AutoContract:
+    ModuleAccessor + ContextAccessor + AbiAccessor + AddressAccessor + AccountAccessor
+{
+}
+
 pub trait DecodeAccountData<T: DeserializeOwned>:
     ModuleAccessor + ContextAccessor + AbiAccessor
 {
@@ -139,6 +219,13 @@ pub trait DecodeAccountData<T: DeserializeOwned>:
     }
 }
 
+impl<C, T> DecodeAccountData<T> for C
+where
+    C: AutoContract,
+    T: DeserializeOwned,
+{
+}
+
 pub trait DecodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor {
     fn decode_message(&self, boc: impl AsRef<str>) -> KitResult<DecodedMessageBody> {
         abi::decode_message(
@@ -156,7 +243,31 @@ pub trait DecodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor {
                 .with_tvm_error(e)
         })
     }
+
+    fn decode_message_body(&self, body: impl AsRef<str>) -> KitResult<DecodedMessageBody> {
+        abi::decode_message_body(
+            self.context().clone(),
+            ParamsOfDecodeMessageBody {
+                abi: self.abi().clone(),
+                body: body.as_ref().to_string(),
+                is_internal: false,
+                allow_partial: true,
+                function_name: None,
+                data_layout: None,
+            },
+        )
+        .map_err(|e| {
+            KitError::new(
+                Self::MODULE,
+                KitErrorCode::Decode,
+                format!("Decode message body ({e:?})"),
+            )
+            .with_tvm_error(e)
+        })
+    }
 }
+
+impl<C> DecodeMessage for C where C: AutoContract {}
 
 pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + AddressAccessor {
     fn encode_message(
@@ -205,6 +316,8 @@ pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + Addres
     }
 }
 
+impl<C> EncodeMessage for C where C: AutoContract {}
+
 pub trait SendMessage: ModuleAccessor + EncodeMessage {
     fn send_message(
         &self,
@@ -219,6 +332,7 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
+                dst_dapp_id: None,
             };
 
             processing::send_message(self.context().clone(), params, process_message_callback)
@@ -230,6 +344,8 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
         }
     }
 }
+
+impl<C> SendMessage for C where C: AutoContract {}
 
 pub trait Executor: EncodeMessage + AccountAccessor {
     fn run_tvm(
@@ -266,6 +382,8 @@ pub trait Executor: EncodeMessage + AccountAccessor {
     }
 }
 
+impl<C> Executor for C where C: AutoContract {}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetVersion {
     #[serde(rename = "value0")]
@@ -279,6 +397,8 @@ pub trait VersionAccessor: GetMethodAccessor + Executor {
         async { self.call_get_method::<ResultOfGetVersion>("getVersion").await }
     }
 }
+
+impl<C> VersionAccessor for C where C: AutoContract + GetMethodAccessor + Executor {}
 
 pub trait FromEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self>
@@ -354,7 +474,7 @@ pub trait GetMethodAccessor: ModuleAccessor + Executor {
 
             serde_json::from_value::<T>(output).map_err(|e| {
                 KitError::new(
-                    KitModule::from(Self::MODULE),
+                    Self::MODULE,
                     KitErrorCode::DeserializeFailed,
                     format!("Deserialize output ({e})"),
                 )

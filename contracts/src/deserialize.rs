@@ -33,6 +33,17 @@ where
     }
 }
 
+pub fn deserialize_option_u32<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        Some(s) => s.parse::<u32>().map(Some).map_err(Error::custom),
+        None => Ok(None),
+    }
+}
+
 pub fn deserialize_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
@@ -92,6 +103,31 @@ where
     }
 
     Ok(result)
+}
+
+pub fn deserialize_u32_u8_u128_nested_map<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<u32, HashMap<u8, u128>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_outer: HashMap<String, HashMap<String, String>> = HashMap::deserialize(deserializer)?;
+    let mut outer = HashMap::with_capacity(raw_outer.len());
+
+    for (outcome_id, raw_inner) in raw_outer {
+        let outcome_id = outcome_id.parse::<u32>().map_err(Error::custom)?;
+        let mut inner = HashMap::with_capacity(raw_inner.len());
+
+        for (bet_type, amount) in raw_inner {
+            let bet_type = bet_type.parse::<u8>().map_err(Error::custom)?;
+            let amount = amount.parse::<u128>().map_err(Error::custom)?;
+            inner.insert(bet_type, amount);
+        }
+
+        outer.insert(outcome_id, inner);
+    }
+
+    Ok(outer)
 }
 
 pub fn deserialize_u128_vec<'de, D>(deserializer: D) -> Result<Vec<u128>, D::Error>
