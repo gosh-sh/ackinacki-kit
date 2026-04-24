@@ -27,6 +27,6 @@
 		{"init":true,"name":"_pubkey","type":"uint256"},
 		{"init":false,"name":"_timestamp","type":"uint64"},
 		{"init":false,"name":"_constructorFlag","type":"bool"},
-		{"init":true,"name":"_nullifier_hash","type":"uint256"}
+		{"init":true,"name":"_nullifierHash","type":"uint256"}
 	]
 }
