@@ -167,10 +167,7 @@ async fn assert_version<T: VersionAccessor>(contract: &T, expected_name: &str) {
 }
 
 fn event_entry_name(entry: &serde_json::Value) -> Option<&str> {
-    entry
-        .get("eventName")
-        .or_else(|| entry.get("event_name"))
-        .and_then(|v| v.as_str())
+    entry.get("eventName").or_else(|| entry.get("event_name")).and_then(|v| v.as_str())
 }
 
 fn event_entry_u128(entry: &serde_json::Value, field: &str) -> Option<u128> {
@@ -510,7 +507,6 @@ async fn test_oracle_multi_shard_management() {
     assert!(deleted_confirmed, "deleteEvent should remove event from EventList[0]");
 }
 
-
 #[tokio::test]
 #[ignore = "requires network access"]
 async fn test_root_pn_getters() {
@@ -570,4 +566,3 @@ async fn test_root_pn_getters() {
         .private_note_address;
     assert_eq!(pn_addr_repeat, pn_addr);
 }
-
