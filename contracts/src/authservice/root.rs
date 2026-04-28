@@ -791,6 +791,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_deploy_profile_flow() {
         let context = create_context();
         let root = AuthServiceRoot::new(context.clone());
@@ -957,6 +958,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_add_context_message_found() {
         let context = create_context();
         let root = AuthServiceRoot::new(context.clone());

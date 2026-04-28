@@ -69,7 +69,9 @@ impl AsyncGuardedMut<Account> for OracleEventList {
 #[derive(Debug, Clone, Serialize)]
 /// Parameters for `OracleEventList.addEvent`.
 pub struct ParamsOfAddEvent {
+    #[serde(rename(serialize = "eventName"))]
     pub event_name: String,
+    #[serde(rename(serialize = "oracleFee"))]
     pub oracle_fee: u128,
     pub deadline: u64,
     pub describe: String,

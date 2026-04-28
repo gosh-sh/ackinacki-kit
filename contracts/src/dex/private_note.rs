@@ -71,24 +71,24 @@ impl AsyncGuardedMut<Account> for PrivateNote {
 #[derive(Debug, Clone, Serialize)]
 /// Parameters for `PrivateNote.changeOwner`.
 pub struct ParamsOfChangeOwner {
-    #[serde(rename(serialize = "new_pubkey"))]
+    #[serde(rename(serialize = "newPubkey"))]
     pub new_pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.deployPMP`.
 pub struct ParamsOfDeployPmp {
     pub event_id: String,
-    #[serde(rename(serialize = "oracleFee"))]
     pub oracle_fee: Vec<u128>,
     pub token_type: u32,
     pub names: Vec<String>,
     pub index: Vec<u128>,
-    #[serde(rename(serialize = "initialStakes"))]
     pub initial_stakes: Vec<u128>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Shared PMP key (`event_id`, `oracle_list_hash`, `token_type`) used by
 /// multiple `PrivateNote` methods (`deleteStake`, `cancelStake`, `claim`).
 pub struct ParamsOfStakeKey {
@@ -216,6 +216,7 @@ pub struct ParamsOfAcceptFee {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.setStake`.
 pub struct ParamsOfSetStake {
     pub event_id: String,
@@ -244,7 +245,9 @@ pub struct ParamsOfGenerateCoupon {
 #[derive(Debug, Clone, Serialize)]
 /// Parameters for `PrivateNote.initTransfer`.
 pub struct ParamsOfInitTransfer {
+    #[serde(rename(serialize = "destDepositHash"))]
     pub dest_deposit_hash: String,
+    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
     pub amount: u128,
 }
@@ -260,8 +263,9 @@ pub struct ParamsOfOfferTransfer {
 #[derive(Debug, Clone, Serialize)]
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
-    pub flags: u8,
+    #[serde(rename(serialize = "destWalletAddr"))]
     pub dest_wallet_addr: String,
+    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
 }
 

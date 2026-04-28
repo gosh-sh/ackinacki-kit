@@ -142,6 +142,7 @@ pub struct ResultOfGetOrderBookAddress {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Result of `PMP.getDetails`.
 ///
 /// `uint256` identity-like values are preserved as strings to avoid losing the
@@ -151,7 +152,7 @@ pub struct ResultOfGetDetails {
     /// Human-readable pool name.
     pub name: String,
     /// Event token/currency type.
-    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    #[serde(deserialize_with = "deserialize_u32")]
     pub token_type: u32,
     /// Event identifier (`uint256`) as returned by ABI.
     pub event_id: String,
@@ -159,49 +160,45 @@ pub struct ResultOfGetDetails {
     pub oracle_list_hash: String,
     /// Deployer `PrivateNote` address.
     pub deployer: String,
-    #[serde(rename = "privateNoteCodeHash")]
     pub private_note_code_hash: String,
     /// Total clean pool amount (without coupon accounting nuances handled by contract internals).
-    #[serde(rename = "totalPool", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub total_pool: u128,
     /// Whether staking timings were accepted and the pool is approved.
     pub approved: bool,
-    #[serde(rename = "numOutcomes", deserialize_with = "deserialize_u32")]
+    #[serde(deserialize_with = "deserialize_u32")]
     pub num_outcomes: u32,
     /// Final outcome if resolved.
-    #[serde(rename = "resolvedOutcome", deserialize_with = "deserialize_option_u32")]
+    #[serde(deserialize_with = "deserialize_option_u32")]
     pub resolved_outcome: Option<u32>,
-    #[serde(rename = "stakeStart", deserialize_with = "deserialize_u64")]
+    #[serde(deserialize_with = "deserialize_u64")]
     pub stake_start: u64,
-    #[serde(rename = "stakeEnd", deserialize_with = "deserialize_u64")]
+    #[serde(deserialize_with = "deserialize_u64")]
     pub stake_end: u64,
-    #[serde(rename = "resultStart", deserialize_with = "deserialize_u64")]
+    #[serde(deserialize_with = "deserialize_u64")]
     pub result_start: u64,
-    #[serde(rename = "resultEnd", deserialize_with = "deserialize_u64")]
+    #[serde(deserialize_with = "deserialize_u64")]
     pub result_end: u64,
     /// Whether oracle governance cancelled the event.
-    #[serde(rename = "isCancelled")]
     pub is_cancelled: bool,
     /// Number of oracle confirmations required by the pool.
-    #[serde(rename = "numberOfOracleEvents", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub number_of_oracle_events: u128,
     /// Number of oracle confirmations currently collected.
-    #[serde(rename = "approvedOracleEvents", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub approved_oracle_events: u128,
     /// Nested mapping: `outcome_id -> bet_type -> pool_amount`.
-    #[serde(rename = "typedOutcomePools")]
     #[serde(deserialize_with = "deserialize_u32_u8_u128_nested_map")]
     pub typed_outcome_pools: HashMap<u32, HashMap<u8, u128>>,
     /// Mapping of `outcome_id -> human-readable outcome name`.
-    #[serde(rename = "outcomeNames")]
     pub outcome_names: HashMap<u32, String>,
     /// Creator fee accumulated by the pool.
-    #[serde(rename = "creatorFee", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub creator_fee: u128,
     /// Whether base pools are frozen after market close.
     pub frozen: bool,
     /// Base pool amount used in split/merge accounting.
-    #[serde(rename = "baseTotalPool", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub base_total_pool: u128,
 }
 
