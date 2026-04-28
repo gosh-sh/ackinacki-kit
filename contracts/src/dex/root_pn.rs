@@ -67,51 +67,39 @@ impl AsyncGuardedMut<Account> for RootPn {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.sendEccShellToPrivateNote`.
 pub struct ParamsOfSendEccShellToPrivateNote {
     pub proof: String,
-    #[serde(rename(serialize = "nullifierHash"))]
     pub nullifier_hash: String,
-    #[serde(rename(serialize = "depositIdentifierHash"))]
     pub deposit_identifier_hash: String,
-    #[serde(rename(serialize = "finalLayerHistoricalHashRoot"))]
     pub final_layer_historical_hash_root: String,
-    #[serde(rename(serialize = "voucherNominalFr"))]
     pub voucher_nominal_fr: String,
-    #[serde(rename(serialize = "tokenTypeFr"))]
     pub token_type_fr: String,
     pub value: u64,
-    #[serde(rename(serialize = "layerNumber"))]
     pub layer_number: u8,
-    #[serde(rename(serialize = "recipientEphemeralPubkey"))]
     pub recipient_ephemeral_pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.deployPrivateNote`.
 pub struct ParamsOfDeployPrivateNote {
     pub zkproof: String,
-    #[serde(rename(serialize = "depositIdentifierHash"))]
     pub deposit_identifier_hash: String,
-    #[serde(rename(serialize = "finalLayerHistoricalHashRoot"))]
     pub final_layer_historical_hash_root: String,
-    #[serde(rename(serialize = "voucherNominalFr"))]
     pub voucher_nominal_fr: String,
-    #[serde(rename(serialize = "tokenTypeFr"))]
     pub token_type_fr: String,
-    #[serde(rename(serialize = "ephemeralPubkey"))]
     pub ephemeral_pubkey: String,
     pub value: u64,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
-    #[serde(rename(serialize = "layerNumber"))]
     pub layer_number: u8,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.getPrivateNoteAddress`.
 pub struct ParamsOfGetPrivateNoteAddress {
-    #[serde(rename(serialize = "depositIdentifierHash"))]
     pub deposit_identifier_hash: String,
 }
 
@@ -132,45 +120,39 @@ pub struct ResultOfGetPrivateNoteCode {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.getPMPAddress`.
 pub struct ParamsOfGetPmpAddress {
-    #[serde(rename(serialize = "eventId"))]
     pub event_id: String,
     pub names: Vec<String>,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.privateNoteDeployed`.
 pub struct ParamsOfPrivateNoteDeployed {
-    #[serde(rename(serialize = "depositIdentifierHash"))]
     pub deposit_identifier_hash: String,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
-    #[serde(rename(serialize = "deployedValue"))]
     pub deployed_value: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `RootPN.generatevoucher`.
+/// Parameters for `RootPN.generateVoucher`.
 pub struct ParamsOfGenerateVoucher {
+    #[serde(rename(serialize = "skUCommit"))]
     pub sk_u_commit: String,
     #[serde(rename(serialize = "isFee"))]
     pub is_fee: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
-    #[serde(rename(serialize = "withdrawedValue"))]
     pub withdrawed_value: u128,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
-    pub flags: u8,
-    #[serde(rename(serialize = "walletAddr"))]
     pub wallet_addr: String,
-    #[serde(rename(serialize = "initialDataHash"))]
     pub initial_data_hash: String,
 }
 
@@ -313,14 +295,14 @@ impl RootPn {
 
     /// # Generate voucher in RootPN vault
     ///
-    /// Original contract method: `generatevoucher`
+    /// Original contract method: `generateVoucher`
     pub async fn generate_voucher(
         &self,
         params: ParamsOfGenerateVoucher,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "generatevoucher".to_string(),
+            function_name: "generateVoucher".to_string(),
             header: None,
             input: Some(json!(params)),
         };

@@ -70,9 +70,9 @@ impl AsyncGuardedMut<Account> for PrivateNote {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.changeOwner`.
 pub struct ParamsOfChangeOwner {
-    #[serde(rename(serialize = "newPubkey"))]
     pub new_pubkey: String,
 }
 
@@ -99,8 +99,9 @@ pub struct ParamsOfStakeKey {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.withdrawFullSet`.
-pub struct ParamsOfWithdrawFullSet {
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.mergeFullSet`.
+pub struct ParamsOfMergeFullSet {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
@@ -108,6 +109,7 @@ pub struct ParamsOfWithdrawFullSet {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onInitialStakesAccepted`.
 pub struct ParamsOfOnInitialStakesAccepted {
     pub event_id: String,
@@ -117,16 +119,28 @@ pub struct ParamsOfOnInitialStakesAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onInitialStakesFailed`.
 pub struct ParamsOfOnInitialStakesFailed {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "refundTotal"))]
     pub refund_total: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onPmpCleanRefund`.
+pub struct ParamsOfOnPmpCleanRefund {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub refund_amounts: Vec<u128>,
+    pub refund_total: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onStakeCancelled`.
 pub struct ParamsOfOnStakeCancelled {
     pub event_id: String,
@@ -137,15 +151,7 @@ pub struct ParamsOfOnStakeCancelled {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onFullSetStakeCancelled`.
-pub struct ParamsOfOnFullSetStakeCancelled {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.splitFullSet`.
 pub struct ParamsOfSplitFullSet {
     pub event_id: String,
@@ -155,15 +161,18 @@ pub struct ParamsOfSplitFullSet {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onSplitAccepted`.
 pub struct ParamsOfOnSplitAccepted {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub amounts: Vec<u128>,
+    pub collateral_used: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onMergeAccepted`.
 pub struct ParamsOfOnMergeAccepted {
     pub event_id: String,
@@ -174,6 +183,7 @@ pub struct ParamsOfOnMergeAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onStakeAccepted`.
 pub struct ParamsOfOnStakeAccepted {
     pub event_id: String,
@@ -184,30 +194,21 @@ pub struct ParamsOfOnStakeAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onFullSetStakeAccepted`.
-pub struct ParamsOfOnFullSetStakeAccepted {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onClaimAccepted`.
 pub struct ParamsOfOnClaimAccepted {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub outcome: Option<u32>,
-    #[serde(rename(serialize = "payoutClean"))]
     pub payout_clean: u128,
     pub payout_debt: u128,
     pub payout_coupon: u128,
-    #[serde(rename(serialize = "debtPaid"))]
     pub debt_paid: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.acceptFee`.
 pub struct ParamsOfAcceptFee {
     pub fee: u128,
@@ -229,31 +230,23 @@ pub struct ParamsOfSetStake {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.setFullSetStake`.
-pub struct ParamsOfSetFullSetStake {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.generateCoupon`.
 pub struct ParamsOfGenerateCoupon {
     pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.initTransfer`.
 pub struct ParamsOfInitTransfer {
-    #[serde(rename(serialize = "destDepositHash"))]
     pub dest_deposit_hash: String,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
     pub amount: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.offerTransfer`.
 pub struct ParamsOfOfferTransfer {
     pub token_type: u32,
@@ -262,15 +255,15 @@ pub struct ParamsOfOfferTransfer {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
-    #[serde(rename(serialize = "destWalletAddr"))]
     pub dest_wallet_addr: String,
-    #[serde(rename(serialize = "tokenType"))]
     pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.revertWithdraw`.
 pub struct ParamsOfRevertWithdraw {
     pub token_type: u32,
@@ -446,9 +439,9 @@ pub struct ResultOfGetDetails {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `PrivateNote._deposit_identifier_hash`.
+/// Result of `PrivateNote._depositIdentifierHash`.
 pub struct ResultOfGetDepositIdentifierHash {
-    #[serde(rename = "_deposit_identifier_hash")]
+    #[serde(rename = "_depositIdentifierHash")]
     pub deposit_identifier_hash: String,
 }
 
@@ -536,6 +529,22 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
+    /// # Process callback for PMP-side clean refund
+    ///
+    /// Original contract method: `onPmpCleanRefund`
+    pub async fn on_pmp_clean_refund(
+        &self,
+        params: ParamsOfOnPmpCleanRefund,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onPmpCleanRefund".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
     /// # Delete stake record
     ///
     /// Original contract method: `deleteStake`
@@ -588,40 +597,6 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Withdraw full-set stake from PMP
-    ///
-    /// Original contract method: `withdrawFullSet`
-    ///
-    /// Should be signed with PrivateNote owner keys
-    pub async fn withdraw_full_set(
-        &self,
-        params: ParamsOfWithdrawFullSet,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "withdrawFullSet".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Process callback for canceled full-set stake
-    ///
-    /// Original contract method: `onFullSetStakeCancelled`
-    pub async fn on_full_set_stake_cancelled(
-        &self,
-        params: ParamsOfOnFullSetStakeCancelled,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "onFullSetStakeCancelled".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// # Split full set on PMP
     ///
     /// Original contract method: `splitFullSet`
@@ -659,7 +634,7 @@ impl PrivateNote {
     /// Original contract method: `mergeFullSet`
     pub async fn merge_full_set(
         &self,
-        params: ParamsOfWithdrawFullSet,
+        params: ParamsOfMergeFullSet,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
@@ -704,24 +679,6 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Place a full-set stake
-    ///
-    /// Original contract method: `setFullSetStake`
-    ///
-    /// Should be signed with PrivateNote owner keys
-    pub async fn set_full_set_stake(
-        &self,
-        params: ParamsOfSetFullSetStake,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "setFullSetStake".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// # Process callback for accepted stake
     ///
     /// Original contract method: `onStakeAccepted`
@@ -732,22 +689,6 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "onStakeAccepted".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Process callback for accepted full-set stake
-    ///
-    /// Original contract method: `onFullSetStakeAccepted`
-    pub async fn on_full_set_stake_accepted(
-        &self,
-        params: ParamsOfOnFullSetStakeAccepted,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "onFullSetStakeAccepted".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -1095,9 +1036,9 @@ impl PrivateNote {
 
     /// # Get deposit identifier hash (public static field getter)
     ///
-    /// Original contract method: `_deposit_identifier_hash`
+    /// Original contract method: `_depositIdentifierHash`
     pub async fn get_deposit_identifier_hash(&self) -> KitResult<ResultOfGetDepositIdentifierHash> {
-        self.call_get_method::<ResultOfGetDepositIdentifierHash>("_deposit_identifier_hash").await
+        self.call_get_method::<ResultOfGetDepositIdentifierHash>("_depositIdentifierHash").await
     }
 
     /// # Get raw `_stakes` mapping

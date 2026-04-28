@@ -72,62 +72,60 @@ impl AsyncGuardedMut<Account> for Pmp {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.submitSetTimings`.
 pub struct ParamsOfSubmitSetTimings {
-    #[serde(rename(serialize = "resultStart"))]
     pub result_start: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.submitResolve`.
 pub struct ParamsOfSubmitResolve {
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.approveEvent`.
 pub struct ParamsOfApproveEvent {
     pub oracle_pubkey: String,
-    #[serde(rename(serialize = "outcomeNames"))]
     pub outcome_names: HashMap<u32, String>,
     pub describe: String,
     pub name: String,
-    #[serde(rename(serialize = "trustAddr"))]
     pub trust_addr: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.acceptStake`.
 pub struct ParamsOfAcceptStake {
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "stakeAmount"))]
     pub stake_amount: u128,
     pub deposit_identifier_hash: String,
     pub bet_type: u8,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.cancelStake` and `PMP.claim`.
 pub struct ParamsOfCancelOrClaimStake {
-    #[serde(rename(serialize = "stakeAmount"))]
     pub stake_amount: Vec<u128>,
-    #[serde(rename(serialize = "debtAmount"))]
     pub debt_amount: Vec<u128>,
-    #[serde(rename(serialize = "couponsAmount"))]
     pub coupons_amount: Vec<u128>,
     pub deposit_identifier_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for methods that pass `amount[]` + `deposit_identifier_hash`.
-pub struct ParamsOfAmountList {
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PMP.mergeFullSet`.
+pub struct ParamsOfMergeFullSet {
     pub amount: Vec<u128>,
     pub deposit_identifier_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PMP.splitFullSet`.
 pub struct ParamsOfSplitFullSet {
     pub collateral: u128,
@@ -200,6 +198,14 @@ pub struct ResultOfGetDetails {
     /// Base pool amount used in split/merge accounting.
     #[serde(deserialize_with = "deserialize_u128")]
     pub base_total_pool: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub profit_to_clean: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub total_rewards_clean: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub total_rewards_debt: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub total_rewards_coupon: u128,
 }
 
 impl Pmp {
@@ -284,47 +290,6 @@ impl Pmp {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Accept full-set stake (callback from PrivateNote)
-    ///
-    /// Original contract method: `acceptFullSetStake`
-    pub async fn accept_full_set_stake(
-        &self,
-        params: ParamsOfAmountList,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "acceptFullSetStake".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Withdraw full set from PMP
-    ///
-    /// Original contract method: `withdrawFullSet`
-    pub async fn withdraw_full_set(
-        &self,
-        params: ParamsOfAmountList,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "withdrawFullSet".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Freeze base pools
-    ///
-    /// Original contract method: `freezeBasePools`
-    pub async fn freeze_base_pools(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
-        let call_set =
-            CallSet { function_name: "freezeBasePools".to_string(), header: None, input: None };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// # Split full set
     ///
     /// Original contract method: `splitFullSet`
@@ -346,7 +311,7 @@ impl Pmp {
     /// Original contract method: `mergeFullSet`
     pub async fn merge_full_set(
         &self,
-        params: ParamsOfAmountList,
+        params: ParamsOfMergeFullSet,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
