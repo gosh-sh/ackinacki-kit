@@ -220,7 +220,7 @@ pub struct StakeConfirmedData {
     pub outcome: u32,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
-    #[serde(rename = "bet_type", deserialize_with = "deserialize_u8")]
+    #[serde(rename = "betType", deserialize_with = "deserialize_u8")]
     pub bet_type: u8,
 }
 
@@ -264,8 +264,9 @@ pub struct ClaimAcceptedData {
 #[derive(Debug, Clone, Deserialize)]
 /// Payload of `PrivateNoteEvent::PmpDeployed`.
 pub struct PmpDeployedData {
+    #[serde(rename = "eventId")]
     pub event_id: String,
-    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
     #[serde(rename = "pmpAddress")]
     pub pmp_address: String,
@@ -279,7 +280,7 @@ pub struct PmpDeployedData {
 /// Payload of `PrivateNoteEvent::TransferInitiated`.
 pub struct TransferInitiatedData {
     pub dest: String,
-    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
@@ -289,7 +290,7 @@ pub struct TransferInitiatedData {
 /// Payload of `PrivateNoteEvent::TransferReceived`.
 pub struct TransferReceivedData {
     pub from: String,
-    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,

@@ -133,10 +133,10 @@ pub struct NullifierDeployedData {
 #[derive(Debug, Clone, Deserialize)]
 /// Payload of `RootPnEvent::VoucherGenerated`.
 pub struct VoucherGeneratedData {
-    #[serde(rename = "sk_u_commit")]
+    #[serde(rename = "skUCommit")]
     pub sk_u_commit: String,
-    #[serde(rename = "voucher_nominal")]
+    #[serde(rename = "voucherNominal")]
     pub voucher_nominal: String,
-    #[serde(rename = "token_type", deserialize_with = "deserialize_u32")]
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
 }

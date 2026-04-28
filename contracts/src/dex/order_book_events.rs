@@ -4,7 +4,6 @@ use serde::Deserialize;
 
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
-use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u8;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -15,13 +14,14 @@ use crate::traits::FromEvent;
 use crate::KitResult;
 
 /// External event IDs are defined in `dex/modifiers/modifiers.sol`.
+/// `OB_EPOCH_SETTLED = 145` exists as a constant but is no longer emitted
+/// by the contract; intentionally omitted here.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u128)]
 /// External events emitted by `OrderBook`.
 pub enum OrderBookEvent {
     OrderPlaced = 143,
     OrderCancelled = 144,
-    EpochSettled = 145,
     OrderFilled = 146,
 }
 
@@ -41,7 +41,6 @@ impl TryFrom<String> for OrderBookEvent {
         match number {
             143 => Ok(OrderBookEvent::OrderPlaced),
             144 => Ok(OrderBookEvent::OrderCancelled),
-            145 => Ok(OrderBookEvent::EpochSettled),
             146 => Ok(OrderBookEvent::OrderFilled),
             _ => Err(KitError::new(
                 KitModule::Event,
@@ -68,7 +67,6 @@ impl OrderBookEvent {
 pub enum DecodedOrderBookEvent {
     OrderPlaced { event: Event, kind: OrderBookEvent, data: OrderPlacedData },
     OrderCancelled { event: Event, kind: OrderBookEvent, data: OrderCancelledData },
-    EpochSettled { event: Event, kind: OrderBookEvent, data: EpochSettledData },
     OrderFilled { event: Event, kind: OrderBookEvent, data: OrderFilledData },
 }
 
@@ -98,17 +96,6 @@ impl FromEvent for DecodedOrderBookEvent {
                 })?;
                 Ok(DecodedOrderBookEvent::OrderCancelled { event: event.clone(), kind, data })
             }
-            OrderBookEvent::EpochSettled => {
-                let decoded = event.decode::<EpochSettledData>(contract)?;
-                let data = decoded.ok_or_else(|| {
-                    KitError::new(
-                        KitModule::Event,
-                        KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for order book event `{}`", event.dst),
-                    )
-                })?;
-                Ok(DecodedOrderBookEvent::EpochSettled { event: event.clone(), kind, data })
-            }
             OrderBookEvent::OrderFilled => {
                 let decoded = event.decode::<OrderFilledData>(contract)?;
                 let data = decoded.ok_or_else(|| {
@@ -125,51 +112,45 @@ impl FromEvent for DecodedOrderBookEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OrderBookEvent::OrderPlaced`.
 pub struct OrderPlacedData {
-    #[serde(rename = "orderId", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub order_id: u128,
-    #[serde(rename = "outcomeId", deserialize_with = "deserialize_u32")]
+    #[serde(deserialize_with = "deserialize_u32")]
     pub outcome_id: u32,
-    #[serde(rename = "isBuy")]
     pub is_buy: bool,
     #[serde(deserialize_with = "deserialize_u8")]
     pub flags: u8,
     /// `uint256` represented as returned by ABI.
-    #[serde(rename = "priceBps")]
-    pub price_bps: String,
+    pub price: String,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub client_order_id: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OrderBookEvent::OrderCancelled`.
 pub struct OrderCancelledData {
-    #[serde(rename = "orderId", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub order_id: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub client_order_id: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Payload of `OrderBookEvent::EpochSettled`.
-pub struct EpochSettledData {
-    #[serde(rename = "epochStart", deserialize_with = "deserialize_u64")]
-    pub epoch_start: u64,
-    #[serde(rename = "numFills", deserialize_with = "deserialize_u128")]
-    pub num_fills: u128,
-}
-
-#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OrderBookEvent::OrderFilled`.
 pub struct OrderFilledData {
-    #[serde(rename = "orderId", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub order_id: u128,
-    #[serde(rename = "filledAmount", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub filled_amount: u128,
     /// `uint256` represented as returned by ABI.
-    #[serde(rename = "clearingPrice")]
     pub clearing_price: String,
-    #[serde(rename = "feeAmount", deserialize_with = "deserialize_u128")]
+    #[serde(deserialize_with = "deserialize_u128")]
     pub fee_amount: u128,
-    #[serde(rename = "isTaker")]
     pub is_taker: bool,
 }

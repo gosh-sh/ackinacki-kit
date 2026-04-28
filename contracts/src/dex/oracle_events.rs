@@ -104,6 +104,7 @@ pub struct OracleEventListDeployedData {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEvent::EventPublished`.
 pub struct EventPublishedData {
     pub event_id: String,

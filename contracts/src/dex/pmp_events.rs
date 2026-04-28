@@ -242,7 +242,7 @@ pub struct StakeAcceptedData {
     pub outcome_id: u32,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
-    #[serde(rename = "bet_type", deserialize_with = "deserialize_u8")]
+    #[serde(rename = "betType", deserialize_with = "deserialize_u8")]
     pub bet_type: u8,
 }
 
