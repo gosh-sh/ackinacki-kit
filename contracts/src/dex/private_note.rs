@@ -16,6 +16,7 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_map;
+use crate::dex::order_book::OrderBookOrder;
 use crate::error::DexModule;
 use crate::error::KitModule;
 use crate::traits::AccountAccessor;
@@ -276,71 +277,142 @@ pub struct ParamsOfRevertWithdraw {
     pub value: u128,
 }
 
+// ─── OrderBook proxy methods (PrivateNote → OrderBook) ────────────────────
+
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.placeOrder`.
 pub struct ParamsOfPlaceOrder {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
-    /// `uint256` encoded as decimal or hex string.
-    #[serde(rename(serialize = "priceBps"))]
-    pub price_bps: String,
+    /// `uint256` decimal or hex string.
+    pub price: String,
     pub amount: u128,
     pub flags: u8,
-    #[serde(rename(serialize = "minAmount"))]
     pub min_amount: u128,
-    #[serde(rename(serialize = "epochId"))]
     pub epoch_id: u64,
+    pub client_order_id: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderPlaced` and `PrivateNote.cancelOrder`.
-pub struct ParamsOfOrderId {
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.placeBatch`.
+pub struct ParamsOfPlaceBatch {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "orderId"))]
+    pub orders: Vec<OrderBookOrder>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelOrder`.
+pub struct ParamsOfCancelOrder {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
     pub order_id: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderCancelled`.
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelOrderByClient`.
+pub struct ParamsOfCancelOrderByClient {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub client_order_id: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelBatch`.
+pub struct ParamsOfCancelBatch {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub order_ids: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelAllOrders`.
+pub struct ParamsOfCancelAllOrders {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+}
+
+// ─── OrderBook → PrivateNote callbacks ────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderPlaced` (callback from OrderBook).
+pub struct ParamsOfOnOrderPlaced {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub order_id: u128,
+    pub fee_reserve: u128,
+    pub lock: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderRejected` (callback from OrderBook).
+pub struct ParamsOfOnOrderRejected {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    pub flags: u8,
+    /// `uint256` decimal or hex string.
+    pub price: String,
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderCancelled` (callback from OrderBook).
 pub struct ParamsOfOnOrderCancelled {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "orderId"))]
     pub order_id: u128,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
     pub amount: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderFilled`.
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderFilled` (callback from OrderBook).
 pub struct ParamsOfOnOrderFilled {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "filledAmount"))]
     pub filled_amount: u128,
-    /// `uint256` encoded as decimal or hex string.
-    #[serde(rename(serialize = "clearingPrice"))]
+    /// `uint256` decimal or hex string.
     pub clearing_price: String,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
-    #[serde(rename(serialize = "refundAmount"))]
     pub refund_amount: u128,
-    #[serde(rename(serialize = "feeAmount"))]
     pub fee_amount: u128,
+    pub order_id: u128,
+    pub is_final: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onBatchComplete` (callback from OrderBook).
+pub struct ParamsOfOnBatchComplete {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -843,9 +915,10 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Place order on PMP order book
-    ///
-    /// Original contract method: `placeOrder`
+    // ─── OrderBook proxy methods ──────────────────────────────────────
+
+    /// Original contract method: `placeOrder`. Submits a single order to
+    /// the PMP's `OrderBook`.
     pub async fn place_order(
         &self,
         params: ParamsOfPlaceOrder,
@@ -859,28 +932,24 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for placed order
-    ///
-    /// Original contract method: `onOrderPlaced`
-    pub async fn on_order_placed(
+    /// Original contract method: `placeBatch`. Submits a batch of orders.
+    pub async fn place_batch(
         &self,
-        params: ParamsOfOrderId,
+        params: ParamsOfPlaceBatch,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "onOrderPlaced".to_string(),
+            function_name: "placeBatch".to_string(),
             header: None,
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Cancel order on PMP order book
-    ///
-    /// Original contract method: `cancelOrder`
+    /// Original contract method: `cancelOrder`.
     pub async fn cancel_order(
         &self,
-        params: ParamsOfOrderId,
+        params: ParamsOfCancelOrder,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
@@ -891,9 +960,82 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for canceled order
-    ///
-    /// Original contract method: `onOrderCancelled`
+    /// Original contract method: `cancelOrderByClient`.
+    pub async fn cancel_order_by_client(
+        &self,
+        params: ParamsOfCancelOrderByClient,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelOrderByClient".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `cancelBatch`.
+    pub async fn cancel_batch(
+        &self,
+        params: ParamsOfCancelBatch,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelBatch".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `cancelAllOrders`.
+    pub async fn cancel_all_orders(
+        &self,
+        params: ParamsOfCancelAllOrders,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelAllOrders".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    // ─── OrderBook → PrivateNote callback bindings ────────────────────
+    // These methods are normally only invoked by the OrderBook itself.
+    // Exposed here so consumers can build admin tools / event-replay /
+    // tests that need to call them directly.
+
+    /// Original contract method: `onOrderPlaced` (callback from OrderBook).
+    pub async fn on_order_placed(
+        &self,
+        params: ParamsOfOnOrderPlaced,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderPlaced".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `onOrderRejected` (callback from OrderBook).
+    pub async fn on_order_rejected(
+        &self,
+        params: ParamsOfOnOrderRejected,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderRejected".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `onOrderCancelled` (callback from OrderBook).
     pub async fn on_order_cancelled(
         &self,
         params: ParamsOfOnOrderCancelled,
@@ -907,9 +1049,7 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for filled order
-    ///
-    /// Original contract method: `onOrderFilled`
+    /// Original contract method: `onOrderFilled` (callback from OrderBook).
     pub async fn on_order_filled(
         &self,
         params: ParamsOfOnOrderFilled,
@@ -922,6 +1062,22 @@ impl PrivateNote {
         };
         self.send_message(Some(call_set), None, signer).await
     }
+
+    /// Original contract method: `onBatchComplete` (callback from OrderBook).
+    pub async fn on_batch_complete(
+        &self,
+        params: ParamsOfOnBatchComplete,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onBatchComplete".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    // ─── Getters ──────────────────────────────────────────────────────
 
     /// # Get salted PMP code and hash
     ///
