@@ -452,21 +452,20 @@ pub async fn send_currency_with_flag_from_default_giver(
     native_value: u64,
     ecc: HashMap<u32, u64>,
     flag: u8,
-) {
+) -> KitResult<()> {
     let giver = GiverV3::new_default(context);
     let params =
         ParamsOfSendCurrencyWithFlag { dest: dest.to_string(), value: native_value, ecc, flag };
 
     match giver.send_currency_with_flag(params, Signer::None).await {
-        Ok(_) => {}
+        Ok(_) => Ok(()),
         Err(err) if is_duplicate_message_error(&err) => {
             eprintln!(
                 "send_currency_with_flag_from_default_giver: duplicate message, continue: {err:?}"
             );
+            Ok(())
         }
-        Err(err) => {
-            panic!("send GiverV3.sendCurrencyWithFlag: {err:?}");
-        }
+        Err(err) => Err(err),
     }
 }
 
@@ -477,7 +476,8 @@ pub async fn top_up_native_with_giver_if_below<T>(
     min_native_balance: u64,
     top_up_native_value: u64,
     label: &str,
-) where
+) -> KitResult<()>
+where
     T: AccountAccessor + AddressAccessor,
 {
     async fn fetch_account_with_retry<T: AccountAccessor + AddressAccessor>(
@@ -521,7 +521,7 @@ pub async fn top_up_native_with_giver_if_below<T>(
 
     let min_native = BigInt::from(min_native_balance);
     if current_balance >= min_native {
-        return;
+        return Ok(());
     }
 
     eprintln!(
@@ -536,11 +536,12 @@ pub async fn top_up_native_with_giver_if_below<T>(
         HashMap::new(),
         1,
     )
-    .await;
+    .await?;
 
     sleep_ms(3_000).await;
     fetch_account_with_retry(contract, label, "after top-up").await;
 
     let guard = contract.account().lock().await;
     eprintln!("{label} after top-up: balance={:?}, ecc={:?}", guard.balance, guard.ecc);
+    Ok(())
 }

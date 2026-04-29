@@ -83,7 +83,8 @@ async fn top_up_root_oracle_if_needed(
     root: &RootOracle,
 ) {
     top_up_native_with_giver_if_below(context, root, 120_000_000_000, 50_000_000_000, "RootOracle")
-        .await;
+        .await
+        .expect("top up RootOracle");
 }
 
 async fn top_up_root_pn_for_phase1_if_needed(
@@ -128,7 +129,8 @@ async fn top_up_root_pn_for_phase1_if_needed(
         ecc,
         1,
     )
-    .await;
+    .await
+    .expect("top up RootPN via giver");
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     root_pn.fetch_account().await.expect("fetch RootPN after top up");
