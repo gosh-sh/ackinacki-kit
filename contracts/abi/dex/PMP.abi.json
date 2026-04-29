@@ -143,11 +143,35 @@
 			]
 		},
 		{
+			"name": "getShutdownState",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"orderBookDone","type":"bool"},
+				{"name":"shutdownTriggered","type":"bool"}
+			]
+		},
+		{
+			"name": "getUnclaimedBalance",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"uint128"}
+			]
+		},
+		{
 			"name": "getOrderBookAddress",
 			"inputs": [
 			],
 			"outputs": [
 				{"name":"orderBookAddress","type":"address"}
+			]
+		},
+		{
+			"name": "onOrderBookShutdownComplete",
+			"inputs": [
+			],
+			"outputs": [
 			]
 		},
 		{
@@ -323,8 +347,13 @@
 		{"init":false,"name":"_baseTotalPool","type":"uint128"},
 		{"init":false,"name":"_frozenCleanPools","type":"map(uint32,uint128)"},
 		{"init":false,"name":"_resolvedWinClean","type":"uint128"},
+		{"init":false,"name":"_debtRefundMode","type":"bool"},
+		{"init":false,"name":"_debtRefundRemaining","type":"uint128"},
 		{"init":false,"name":"_splitMergeQ","type":"uint128"},
 		{"init":false,"name":"_frozenCleanUnitsPerQ","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_orderBookCode","type":"cell"}
+		{"init":false,"name":"_orderBookCode","type":"cell"},
+		{"init":false,"name":"_orderBookDone","type":"bool"},
+		{"init":false,"name":"_shutdownTriggered","type":"bool"},
+		{"init":false,"name":"_totalUnclaimedBalance","type":"uint128"}
 	]
 }

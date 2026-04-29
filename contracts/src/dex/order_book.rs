@@ -220,6 +220,14 @@ pub struct ResultOfGetOrderIdByClient {
     pub order_id: u128,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Result of `OrderBook.getShutdownState`.
+pub struct ResultOfGetShutdownState {
+    pub shutting_down: bool,
+    pub shutdown_pending: bool,
+}
+
 // ─── Method bindings ──────────────────────────────────────────────────────
 
 impl OrderBook {
@@ -351,5 +359,10 @@ impl OrderBook {
             params,
         )
         .await
+    }
+
+    /// Original contract method: `getShutdownState`.
+    pub async fn get_shutdown_state(&self) -> KitResult<ResultOfGetShutdownState> {
+        self.call_get_method::<ResultOfGetShutdownState>("getShutdownState").await
     }
 }

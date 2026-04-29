@@ -321,7 +321,8 @@
 				{"name":"isBuy","type":"bool"},
 				{"name":"flags","type":"uint8"},
 				{"name":"price","type":"uint256"},
-				{"name":"amount","type":"uint128"}
+				{"name":"amount","type":"uint128"},
+				{"name":"numOutcomes","type":"uint32"}
 			],
 			"outputs": [
 			]
@@ -375,7 +376,8 @@
 				{"name":"refundAmount","type":"uint128"},
 				{"name":"feeAmount","type":"uint128"},
 				{"name":"orderId","type":"uint128"},
-				{"name":"isFinal","type":"bool"}
+				{"name":"isFinal","type":"bool"},
+				{"name":"numOutcomes","type":"uint32"}
 			],
 			"outputs": [
 			]
@@ -470,6 +472,22 @@
 			],
 			"outputs": [
 				{"components":[{"name":"amount","type":"uint128[]"},{"name":"debtAmount","type":"uint128[]"},{"name":"couponsAmount","type":"uint128[]"},{"name":"candidateAmount","type":"uint128"},{"name":"candidateOutcome","type":"uint32"},{"name":"candidateBetType","type":"uint8"},{"name":"tokenType","type":"uint32"},{"name":"oracleListHash","type":"uint256"}],"name":"_stakes","type":"map(uint256,tuple)"}
+			]
+		},
+		{
+			"name": "_pendingPlaceBuyLock",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"_pendingPlaceBuyLock","type":"uint128"}
+			]
+		},
+		{
+			"name": "_pendingPlaceBuyTokenType",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"_pendingPlaceBuyTokenType","type":"uint32"}
 			]
 		}
 	],
@@ -639,6 +657,7 @@
 		{"init":false,"name":"_orderFeeReserves","type":"map(address,map(uint128,uint128))"},
 		{"init":false,"name":"_orderLocks","type":"map(address,map(uint128,uint128))"},
 		{"init":false,"name":"_lockedInOrders","type":"map(uint32,uint128)"},
+		{"init":false,"name":"_openOrderCount","type":"uint32"},
 		{"init":false,"name":"_pendingBatchActive","type":"bool"},
 		{"init":false,"name":"_pendingBatchBuyLock","type":"uint128"},
 		{"init":false,"name":"_pendingBatchTokenType","type":"uint32"},

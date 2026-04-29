@@ -8,7 +8,8 @@
 			"inputs": [
 				{"name":"pmpSaltedCodeHash","type":"uint256"},
 				{"name":"pmpSaltedCodeDepth","type":"uint16"},
-				{"name":"resultStart","type":"uint64"}
+				{"name":"resultStart","type":"uint64"},
+				{"name":"numOutcomes","type":"uint32"}
 			],
 			"outputs": [
 			]
@@ -76,6 +77,15 @@
 			],
 			"outputs": [
 				{"name":"size","type":"uint8"}
+			]
+		},
+		{
+			"name": "getShutdownState",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"shuttingDown","type":"bool"},
+				{"name":"shutdownPending","type":"bool"}
 			]
 		},
 		{
@@ -241,6 +251,7 @@
 		{"init":false,"name":"_privateNoteCode","type":"cell"},
 		{"init":false,"name":"_pmpAddress","type":"address"},
 		{"init":false,"name":"_resultStart","type":"uint64"},
+		{"init":false,"name":"_numOutcomes","type":"uint32"},
 		{"components":[{"name":"depositHash","type":"uint256"},{"name":"price","type":"uint256"},{"name":"amount","type":"uint128"},{"name":"minAmount","type":"uint128"},{"name":"initialAmount","type":"uint128"},{"name":"filledAccum","type":"uint128"},{"name":"clientOrderId","type":"uint128"},{"name":"epochId","type":"uint64"},{"name":"outcomeId","type":"uint32"},{"name":"flags","type":"uint8"},{"name":"isBuy","type":"bool"},{"name":"nextAtPrice","type":"uint128"},{"name":"prevAtPrice","type":"uint128"},{"name":"nextInOwner","type":"uint128"},{"name":"prevInOwner","type":"uint128"}],"init":false,"name":"_orders","type":"map(uint128,tuple)"},
 		{"init":false,"name":"_clientOrderIds","type":"map(uint256,map(uint128,uint128))"},
 		{"init":false,"name":"_levels","type":"optional(cell)"},
@@ -249,6 +260,7 @@
 		{"init":false,"name":"_nextOrderId","type":"uint128"},
 		{"init":false,"name":"_orderCount","type":"uint32"},
 		{"init":false,"name":"_shuttingDown","type":"bool"},
+		{"init":false,"name":"_shutdownPending","type":"bool"},
 		{"init":false,"name":"_shutdownCursor","type":"uint128"},
 		{"init":false,"name":"_totalMakerFees","type":"uint128"},
 		{"init":false,"name":"_totalTakerFees","type":"uint128"},

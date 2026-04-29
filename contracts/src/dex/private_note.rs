@@ -16,6 +16,7 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_map;
+use crate::deserialize::deserialize_u32;
 use crate::dex::order_book::OrderBookOrder;
 use crate::error::DexModule;
 use crate::error::KitModule;
@@ -366,6 +367,7 @@ pub struct ParamsOfOnOrderRejected {
     /// `uint256` decimal or hex string.
     pub price: String,
     pub amount: u128,
+    pub num_outcomes: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -397,6 +399,7 @@ pub struct ParamsOfOnOrderFilled {
     pub fee_amount: u128,
     pub order_id: u128,
     pub is_final: bool,
+    pub num_outcomes: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -443,6 +446,20 @@ pub struct ResultOfGetDetails {
 pub struct ResultOfGetDepositIdentifierHash {
     #[serde(rename = "_depositIdentifierHash")]
     pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PrivateNote._pendingPlaceBuyLock`.
+pub struct ResultOfGetPendingPlaceBuyLock {
+    #[serde(rename = "_pendingPlaceBuyLock", deserialize_with = "deserialize_u128")]
+    pub pending_place_buy_lock: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PrivateNote._pendingPlaceBuyTokenType`.
+pub struct ResultOfGetPendingPlaceBuyTokenType {
+    #[serde(rename = "_pendingPlaceBuyTokenType", deserialize_with = "deserialize_u32")]
+    pub pending_place_buy_token_type: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1049,5 +1066,22 @@ impl PrivateNote {
     /// frequently in DEX contract iterations.
     pub async fn get_stakes(&self) -> KitResult<ResultOfGetStakes> {
         self.call_get_method::<ResultOfGetStakes>("_stakes").await
+    }
+
+    /// # Get pending place-buy lock amount
+    ///
+    /// Original contract method: `_pendingPlaceBuyLock`
+    pub async fn get_pending_place_buy_lock(&self) -> KitResult<ResultOfGetPendingPlaceBuyLock> {
+        self.call_get_method::<ResultOfGetPendingPlaceBuyLock>("_pendingPlaceBuyLock").await
+    }
+
+    /// # Get pending place-buy token type
+    ///
+    /// Original contract method: `_pendingPlaceBuyTokenType`
+    pub async fn get_pending_place_buy_token_type(
+        &self,
+    ) -> KitResult<ResultOfGetPendingPlaceBuyTokenType> {
+        self.call_get_method::<ResultOfGetPendingPlaceBuyTokenType>("_pendingPlaceBuyTokenType")
+            .await
     }
 }

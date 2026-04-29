@@ -206,6 +206,8 @@ pub struct ParamsOfGetExchangeData {
     pub pubkey: String,
     #[serde(rename(serialize = "usdcWallet"))]
     pub usdc_wallet: String,
+    #[serde(rename(serialize = "totalMinted"))]
+    pub total_minted: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]

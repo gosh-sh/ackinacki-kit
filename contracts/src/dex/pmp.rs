@@ -141,6 +141,21 @@ pub struct ResultOfGetOrderBookAddress {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// Result of `PMP.getShutdownState`.
+pub struct ResultOfGetShutdownState {
+    pub order_book_done: bool,
+    pub shutdown_triggered: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PMP.getUnclaimedBalance`.
+pub struct ResultOfGetUnclaimedBalance {
+    #[serde(rename = "value0", deserialize_with = "deserialize_u128")]
+    pub value: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Result of `PMP.getDetails`.
 ///
 /// `uint256` identity-like values are preserved as strings to avoid losing the
@@ -375,5 +390,34 @@ impl Pmp {
     /// Original contract method: `getOrderBookAddress`
     pub async fn get_order_book_address(&self) -> KitResult<ResultOfGetOrderBookAddress> {
         self.call_get_method::<ResultOfGetOrderBookAddress>("getOrderBookAddress").await
+    }
+
+    /// # Get shutdown state
+    ///
+    /// Original contract method: `getShutdownState`
+    pub async fn get_shutdown_state(&self) -> KitResult<ResultOfGetShutdownState> {
+        self.call_get_method::<ResultOfGetShutdownState>("getShutdownState").await
+    }
+
+    /// # Get unclaimed balance
+    ///
+    /// Original contract method: `getUnclaimedBalance`
+    pub async fn get_unclaimed_balance(&self) -> KitResult<ResultOfGetUnclaimedBalance> {
+        self.call_get_method::<ResultOfGetUnclaimedBalance>("getUnclaimedBalance").await
+    }
+
+    /// # OrderBook shutdown completion callback
+    ///
+    /// Original contract method: `onOrderBookShutdownComplete`
+    pub async fn on_order_book_shutdown_complete(
+        &self,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderBookShutdownComplete".to_string(),
+            header: None,
+            input: None,
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 }
