@@ -352,6 +352,14 @@ pub struct ParamsOfOnOrderPlaced {
     pub order_id: u128,
     pub fee_reserve: u128,
     pub lock: u128,
+    pub client_order_id: u128,
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    pub flags: u8,
+    /// `uint256` decimal or hex string.
+    pub price: String,
+    pub amount: u128,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -368,6 +376,8 @@ pub struct ParamsOfOnOrderRejected {
     pub price: String,
     pub amount: u128,
     pub num_outcomes: u32,
+    pub client_order_id: u128,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -381,6 +391,8 @@ pub struct ParamsOfOnOrderCancelled {
     pub outcome_id: u32,
     pub is_buy: bool,
     pub amount: u128,
+    pub client_order_id: u128,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -397,9 +409,11 @@ pub struct ParamsOfOnOrderFilled {
     pub is_buy: bool,
     pub refund_amount: u128,
     pub fee_amount: u128,
+    pub is_rebate: bool,
     pub order_id: u128,
     pub is_final: bool,
     pub num_outcomes: u32,
+    pub client_order_id: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -409,6 +423,7 @@ pub struct ParamsOfOnBatchComplete {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

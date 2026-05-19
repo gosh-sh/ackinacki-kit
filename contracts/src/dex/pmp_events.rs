@@ -27,7 +27,7 @@ pub enum PmpEvent {
     TimingsSet = 124,
     NumOutcomesSet = 125,
     EventCancelled = 126,
-    PmpCancelled = 132,
+    PmpRejected = 132,
     CreatorFeeCollected = 137,
     PoolsFrozen = 140,
     SplitProcessed = 141,
@@ -56,7 +56,7 @@ impl TryFrom<String> for PmpEvent {
             124 => Ok(PmpEvent::TimingsSet),
             125 => Ok(PmpEvent::NumOutcomesSet),
             126 => Ok(PmpEvent::EventCancelled),
-            132 => Ok(PmpEvent::PmpCancelled),
+            132 => Ok(PmpEvent::PmpRejected),
             137 => Ok(PmpEvent::CreatorFeeCollected),
             140 => Ok(PmpEvent::PoolsFrozen),
             141 => Ok(PmpEvent::SplitProcessed),
@@ -92,7 +92,7 @@ pub enum DecodedPmpEvent {
     TimingsSet { event: Event, kind: PmpEvent, data: TimingsSetData },
     NumOutcomesSet { event: Event, kind: PmpEvent, data: NumOutcomesSetData },
     EventCancelled { event: Event, kind: PmpEvent },
-    PmpCancelled { event: Event, kind: PmpEvent },
+    PmpRejected { event: Event, kind: PmpEvent },
     CreatorFeeCollected { event: Event, kind: PmpEvent, data: CreatorFeeCollectedData },
     PoolsFrozen { event: Event, kind: PmpEvent, data: PoolsFrozenData },
     SplitProcessed { event: Event, kind: PmpEvent, data: SplitProcessedData },
@@ -183,8 +183,8 @@ impl FromEvent for DecodedPmpEvent {
             PmpEvent::EventCancelled => {
                 Ok(DecodedPmpEvent::EventCancelled { event: event.clone(), kind })
             }
-            PmpEvent::PmpCancelled => {
-                Ok(DecodedPmpEvent::PmpCancelled { event: event.clone(), kind })
+            PmpEvent::PmpRejected => {
+                Ok(DecodedPmpEvent::PmpRejected { event: event.clone(), kind })
             }
             PmpEvent::CreatorFeeCollected => {
                 let decoded = event.decode::<CreatorFeeCollectedData>(contract)?;

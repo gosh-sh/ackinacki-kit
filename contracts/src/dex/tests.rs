@@ -336,7 +336,7 @@ async fn test_oracle_deploy_and_add_event() {
         .expect("addEvent");
 
     let mut observed = None;
-    for _ in 0..10 {
+    for _ in 0..20 {
         let events_after = event_list
             .get_events()
             .await
@@ -352,23 +352,15 @@ async fn test_oracle_deploy_and_add_event() {
     }
 
     let events_map = observed.expect("EventList size should increase after addEvent");
-    let matched = events_map.values().find(|entry| {
-        entry.get("event_name").and_then(|v| v.as_str()) == Some(event_name.as_str())
-    });
+    let matched = events_map
+        .values()
+        .find(|entry| event_entry_name(entry) == Some(event_name.as_str()));
 
     let event_info = matched.expect("Added event should be present in _events map");
-    let fee = event_info
-        .get("oracle_fee")
-        .and_then(|v| v.as_str())
-        .expect("oracle_fee string")
-        .parse::<u128>()
-        .expect("parse oracle_fee");
-    let stored_deadline = event_info
-        .get("deadline")
-        .and_then(|v| v.as_str())
-        .expect("deadline string")
-        .parse::<u64>()
-        .expect("parse deadline");
+    let fee = event_entry_u128(event_info, "oracleFee")
+        .or_else(|| event_entry_u128(event_info, "oracle_fee"))
+        .expect("oracleFee/oracle_fee field");
+    let stored_deadline = event_entry_u64(event_info, "deadline").expect("deadline field");
 
     assert_eq!(fee, oracle_fee);
     assert_eq!(stored_deadline, deadline);

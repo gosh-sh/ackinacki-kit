@@ -103,6 +103,7 @@ pub struct ParamsOfExecuteBatch {
     pub deposit_identifier_hash: String,
     pub orders: Vec<OrderBookOrder>,
     pub cancel_ids: Vec<u128>,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -110,23 +111,7 @@ pub struct ParamsOfExecuteBatch {
 /// Parameters for `OrderBook.cancelAllOrders`.
 pub struct ParamsOfCancelAllOrders {
     pub deposit_identifier_hash: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-/// Parameters for `OrderBook.cancelQueued`.
-pub struct ParamsOfCancelQueued {
-    pub slot: u8,
-    pub queue_id: u32,
-    pub deposit_identifier_hash: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-/// Parameters for `OrderBook.cancelByClientId`.
-pub struct ParamsOfCancelByClientId {
-    pub deposit_identifier_hash: String,
-    pub client_order_id: u128,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,14 +126,6 @@ pub struct ParamsOfGetOrder {
 /// Parameters for `OrderBook.getOrdersByOwner`.
 pub struct ParamsOfGetOrdersByOwner {
     pub deposit_hash: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-/// Parameters for `OrderBook.getOrderIdByClient`.
-pub struct ParamsOfGetOrderIdByClient {
-    pub deposit_hash: String,
-    pub client_order_id: u128,
 }
 
 // ─── Result structs ───────────────────────────────────────────────────────
@@ -166,9 +143,9 @@ pub struct ResultOfGetDetails {
     #[serde(deserialize_with = "deserialize_u128")]
     pub order_count: u128,
     #[serde(deserialize_with = "deserialize_u128")]
-    pub total_maker_fees: u128,
+    pub total_maker_rebates_paid: u128,
     #[serde(deserialize_with = "deserialize_u128")]
-    pub total_taker_fees: u128,
+    pub total_protocol_fees: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -210,14 +187,6 @@ pub struct ResultOfGetOrdersByOwner {
     pub amounts: Vec<String>,
     pub epoch_ids: Vec<String>,
     pub client_order_ids: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-/// Result of `OrderBook.getOrderIdByClient`.
-pub struct ResultOfGetOrderIdByClient {
-    #[serde(deserialize_with = "deserialize_u128")]
-    pub order_id: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -280,34 +249,6 @@ impl OrderBook {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// Original contract method: `cancelQueued`.
-    pub async fn cancel_queued(
-        &self,
-        params: ParamsOfCancelQueued,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "cancelQueued".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// Original contract method: `cancelByClientId`.
-    pub async fn cancel_by_client_id(
-        &self,
-        params: ParamsOfCancelByClientId,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "cancelByClientId".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// Original contract method: `processHead`. Drains the matching queue
     /// without submitting new orders.
     pub async fn process_head(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
@@ -344,18 +285,6 @@ impl OrderBook {
     ) -> KitResult<ResultOfGetOrdersByOwner> {
         self.call_get_method_with::<ResultOfGetOrdersByOwner, ParamsOfGetOrdersByOwner>(
             "getOrdersByOwner",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getOrderIdByClient`.
-    pub async fn get_order_id_by_client(
-        &self,
-        params: ParamsOfGetOrderIdByClient,
-    ) -> KitResult<ResultOfGetOrderIdByClient> {
-        self.call_get_method_with::<ResultOfGetOrderIdByClient, ParamsOfGetOrderIdByClient>(
-            "getOrderIdByClient",
             params,
         )
         .await

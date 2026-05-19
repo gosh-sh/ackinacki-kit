@@ -26,8 +26,12 @@ pub enum PrivateNoteEvent {
     StakeCancelled = 115,
     FullSetStakeConfirmed = 116,
     FullSetStakeCancelled = 117,
+    OrderPlacedConfirmed = 147,
+    OrderFilledConfirmed = 148,
     TransferInitiated = 149,
     TransferReceived = 150,
+    OrderSubmitted = 151,
+    OrderCancelledConfirmed = 152,
 }
 
 impl TryFrom<String> for PrivateNoteEvent {
@@ -51,8 +55,12 @@ impl TryFrom<String> for PrivateNoteEvent {
             115 => Ok(PrivateNoteEvent::StakeCancelled),
             116 => Ok(PrivateNoteEvent::FullSetStakeConfirmed),
             117 => Ok(PrivateNoteEvent::FullSetStakeCancelled),
+            147 => Ok(PrivateNoteEvent::OrderPlacedConfirmed),
+            148 => Ok(PrivateNoteEvent::OrderFilledConfirmed),
             149 => Ok(PrivateNoteEvent::TransferInitiated),
             150 => Ok(PrivateNoteEvent::TransferReceived),
+            151 => Ok(PrivateNoteEvent::OrderSubmitted),
+            152 => Ok(PrivateNoteEvent::OrderCancelledConfirmed),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -85,6 +93,14 @@ pub enum DecodedPrivateNoteEvent {
     FullSetStakeCancelled { event: Event, kind: PrivateNoteEvent, data: FullSetStakeCancelledData },
     TransferInitiated { event: Event, kind: PrivateNoteEvent, data: TransferInitiatedData },
     TransferReceived { event: Event, kind: PrivateNoteEvent, data: TransferReceivedData },
+    OrderSubmitted { event: Event, kind: PrivateNoteEvent, data: OrderSubmittedData },
+    OrderPlacedConfirmed { event: Event, kind: PrivateNoteEvent, data: OrderPlacedConfirmedData },
+    OrderFilledConfirmed { event: Event, kind: PrivateNoteEvent, data: OrderFilledConfirmedData },
+    OrderCancelledConfirmed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OrderCancelledConfirmedData,
+    },
 }
 
 impl FromEvent for DecodedPrivateNoteEvent {
@@ -198,6 +214,62 @@ impl FromEvent for DecodedPrivateNoteEvent {
                 })?;
                 Ok(DecodedPrivateNoteEvent::TransferReceived { event: event.clone(), kind, data })
             }
+            PrivateNoteEvent::OrderSubmitted => {
+                let decoded = event.decode::<OrderSubmittedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::OrderSubmitted { event: event.clone(), kind, data })
+            }
+            PrivateNoteEvent::OrderPlacedConfirmed => {
+                let decoded = event.decode::<OrderPlacedConfirmedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::OrderPlacedConfirmed {
+                    event: event.clone(),
+                    kind,
+                    data,
+                })
+            }
+            PrivateNoteEvent::OrderFilledConfirmed => {
+                let decoded = event.decode::<OrderFilledConfirmedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::OrderFilledConfirmed {
+                    event: event.clone(),
+                    kind,
+                    data,
+                })
+            }
+            PrivateNoteEvent::OrderCancelledConfirmed => {
+                let decoded = event.decode::<OrderCancelledConfirmedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::OrderCancelledConfirmed {
+                    event: event.clone(),
+                    kind,
+                    data,
+                })
+            }
         }
     }
 }
@@ -294,4 +366,82 @@ pub struct TransferReceivedData {
     pub token_type: u32,
     #[serde(deserialize_with = "deserialize_u128")]
     pub amount: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Payload of `PrivateNoteEvent::OrderSubmitted`. Emitted by the owner-facing
+/// `placeOrder` / `placeBatch` call before the OrderBook callback round-trip.
+pub struct OrderSubmittedData {
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub client_order_id: u128,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    /// `uint256` represented as returned by ABI.
+    pub price: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+    #[serde(deserialize_with = "deserialize_u8")]
+    pub flags: u8,
+    pub event_id: String,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Payload of `PrivateNoteEvent::OrderPlacedConfirmed`. Emitted after the
+/// `OrderBook.onOrderPlaced` callback has been processed.
+pub struct OrderPlacedConfirmedData {
+    pub order_book: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub order_id: u128,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub client_order_id: u128,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    #[serde(deserialize_with = "deserialize_u8")]
+    pub flags: u8,
+    /// `uint256` represented as returned by ABI.
+    pub price: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Payload of `PrivateNoteEvent::OrderFilledConfirmed`. Emitted after each
+/// `OrderBook.onOrderFilled` callback has settled.
+pub struct OrderFilledConfirmedData {
+    pub order_book: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub order_id: u128,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub filled_amount: u128,
+    /// `uint256` represented as returned by ABI.
+    pub clearing_price: String,
+    pub is_buy: bool,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub fee_amount: u128,
+    pub is_rebate: bool,
+    pub is_final: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Payload of `PrivateNoteEvent::OrderCancelledConfirmed`. Emitted after each
+/// `OrderBook.onOrderCancelled` callback has settled.
+pub struct OrderCancelledConfirmedData {
+    pub order_book: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub order_id: u128,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub return_amount: u128,
 }

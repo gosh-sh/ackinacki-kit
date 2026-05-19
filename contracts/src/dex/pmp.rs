@@ -132,6 +132,13 @@ pub struct ParamsOfSplitFullSet {
     pub deposit_identifier_hash: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PMP.confirmRefundReceived`.
+pub struct ParamsOfConfirmRefundReceived {
+    pub deposit_identifier_hash: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 /// Result of `PMP.getOrderBookAddress`.
 pub struct ResultOfGetOrderBookAddress {
@@ -417,6 +424,39 @@ impl Pmp {
             function_name: "onOrderBookShutdownComplete".to_string(),
             header: None,
             input: None,
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Force freeze pools after stake window
+    ///
+    /// Original contract method: `freezeNow`
+    ///
+    /// Public entry that freezes the pools and deploys the `OrderBook` once
+    /// the stake window has ended, without requiring a user-initiated
+    /// split/merge first.
+    pub async fn freeze_now(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "freezeNow".to_string(), header: None, input: None };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Acknowledge receipt of the normalization refund
+    ///
+    /// Original contract method: `confirmRefundReceived`
+    ///
+    /// Called by the deployer's `PrivateNote` at the tail of
+    /// `onPmpCleanRefund` to clear `_normRefundPending` and re-enable
+    /// `splitFullSet` / `mergeFullSet`.
+    pub async fn confirm_refund_received(
+        &self,
+        params: ParamsOfConfirmRefundReceived,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "confirmRefundReceived".to_string(),
+            header: None,
+            input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
     }
