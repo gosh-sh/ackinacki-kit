@@ -5,6 +5,7 @@ use serde::Deserialize;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_vec;
 use crate::deserialize::deserialize_u32;
+use crate::deserialize::deserialize_u64;
 use crate::deserialize::deserialize_u8;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -32,6 +33,7 @@ pub enum PrivateNoteEvent {
     TransferReceived = 150,
     OrderSubmitted = 151,
     OrderCancelledConfirmed = 152,
+    OrderPlaceRejected = 153,
 }
 
 impl TryFrom<String> for PrivateNoteEvent {
@@ -61,6 +63,7 @@ impl TryFrom<String> for PrivateNoteEvent {
             150 => Ok(PrivateNoteEvent::TransferReceived),
             151 => Ok(PrivateNoteEvent::OrderSubmitted),
             152 => Ok(PrivateNoteEvent::OrderCancelledConfirmed),
+            153 => Ok(PrivateNoteEvent::OrderPlaceRejected),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -101,6 +104,7 @@ pub enum DecodedPrivateNoteEvent {
         kind: PrivateNoteEvent,
         data: OrderCancelledConfirmedData,
     },
+    OrderPlaceRejected { event: Event, kind: PrivateNoteEvent, data: OrderPlaceRejectedData },
 }
 
 impl FromEvent for DecodedPrivateNoteEvent {
@@ -265,6 +269,21 @@ impl FromEvent for DecodedPrivateNoteEvent {
                     )
                 })?;
                 Ok(DecodedPrivateNoteEvent::OrderCancelledConfirmed {
+                    event: event.clone(),
+                    kind,
+                    data,
+                })
+            }
+            PrivateNoteEvent::OrderPlaceRejected => {
+                let decoded = event.decode::<OrderPlaceRejectedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for private note event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedPrivateNoteEvent::OrderPlaceRejected {
                     event: event.clone(),
                     kind,
                     data,
@@ -444,4 +463,27 @@ pub struct OrderCancelledConfirmedData {
     pub is_buy: bool,
     #[serde(deserialize_with = "deserialize_u128")]
     pub return_amount: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Payload of `PrivateNoteEvent::OrderPlaceRejected`. Emitted when the
+/// OrderBook bounces back a `placeOrder` request before it could be accepted.
+pub struct OrderPlaceRejectedData {
+    pub order_book: String,
+    /// `uint256` represented as returned by ABI.
+    pub event_id: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub client_order_id: u128,
+    #[serde(deserialize_with = "deserialize_u32")]
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    #[serde(deserialize_with = "deserialize_u8")]
+    pub flags: u8,
+    /// `uint256` represented as returned by ABI.
+    pub price: String,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub op_nonce: u64,
 }

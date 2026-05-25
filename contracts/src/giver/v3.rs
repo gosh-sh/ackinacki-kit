@@ -141,56 +141,6 @@ pub struct ParamsOfGetData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForPMP`.
-pub struct ParamsOfGetDataForPmp {
-    #[serde(rename(serialize = "PMPCode"))]
-    pub pmp_code: String,
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    #[serde(rename(serialize = "NullifierCode"))]
-    pub nullifier_code: String,
-    #[serde(rename(serialize = "OracleCode"))]
-    pub oracle_code: String,
-    #[serde(rename(serialize = "OracleEventListCode"))]
-    pub oracle_event_list_code: String,
-    #[serde(rename(serialize = "OrderBookCode"))]
-    pub order_book_code: String,
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForOracle`.
-pub struct ParamsOfGetDataForOracle {
-    #[serde(rename(serialize = "PMPCode"))]
-    pub pmp_code: String,
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    #[serde(rename(serialize = "OracleCode"))]
-    pub oracle_code: String,
-    #[serde(rename(serialize = "OracleEventListCode"))]
-    pub oracle_event_list_code: String,
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForVault`.
-pub struct ParamsOfGetDataForVault {
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    pub pubkey: String,
-    pub root: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForAuthService`.
-pub struct ParamsOfGetDataForAuthService {
-    #[serde(rename(serialize = "profileCode"))]
-    pub profile_code: String,
-    /// `uint256` encoded as decimal or hex string.
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
 /// Parameters for `GiverV3.getAccumulatorData`.
 pub struct ParamsOfGetAccumulatorData {
     #[serde(rename(serialize = "sellOrderCode"))]
@@ -206,8 +156,10 @@ pub struct ParamsOfGetExchangeData {
     pub pubkey: String,
     #[serde(rename(serialize = "usdcWallet"))]
     pub usdc_wallet: String,
-    #[serde(rename(serialize = "totalMinted"))]
-    pub total_minted: u128,
+    #[serde(rename(serialize = "mintNonce"))]
+    pub mint_nonce: u64,
+    #[serde(rename(serialize = "mintAccumulatorNonce"))]
+    pub mint_accumulator_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -344,54 +296,6 @@ impl GiverV3 {
     /// Original contract method: `getData`.
     pub async fn get_data(&self, params: ParamsOfGetData) -> KitResult<ResultOfGetDataCell> {
         self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetData>("getData", params).await
-    }
-
-    /// Original contract method: `getDataForPMP`.
-    pub async fn get_data_for_pmp(
-        &self,
-        params: ParamsOfGetDataForPmp,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForPmp>(
-            "getDataForPMP",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForOracle`.
-    pub async fn get_data_for_oracle(
-        &self,
-        params: ParamsOfGetDataForOracle,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForOracle>(
-            "getDataForOracle",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForVault`.
-    pub async fn get_data_for_vault(
-        &self,
-        params: ParamsOfGetDataForVault,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForVault>(
-            "getDataForVault",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForAuthService`.
-    pub async fn get_data_for_auth_service(
-        &self,
-        params: ParamsOfGetDataForAuthService,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForAuthService>(
-            "getDataForAuthService",
-            params,
-        )
-        .await
     }
 
     /// Original contract method: `getAccumulatorData`.

@@ -634,6 +634,22 @@
 			]
 		},
 		{
+			"name": "OrderPlaceRejected",
+			"inputs": [
+				{"name":"orderBook","type":"address"},
+				{"name":"eventId","type":"uint256"},
+				{"name":"clientOrderId","type":"uint128"},
+				{"name":"outcomeId","type":"uint32"},
+				{"name":"isBuy","type":"bool"},
+				{"name":"flags","type":"uint8"},
+				{"name":"price","type":"uint256"},
+				{"name":"amount","type":"uint128"},
+				{"name":"opNonce","type":"uint64"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "TransferInitiated",
 			"inputs": [
 				{"name":"dest","type":"address"},
