@@ -111,6 +111,17 @@ impl ShellSellOrderLot {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
+    /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
+    }
+
     /// Original contract method: `claim`.
     pub async fn claim(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet { function_name: "claim".to_string(), header: None, input: None };

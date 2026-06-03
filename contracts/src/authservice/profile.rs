@@ -263,6 +263,17 @@ impl AuthProfile {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
+    /// Wrapper bound to `address`, under the AuthService dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        )
+    }
+
     /// # Get profile details
     ///
     /// Original contract method: `getDetails`

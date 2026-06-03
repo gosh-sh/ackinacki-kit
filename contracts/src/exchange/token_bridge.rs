@@ -220,6 +220,17 @@ impl TokenBridge {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
+    /// Wrapper bound to `address`, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::System,
+            ),
+        )
+    }
+
     /// Original contract method: `mintAndSend`.
     pub async fn mint_and_send(
         &self,
