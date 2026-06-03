@@ -2,6 +2,7 @@ pub mod account;
 pub mod accumulator;
 pub mod authservice;
 pub mod bksystem;
+pub mod dapp;
 pub mod deserialize;
 pub mod dex;
 pub mod error;

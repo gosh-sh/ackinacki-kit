@@ -191,8 +191,12 @@ impl RootPn {
 
     /// Allows passing the root address explicitly (useful for shellnet/testnet
     /// or local networks where RootPN may live at a non-premine address).
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     pub fn new_default(context: Arc<ClientContext>) -> Self {

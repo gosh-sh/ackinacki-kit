@@ -108,12 +108,24 @@ pub struct ResultOfGetDetails {
 }
 
 impl BlockKeeperWallet {
+    /// Wrapper for a deployed wallet, under the all-zero system dApp.
+    /// Use [`Self::with_dapp_id`] to override.
     pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::with_dapp_id(context, address, crate::dapp::SystemDapp::System)
+    }
+
+    /// Like [`Self::new`] but with a caller-supplied dApp ID.
+    pub fn with_dapp_id(
+        context: Arc<ClientContext>,
+        address: impl AsRef<str>,
+        dapp_id: impl Into<String>,
+    ) -> Self {
+        let params = crate::account::ParamsOfNewContract::new(address.as_ref(), dapp_id);
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
     }
 

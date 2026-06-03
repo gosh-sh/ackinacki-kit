@@ -103,8 +103,12 @@ impl Default for ParamsOfQuerySellOrderLotEvents {
 
 impl ShellSellOrderLot {
     /// Create a wrapper for a deployed `ShellSellOrderLot`.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// Original contract method: `claim`.
@@ -134,6 +138,7 @@ impl ShellSellOrderLot {
         let raw_events = query_external_events(
             self.context().clone(),
             self.address(),
+            self.dapp_id(),
             Some(prefetch_limit as u32),
         )
         .await?;

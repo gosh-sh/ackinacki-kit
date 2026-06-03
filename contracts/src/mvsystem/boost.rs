@@ -128,7 +128,7 @@ impl Boost {
                 context: context.clone(),
                 address: address.as_ref().to_string(),
                 abi: Abi::Json(ABI.to_string()),
-                account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+                account: Arc::new(Mutex::new(Account::new(context.clone(), &address, None))),
             };
             instance.get_version().await?
         };
@@ -142,7 +142,7 @@ impl Boost {
             context: context.clone(),
             address: address.as_ref().to_string(),
             abi: Abi::Json(abi.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, address, None))),
         })
     }
 

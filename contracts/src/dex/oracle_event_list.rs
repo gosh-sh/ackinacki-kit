@@ -105,8 +105,12 @@ pub struct ResultOfGetEvents {
 
 impl OracleEventList {
     /// Create a wrapper for a deployed `OracleEventList` shard.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Add oracle-serviced event

@@ -72,6 +72,7 @@ impl AccountAccessor for ReputationCoefficientCalculator {
         let created_account = Account {
             context: self.context.clone(),
             address: self.address.clone(),
+            dapp_id: Some(crate::dapp::SystemDapp::System.into()),
             boc: Some(encoded_account.account),
             data: None,
             balance: None,
@@ -151,7 +152,11 @@ impl ReputationCoefficientCalculator {
             context: context.clone(),
             address: address.to_string(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context.clone(), address))),
+            account: Arc::new(Mutex::new(Account::new(
+                context.clone(),
+                address,
+                Some(crate::dapp::SystemDapp::System.into()),
+            ))),
         }
     }
 

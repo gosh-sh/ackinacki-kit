@@ -14,10 +14,12 @@ use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
+use crate::account::account_id_from_address;
 use crate::account::Account;
 use crate::authservice::events::AuthProfileDeployedData;
 use crate::authservice::events::AuthServiceEvent;
 use crate::authservice::profile::AuthProfile;
+use crate::dapp::supports_dapp_id;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -216,6 +218,7 @@ fn oldest_edge_cursor(edges: &[GqlEdge]) -> Option<String> {
     edges.first().map(|edge| edge.cursor.clone())
 }
 
+/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
 const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
     query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
@@ -236,13 +239,41 @@ const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
     }
 "#;
 
+/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
+const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3: &str = r#"
+    query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(account_id: $account_id, dapp_id: $dapp_id) {
+          events(dst: $dst, last: $last, before: $before) {
+            edges {
+              cursor
+              node {
+                msg_id
+                dst
+                created_at
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+"#;
+
 impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:0404040404040404040404040404040404040404040404040404040404040404";
 
-    /// Creates AuthServiceRoot wrapper bound to the default address.
+    /// Creates AuthServiceRoot wrapper bound to the default address, under the
+    /// AuthService system dApp. Use [`AuthServiceRoot::with_dapp_id`] to override.
     pub fn new(context: Arc<ClientContext>) -> Self {
-        Self { base: ContractBase::new(context, Self::DEFAULT_ADDRESS, Abi::Json(ABI.to_string())) }
+        Self::with_dapp_id(context, crate::dapp::SystemDapp::AuthService)
+    }
+
+    /// Like [`AuthServiceRoot::new`] but with a caller-supplied dApp ID.
+    pub fn with_dapp_id(context: Arc<ClientContext>, dapp_id: impl Into<String>) -> Self {
+        let params = crate::account::ParamsOfNewContract::new(Self::DEFAULT_ADDRESS, dapp_id);
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Set auth profile code
@@ -378,16 +409,33 @@ impl AuthServiceRoot {
             AuthServiceEvent::auth_profile_deployed_external_address(&multifactor_hash)?;
         let limit = params.limit.unwrap_or(50);
 
+        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
+        let variables = if v3 {
+            json!({
+                "account_id": account_id_from_address(self.address()),
+                "dapp_id": self.dapp_id().unwrap_or_default(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        } else {
+            json!({
+                "address": self.address(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        };
         let raw = net::query(
             self.context().clone(),
             net::ParamsOfQuery {
-                query: GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.to_string(),
-                variables: Some(json!({
-                    "address": self.address(),
-                    "dst": expected_dst,
-                    "last": limit,
-                    "before": params.before,
-                })),
+                query: if v3 {
+                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3
+                } else {
+                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY
+                }
+                .to_string(),
+                variables: Some(variables),
             },
         )
         .await

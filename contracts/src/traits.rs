@@ -30,6 +30,7 @@ use tvm_client::tvm::ResultOfRunTvm;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::account::ParamsOfNewContract;
 use crate::account::ParamsOfWaitAccount;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -55,17 +56,23 @@ pub trait ModuleAccessor {
 pub struct ContractBase {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: Option<String>,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
 
 impl ContractBase {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>, abi: Abi) -> Self {
-        let address = address.as_ref().to_string();
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<ParamsOfNewContract>,
+        abi: Abi,
+    ) -> Self {
+        let ParamsOfNewContract { address, dapp_id } = params.into();
         Self {
-            account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+            account: Arc::new(Mutex::new(Account::new(context.clone(), &address, dapp_id.clone()))),
             context,
             address,
+            dapp_id,
             abi,
         }
     }
@@ -77,6 +84,13 @@ pub trait HasContractBase {
 
 pub trait AddressAccessor {
     fn address(&self) -> &str;
+
+    /// Bare 64-hex dApp ID, or `None` on legacy (`< 1.0.0`) servers / when not
+    /// applicable. Defaults to `None` so read-only wrappers need not provide it;
+    /// `ContractBase`-backed contracts return the value supplied at construction.
+    fn dapp_id(&self) -> Option<&str> {
+        None
+    }
 }
 
 impl<T> AddressAccessor for T
@@ -85,6 +99,10 @@ where
 {
     fn address(&self) -> &str {
         &self.base().address
+    }
+
+    fn dapp_id(&self) -> Option<&str> {
+        self.base().dapp_id.as_deref()
     }
 }
 
@@ -332,7 +350,8 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
-                dst_dapp_id: None,
+                // Empty on legacy (`< 1.0.0`) servers; required on `>= 1.0.0`.
+                dapp_id: self.dapp_id().map(str::to_string).unwrap_or_default(),
             };
 
             processing::send_message(self.context().clone(), params, process_message_callback)

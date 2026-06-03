@@ -242,12 +242,16 @@ pub struct ParamsOfGetReward {
 }
 
 impl Miner {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
     }
 

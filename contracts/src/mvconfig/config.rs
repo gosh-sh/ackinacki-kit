@@ -106,12 +106,17 @@ pub struct ParamsOfSetRootPublic {
 
 impl MobileVerifiersConfig {
     pub fn new(context: Arc<ClientContext>) -> Self {
+        Self::with_dapp_id(context, crate::dapp::SystemDapp::MobileVerifiers)
+    }
+
+    /// Like [`Self::new`] but with a caller-supplied dApp ID.
+    pub fn with_dapp_id(context: Arc<ClientContext>, dapp_id: impl Into<String>) -> Self {
         let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         Self {
             context: context.clone(),
             address: address.to_string(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, address, Some(dapp_id.into())))),
         }
     }
 

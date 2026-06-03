@@ -177,7 +177,7 @@ impl Mirror {
             address: address.clone(),
             index,
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, address, None))),
         })
     }
 
