@@ -38,6 +38,7 @@ const ABI: &str = include_str!("../../abi/mvsystem/PopitGame.abi.json");
 pub struct Popitgame {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -61,6 +62,10 @@ impl AbiAccessor for Popitgame {
 impl AddressAccessor for Popitgame {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -154,6 +159,7 @@ impl Popitgame {
         Self {
             context: context.clone(),
             address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
@@ -193,7 +199,10 @@ impl Popitgame {
                 params,
             )
             .await?;
-        Ok(PopcoinWallet::new(self.context().clone(), res_of_get_addr.address))
+        Ok(PopcoinWallet::new(
+            self.context().clone(),
+            crate::account::ParamsOfNewContract::new(res_of_get_addr.address, self.dapp_id()),
+        ))
     }
 
     /// # Deploy popcoin wallet

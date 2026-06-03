@@ -90,7 +90,7 @@ impl Event {
 pub async fn query_events(
     context: Arc<ClientContext>,
     address: &str,
-    dapp_id: Option<&str>,
+    dapp_id: &str,
     limit: Option<u32>,
 ) -> KitResult<Vec<Event>> {
     query_events_while(context, address, dapp_id, limit, |_| true).await
@@ -99,7 +99,7 @@ pub async fn query_events(
 pub async fn query_events_while(
     context: Arc<ClientContext>,
     address: &str,
-    dapp_id: Option<&str>,
+    dapp_id: &str,
     limit: Option<u32>,
     predicate: impl Fn(&Event) -> bool,
 ) -> KitResult<Vec<Event>> {
@@ -117,7 +117,7 @@ pub async fn query_events_while(
         let variables = if v3 {
             serde_json::json!({
                 "account_id": account_id,
-                "dapp_id": dapp_id.unwrap_or_default(),
+                "dapp_id": dapp_id,
                 "last": page_size,
                 "before": before,
             })

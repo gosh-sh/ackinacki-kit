@@ -374,7 +374,10 @@ impl ShellAccumulatorRootUsdc {
             .get_sell_order_address(ParamsOfGetSellOrderAddress { d, order_id })
             .await?
             .sell_order_addr;
-        let sell_order_lot = ShellSellOrderLot::new(self.context().clone(), &sell_order_addr);
+        let sell_order_lot = ShellSellOrderLot::new(
+            self.context().clone(),
+            crate::account::ParamsOfNewContract::new(sell_order_addr, self.dapp_id()),
+        );
         sell_order_lot.claim(signer).await
     }
 
@@ -449,8 +452,13 @@ impl ShellAccumulatorRootUsdc {
                 .await?
                 .sell_order_addr;
 
-            let sell_order_lot =
-                ShellSellOrderLot::new(self.context().clone(), &sell_order_address);
+            let sell_order_lot = ShellSellOrderLot::new(
+                self.context().clone(),
+                crate::account::ParamsOfNewContract::new(
+                    sell_order_address.clone(),
+                    self.dapp_id(),
+                ),
+            );
             let details = match sell_order_lot.get_details().await {
                 Ok(d) => d,
                 Err(_) => continue,
@@ -598,7 +606,7 @@ impl ShellAccumulatorRootUsdc {
             let variables = if v3 {
                 json!({
                     "account_id": account_id,
-                    "dapp_id": self.dapp_id().unwrap_or_default(),
+                    "dapp_id": self.dapp_id(),
                     "dst": dst,
                     "last": SELL_ORDER_CREATED_PAGE_SIZE,
                     "before": before,
@@ -716,7 +724,7 @@ impl ShellAccumulatorRootUsdc {
             let variables = if v3 {
                 json!({
                     "account_id": account_id,
-                    "dapp_id": self.dapp_id().unwrap_or_default(),
+                    "dapp_id": self.dapp_id(),
                     "dst": dst,
                     "last": SELL_ORDER_CREATED_PAGE_SIZE,
                     "before": before,

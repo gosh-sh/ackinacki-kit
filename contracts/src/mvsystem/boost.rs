@@ -37,6 +37,7 @@ const ABI_1_0_1: &str = include_str!("../../abi/mvsystem/Boost_1.0.1.abi.json");
 pub struct Boost {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -60,6 +61,10 @@ impl AbiAccessor for Boost {
 impl AddressAccessor for Boost {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -123,12 +128,14 @@ pub struct ParamsOfUpdateCode {
 
 impl Boost {
     pub async fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> KitResult<Self> {
+        let dapp_id = crate::dapp::SystemDapp::MobileVerifiers.dapp_id();
         let version = {
             let instance = Self {
                 context: context.clone(),
                 address: address.as_ref().to_string(),
+                dapp_id: dapp_id.to_string(),
                 abi: Abi::Json(ABI.to_string()),
-                account: Arc::new(Mutex::new(Account::new(context.clone(), &address, None))),
+                account: Arc::new(Mutex::new(Account::new(context.clone(), &address, dapp_id))),
             };
             instance.get_version().await?
         };
@@ -141,8 +148,9 @@ impl Boost {
         Ok(Self {
             context: context.clone(),
             address: address.as_ref().to_string(),
+            dapp_id: dapp_id.to_string(),
             abi: Abi::Json(abi.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address, None))),
+            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
         })
     }
 

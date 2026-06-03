@@ -110,6 +110,7 @@ pub struct JwkData {
 pub struct Multifactor {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -133,6 +134,10 @@ impl AbiAccessor for Multifactor {
 impl AddressAccessor for Multifactor {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -366,6 +371,7 @@ impl Multifactor {
         Self {
             context: context.clone(),
             address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
@@ -734,7 +740,13 @@ mod tests {
     async fn test_decode_account_data() {
         let context = create_context();
 
-        let multifactor = Multifactor::new(context, crate::tests::MULTIFACTOR_ADDRESS);
+        let multifactor = Multifactor::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                crate::tests::MULTIFACTOR_ADDRESS,
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        );
         let fetch = multifactor.fetch_account().await;
         assert!(fetch.is_ok());
 

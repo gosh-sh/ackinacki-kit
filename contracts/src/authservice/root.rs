@@ -363,7 +363,10 @@ impl AuthServiceRoot {
     /// Original contract method: `getProfileAddress`
     pub async fn get_profile(&self, params: ParamsOfGetProfileAddress) -> KitResult<AuthProfile> {
         let profile = self.get_profile_address(params).await?;
-        Ok(AuthProfile::new(self.context().clone(), profile.profile))
+        Ok(AuthProfile::new(
+            self.context().clone(),
+            crate::account::ParamsOfNewContract::new(profile.profile, self.dapp_id()),
+        ))
     }
 
     /// # Hash pubkey
@@ -413,7 +416,7 @@ impl AuthServiceRoot {
         let variables = if v3 {
             json!({
                 "account_id": account_id_from_address(self.address()),
-                "dapp_id": self.dapp_id().unwrap_or_default(),
+                "dapp_id": self.dapp_id(),
                 "dst": expected_dst,
                 "last": limit,
                 "before": params.before,
@@ -618,7 +621,13 @@ mod tests {
         context: std::sync::Arc<tvm_client::ClientContext>,
         profile: &AuthProfile,
     ) -> bool {
-        let multifactor = Multifactor::new(context.clone(), AUTH_SERVICE_MULTIFACTOR_ADDRESS);
+        let multifactor = Multifactor::new(
+            context.clone(),
+            crate::account::ParamsOfNewContract::new(
+                AUTH_SERVICE_MULTIFACTOR_ADDRESS,
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        );
         top_up_native_with_giver_if_below(
             context.clone(),
             &multifactor,

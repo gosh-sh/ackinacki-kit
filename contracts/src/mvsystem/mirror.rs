@@ -40,6 +40,7 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 pub struct Mirror {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     index: u128,
     abi: Abi,
     account: Arc<Mutex<Account>>,
@@ -64,6 +65,10 @@ impl AbiAccessor for Mirror {
 impl AddressAccessor for Mirror {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -172,12 +177,14 @@ impl Mirror {
         };
         let address = format!("0:2{index:063x}");
 
+        let dapp_id = crate::dapp::SystemDapp::MobileVerifiers.dapp_id().to_string();
         Ok(Self {
             context: context.clone(),
             address: address.clone(),
+            dapp_id: dapp_id.clone(),
             index,
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address, None))),
+            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
         })
     }
 
@@ -196,7 +203,10 @@ impl Mirror {
             )
             .await?;
 
-        Ok(Miner::new(self.context.clone(), res_of_get_addr.address))
+        Ok(Miner::new(
+            self.context.clone(),
+            crate::account::ParamsOfNewContract::new(res_of_get_addr.address, self.dapp_id()),
+        ))
     }
 
     /// # Deploy multifactor account

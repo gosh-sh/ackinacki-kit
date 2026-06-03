@@ -348,7 +348,7 @@ impl AuthProfile {
         let variables = if v3 {
             json!({
                 "account_id": account_id_from_address(self.address()),
-                "dapp_id": self.dapp_id().unwrap_or_default(),
+                "dapp_id": self.dapp_id(),
                 "dst": expected_dst,
                 "last": limit,
                 "before": params.before,

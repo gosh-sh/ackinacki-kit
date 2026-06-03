@@ -203,8 +203,8 @@ impl GiverV3 {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Wrapper bound to the default shellnet giver, under the all-zero system dApp.
-    pub fn shellnet(context: Arc<ClientContext>) -> Self {
+    /// Creates wrapper for the default shellnet giver, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(
@@ -212,11 +212,6 @@ impl GiverV3 {
                 crate::dapp::SystemDapp::System,
             ),
         )
-    }
-
-    /// Creates wrapper for default shellnet giver.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
     }
 
     /// Original contract method: `sendTransaction`.

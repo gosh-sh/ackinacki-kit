@@ -32,6 +32,7 @@ const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockKeeperNodeWalle
 pub struct BlockKeeperWallet {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -55,6 +56,10 @@ impl AbiAccessor for BlockKeeperWallet {
 impl AddressAccessor for BlockKeeperWallet {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -124,6 +129,7 @@ impl BlockKeeperWallet {
         Self {
             context: context.clone(),
             address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }

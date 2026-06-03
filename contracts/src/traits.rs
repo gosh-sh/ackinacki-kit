@@ -56,7 +56,7 @@ pub trait ModuleAccessor {
 pub struct ContractBase {
     context: Arc<ClientContext>,
     address: String,
-    dapp_id: Option<String>,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -85,12 +85,9 @@ pub trait HasContractBase {
 pub trait AddressAccessor {
     fn address(&self) -> &str;
 
-    /// Bare 64-hex dApp ID, or `None` on legacy (`< 1.0.0`) servers / when not
-    /// applicable. Defaults to `None` so read-only wrappers need not provide it;
-    /// `ContractBase`-backed contracts return the value supplied at construction.
-    fn dapp_id(&self) -> Option<&str> {
-        None
-    }
+    /// Bare 64-hex dApp ID. Mandatory (no default): `send_message`/`get_account`/
+    /// GraphQL all read it, so every contract must return its real dApp ID.
+    fn dapp_id(&self) -> &str;
 }
 
 impl<T> AddressAccessor for T
@@ -101,8 +98,8 @@ where
         &self.base().address
     }
 
-    fn dapp_id(&self) -> Option<&str> {
-        self.base().dapp_id.as_deref()
+    fn dapp_id(&self) -> &str {
+        &self.base().dapp_id
     }
 }
 
@@ -350,8 +347,8 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
-                // Empty on legacy (`< 1.0.0`) servers; required on `>= 1.0.0`.
-                dapp_id: self.dapp_id().map(str::to_string).unwrap_or_default(),
+                // Ignored on legacy (`< 1.0.0`) servers; required on `>= 1.0.0`.
+                dapp_id: self.dapp_id().to_string(),
             };
 
             processing::send_message(self.context().clone(), params, process_message_callback)

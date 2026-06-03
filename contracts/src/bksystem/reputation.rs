@@ -36,6 +36,7 @@ const TVC: &[u8] = include_bytes!("../../abi/bksystem/ReputationCoefficientCalcu
 pub struct ReputationCoefficientCalculator {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -72,7 +73,7 @@ impl AccountAccessor for ReputationCoefficientCalculator {
         let created_account = Account {
             context: self.context.clone(),
             address: self.address.clone(),
-            dapp_id: Some(crate::dapp::SystemDapp::System.into()),
+            dapp_id: self.dapp_id.clone(),
             boc: Some(encoded_account.account),
             data: None,
             balance: None,
@@ -98,6 +99,10 @@ impl AbiAccessor for ReputationCoefficientCalculator {
 impl AddressAccessor for ReputationCoefficientCalculator {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -148,15 +153,13 @@ impl ReputationCoefficientCalculator {
     pub fn new(context: Arc<ClientContext>) -> Self {
         let address = "0:0000000000000000000000000000000000000000000000000000000000000000";
 
+        let dapp_id = crate::dapp::SystemDapp::System.dapp_id().to_string();
         Self {
             context: context.clone(),
             address: address.to_string(),
+            dapp_id: dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(
-                context.clone(),
-                address,
-                Some(crate::dapp::SystemDapp::System.into()),
-            ))),
+            account: Arc::new(Mutex::new(Account::new(context.clone(), address, dapp_id))),
         }
     }
 

@@ -31,6 +31,7 @@ const ABI: &str = include_str!("../../abi/mvconfig/MVConfig.abi.json");
 pub struct MobileVerifiersConfig {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -54,6 +55,10 @@ impl AbiAccessor for MobileVerifiersConfig {
 impl AddressAccessor for MobileVerifiersConfig {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -112,11 +117,13 @@ impl MobileVerifiersConfig {
     /// Like [`Self::new`] but with a caller-supplied dApp ID.
     pub fn with_dapp_id(context: Arc<ClientContext>, dapp_id: impl Into<String>) -> Self {
         let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let dapp_id = dapp_id.into();
         Self {
             context: context.clone(),
             address: address.to_string(),
+            dapp_id: dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address, Some(dapp_id.into())))),
+            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
         }
     }
 

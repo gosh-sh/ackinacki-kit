@@ -212,7 +212,13 @@ async fn deploy_test_oracle(
         .oracle_address;
     eprintln!("Oracle address: {oracle_address}");
 
-    let oracle = Oracle::new(context.clone(), &oracle_address);
+    let oracle = Oracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            oracle_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&oracle, "Oracle").await;
     assert_version(&oracle, "Oracle").await;
 
@@ -223,7 +229,13 @@ async fn deploy_test_oracle(
         .address;
     eprintln!("OracleEventList[0] address: {event_list0_address}");
 
-    let event_list0 = OracleEventList::new(context, &event_list0_address);
+    let event_list0 = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list0_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list0, "OracleEventList[0]").await;
     assert_version(&event_list0, "OracleEventList").await;
 
@@ -287,7 +299,13 @@ async fn test_oracle_deploy_and_add_event() {
         .oracle_address;
     eprintln!("Oracle address: {oracle_address}");
 
-    let oracle = Oracle::new(context.clone(), &oracle_address);
+    let oracle = Oracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            oracle_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&oracle, "Oracle").await;
     assert_version(&oracle, "Oracle").await;
 
@@ -299,7 +317,13 @@ async fn test_oracle_deploy_and_add_event() {
         .address;
     eprintln!("OracleEventList address: {event_list_address}");
 
-    let event_list = OracleEventList::new(context, &event_list_address);
+    let event_list = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list, "OracleEventList").await;
     assert_version(&event_list, "OracleEventList").await;
 
@@ -433,7 +457,13 @@ async fn test_oracle_multi_shard_management() {
         .address;
     eprintln!("OracleEventList[1] address: {event_list1_address}");
 
-    let event_list1 = OracleEventList::new(context, &event_list1_address);
+    let event_list1 = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list1_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list1, "OracleEventList[1]").await;
     assert_version(&event_list1, "OracleEventList").await;
 
