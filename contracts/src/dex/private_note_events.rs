@@ -87,24 +87,76 @@ impl PrivateNoteEvent {
 
 /// Typed decoded `PrivateNote` external event.
 pub enum DecodedPrivateNoteEvent {
-    PmpDeployed { event: Event, kind: PrivateNoteEvent, data: PmpDeployedData },
-    OwnerChanged { event: Event, kind: PrivateNoteEvent, data: OwnerChangedData },
-    StakeConfirmed { event: Event, kind: PrivateNoteEvent, data: StakeConfirmedData },
-    ClaimAccepted { event: Event, kind: PrivateNoteEvent, data: ClaimAcceptedData },
-    StakeCancelled { event: Event, kind: PrivateNoteEvent, data: StakeCancelledData },
-    FullSetStakeConfirmed { event: Event, kind: PrivateNoteEvent, data: FullSetStakeConfirmedData },
-    FullSetStakeCancelled { event: Event, kind: PrivateNoteEvent, data: FullSetStakeCancelledData },
-    TransferInitiated { event: Event, kind: PrivateNoteEvent, data: TransferInitiatedData },
-    TransferReceived { event: Event, kind: PrivateNoteEvent, data: TransferReceivedData },
-    OrderSubmitted { event: Event, kind: PrivateNoteEvent, data: OrderSubmittedData },
-    OrderPlacedConfirmed { event: Event, kind: PrivateNoteEvent, data: OrderPlacedConfirmedData },
-    OrderFilledConfirmed { event: Event, kind: PrivateNoteEvent, data: OrderFilledConfirmedData },
+    PmpDeployed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: PmpDeployedData,
+    },
+    OwnerChanged {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OwnerChangedData,
+    },
+    StakeConfirmed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: StakeConfirmedData,
+    },
+    ClaimAccepted {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: ClaimAcceptedData,
+    },
+    StakeCancelled {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: StakeCancelledData,
+    },
+    FullSetStakeConfirmed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: FullSetStakeConfirmedData,
+    },
+    FullSetStakeCancelled {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: FullSetStakeCancelledData,
+    },
+    TransferInitiated {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: TransferInitiatedData,
+    },
+    TransferReceived {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: TransferReceivedData,
+    },
+    OrderSubmitted {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OrderSubmittedData,
+    },
+    OrderPlacedConfirmed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OrderPlacedConfirmedData,
+    },
+    OrderFilledConfirmed {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OrderFilledConfirmedData,
+    },
     OrderCancelledConfirmed {
         event: Event,
         kind: PrivateNoteEvent,
         data: OrderCancelledConfirmedData,
     },
-    OrderPlaceRejected { event: Event, kind: PrivateNoteEvent, data: OrderPlaceRejectedData },
+    OrderPlaceRejected {
+        event: Event,
+        kind: PrivateNoteEvent,
+        data: OrderPlaceRejectedData,
+    },
 }
 
 impl FromEvent for DecodedPrivateNoteEvent {
@@ -283,11 +335,7 @@ impl FromEvent for DecodedPrivateNoteEvent {
                         format!("Unexpected empty data for private note event `{}`", event.dst),
                     )
                 })?;
-                Ok(DecodedPrivateNoteEvent::OrderPlaceRejected {
-                    event: event.clone(),
-                    kind,
-                    data,
-                })
+                Ok(DecodedPrivateNoteEvent::OrderPlaceRejected { event: event.clone(), kind, data })
             }
         }
     }

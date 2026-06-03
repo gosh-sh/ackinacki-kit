@@ -352,9 +352,8 @@ async fn test_oracle_deploy_and_add_event() {
     }
 
     let events_map = observed.expect("EventList size should increase after addEvent");
-    let matched = events_map
-        .values()
-        .find(|entry| event_entry_name(entry) == Some(event_name.as_str()));
+    let matched =
+        events_map.values().find(|entry| event_entry_name(entry) == Some(event_name.as_str()));
 
     let event_info = matched.expect("Added event should be present in _events map");
     let fee = event_entry_u128(event_info, "oracleFee")
