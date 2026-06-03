@@ -63,8 +63,8 @@
 		{
 			"name": "EventPublished",
 			"inputs": [
-				{"name":"event_id","type":"uint256"},
-				{"name":"event_name","type":"string"}
+				{"name":"eventId","type":"uint256"},
+				{"name":"eventName","type":"string"}
 			],
 			"outputs": [
 			]

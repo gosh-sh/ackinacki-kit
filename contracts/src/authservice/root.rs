@@ -578,7 +578,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceMultifactor",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceMultifactor");
 
         let chain_epk_expire_at = multifactor
             .get_epk_expire_at(ParamsOfGetEpkExpire {
@@ -791,6 +792,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_deploy_profile_flow() {
         let context = create_context();
         let root = AuthServiceRoot::new(context.clone());
@@ -801,7 +803,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceRoot",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceRoot");
 
         let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
         let stranger_keys = gen_signer_keys(context.clone(), 24).expect("Generate stranger keys");
@@ -957,6 +960,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_add_context_message_found() {
         let context = create_context();
         let root = AuthServiceRoot::new(context.clone());
@@ -967,7 +971,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceRoot",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceRoot");
 
         let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
         let owner_signer = Signer::Keys { keys: owner_keys.clone() };

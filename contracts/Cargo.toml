@@ -7,7 +7,6 @@ edition.workspace = true
 [features]
 default = ["tokio/full", "tvm_client/default", "shared/default"]
 wasm = ["tokio/sync", "tvm_client/wasm_web", "shared/wasm"]
-halo2 = []
 
 [dependencies]
 base64.workspace = true
@@ -25,6 +24,3 @@ tvm_block.workspace = true
 tvm_client = { workspace = true, optional = true }
 
 shared = { path = "../shared", optional = true, default-features = false }
-
-[dev-dependencies]
-halo2-proover = { git = "ssh://git@github.com/gosh-sh/halo2-proover", branch = "lib" }

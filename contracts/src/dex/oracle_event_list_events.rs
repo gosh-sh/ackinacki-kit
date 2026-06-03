@@ -101,6 +101,7 @@ impl FromEvent for DecodedOracleEventListEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEventListEvent::EventAdded`.
 pub struct EventAddedData {
     pub event_id: String,
@@ -112,9 +113,9 @@ pub struct EventAddedData {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEventListEvent::EventConfirmed`.
 pub struct EventConfirmedData {
     pub event_id: String,
-    #[serde(rename = "pmpAddress")]
     pub pmp_address: String,
 }

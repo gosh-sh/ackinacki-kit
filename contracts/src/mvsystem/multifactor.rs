@@ -726,6 +726,7 @@ mod tests {
     use crate::traits::DecodeAccountData;
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_decode_account_data() {
         let context = create_context();
 

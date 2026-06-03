@@ -14,9 +14,14 @@
 			"name": "sendEccShellToPrivateNote",
 			"inputs": [
 				{"name":"proof","type":"bytes"},
-				{"name":"nullifier_hash","type":"uint256"},
-				{"name":"deposit_identifier_hash","type":"uint256"},
-				{"name":"value","type":"uint64"}
+				{"name":"nullifierHash","type":"uint256"},
+				{"name":"depositIdentifierHash","type":"uint256"},
+				{"name":"finalLayerHistoricalHashRoot","type":"uint256"},
+				{"name":"voucherNominalFr","type":"uint256"},
+				{"name":"tokenTypeFr","type":"uint256"},
+				{"name":"value","type":"uint64"},
+				{"name":"layerNumber","type":"uint8"},
+				{"name":"recipientEphemeralPubkey","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -25,10 +30,14 @@
 			"name": "deployPrivateNote",
 			"inputs": [
 				{"name":"zkproof","type":"bytes"},
-				{"name":"deposit_identifier_hash","type":"uint256"},
-				{"name":"ephemeral_pubkey","type":"uint256"},
+				{"name":"depositIdentifierHash","type":"uint256"},
+				{"name":"finalLayerHistoricalHashRoot","type":"uint256"},
+				{"name":"voucherNominalFr","type":"uint256"},
+				{"name":"tokenTypeFr","type":"uint256"},
+				{"name":"ephemeralPubkey","type":"uint256"},
 				{"name":"value","type":"uint64"},
-				{"name":"token_type","type":"uint32"}
+				{"name":"tokenType","type":"uint32"},
+				{"name":"layerNumber","type":"uint8"}
 			],
 			"outputs": [
 			]
@@ -36,9 +45,9 @@
 		{
 			"name": "privateNoteDeployed",
 			"inputs": [
-				{"name":"deposit_identifier_hash","type":"uint256"},
-				{"name":"token_type","type":"uint32"},
-				{"name":"deployed_value","type":"uint128"}
+				{"name":"depositIdentifierHash","type":"uint256"},
+				{"name":"tokenType","type":"uint32"},
+				{"name":"deployedValue","type":"uint128"}
 			],
 			"outputs": [
 			]
@@ -64,7 +73,7 @@
 		{
 			"name": "getPrivateNoteAddress",
 			"inputs": [
-				{"name":"deposit_identifier_hash","type":"uint256"}
+				{"name":"depositIdentifierHash","type":"uint256"}
 			],
 			"outputs": [
 				{"name":"privateNoteAddress","type":"address"}
@@ -73,18 +82,18 @@
 		{
 			"name": "getPMPAddress",
 			"inputs": [
-				{"name":"event_id","type":"uint256"},
+				{"name":"eventId","type":"uint256"},
 				{"name":"names","type":"string[]"},
-				{"name":"token_type","type":"uint32"}
+				{"name":"tokenType","type":"uint32"}
 			],
 			"outputs": [
 				{"name":"pmpAddress","type":"address"}
 			]
 		},
 		{
-			"name": "generatevoucher",
+			"name": "generateVoucher",
 			"inputs": [
-				{"name":"sk_u_commit","type":"uint256"},
+				{"name":"skUCommit","type":"uint256"},
 				{"name":"isFee","type":"bool"}
 			],
 			"outputs": [
@@ -93,11 +102,10 @@
 		{
 			"name": "withdrawTokens",
 			"inputs": [
-				{"name":"withdrawed_value","type":"uint128"},
-				{"name":"token_type","type":"uint32"},
-				{"name":"flags","type":"uint8"},
-				{"name":"wallet_addr","type":"address"},
-				{"name":"initial_data_hash","type":"uint256"}
+				{"name":"withdrawedValue","type":"uint128"},
+				{"name":"tokenType","type":"uint32"},
+				{"name":"walletAddr","type":"address"},
+				{"name":"initialDataHash","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -125,11 +133,11 @@
 	],
 	"events": [
 		{
-			"name": "voucherGenerated",
+			"name": "VoucherGenerated",
 			"inputs": [
-				{"name":"sk_u_commit","type":"uint256"},
-				{"name":"voucher_nominal","type":"uint256"},
-				{"name":"token_type","type":"uint32"}
+				{"name":"skUCommit","type":"uint256"},
+				{"name":"voucherNominal","type":"uint256"},
+				{"name":"tokenType","type":"uint32"}
 			],
 			"outputs": [
 			]
@@ -158,7 +166,7 @@
 		{"init":true,"name":"_pubkey","type":"uint256"},
 		{"init":false,"name":"_timestamp","type":"uint64"},
 		{"init":false,"name":"_constructorFlag","type":"bool"},
-		{"init":false,"name":"_PrivateNoteCode","type":"cell"},
+		{"init":false,"name":"_privateNoteCode","type":"cell"},
 		{"init":false,"name":"_pmpCode","type":"cell"},
 		{"init":false,"name":"_nullifierCode","type":"cell"},
 		{"init":false,"name":"_oracleCode","type":"cell"},
