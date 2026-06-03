@@ -186,6 +186,17 @@ impl PopcoinRoot {
         }
     }
 
+    /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
+    }
+
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
         self.call_get_method::<ResultOfGetDetails>("getDetails").await
     }

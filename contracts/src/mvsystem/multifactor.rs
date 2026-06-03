@@ -377,6 +377,17 @@ impl Multifactor {
         }
     }
 
+    /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
+    }
+
     /// # Get expiration unixtime of provided ephemeral public key
     ///
     /// Original contract method: `get_epk_expire_at`
