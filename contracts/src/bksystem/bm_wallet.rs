@@ -103,19 +103,12 @@ pub struct ResultOfGetDetails {
 }
 
 impl BlockManagerWallet {
-    /// Wrapper for a deployed wallet, under the all-zero system dApp.
-    /// Use [`Self::with_dapp_id`] to override.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self::with_dapp_id(context, address, crate::dapp::SystemDapp::System)
-    }
-
-    /// Like [`Self::new`] but with a caller-supplied dApp ID.
-    pub fn with_dapp_id(
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
         context: Arc<ClientContext>,
-        address: impl AsRef<str>,
-        dapp_id: impl Into<String>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
-        let params = crate::account::ParamsOfNewContract::new(address.as_ref(), dapp_id);
+        let params = params.into();
         Self {
             context: context.clone(),
             address: params.address.clone(),
@@ -142,7 +135,10 @@ mod tests {
 
         let bm_wallet = BlockManagerWallet::new(
             context,
-            "0:0e4e5c47410d8d4e06e7be27f5a9f09e26d50852d2eaaa0c11a3d69552de0ef3",
+            crate::account::ParamsOfNewContract::new(
+                "0:0e4e5c47410d8d4e06e7be27f5a9f09e26d50852d2eaaa0c11a3d69552de0ef3",
+                crate::dapp::SystemDapp::System,
+            ),
         );
 
         let details = bm_wallet

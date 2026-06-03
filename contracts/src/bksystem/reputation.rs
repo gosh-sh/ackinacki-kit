@@ -150,17 +150,30 @@ pub struct ResultOfCalculate {
 }
 
 impl ReputationCoefficientCalculator {
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        let address = "0:0000000000000000000000000000000000000000000000000000000000000000";
-
-        let dapp_id = crate::dapp::SystemDapp::System.dapp_id().to_string();
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.to_string(),
-            dapp_id: dapp_id.clone(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context.clone(), address, dapp_id))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to the default address, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                "0:0000000000000000000000000000000000000000000000000000000000000000",
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     pub async fn calculate(&self, params: ParamsOfCalculate) -> KitResult<u128> {
@@ -181,7 +194,7 @@ mod tests {
     async fn test_calculate() {
         let context = create_context();
 
-        let contract = ReputationCoefficientCalculator::new(context);
+        let contract = ReputationCoefficientCalculator::new_default(context);
         let coefficient = contract
             .calculate(ParamsOfCalculate { reputation_time: 97344 })
             .await

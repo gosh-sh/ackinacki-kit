@@ -264,16 +264,23 @@ impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:0404040404040404040404040404040404040404040404040404040404040404";
 
-    /// Creates AuthServiceRoot wrapper bound to the default address, under the
-    /// AuthService system dApp. Use [`AuthServiceRoot::with_dapp_id`] to override.
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        Self::with_dapp_id(context, crate::dapp::SystemDapp::AuthService)
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Like [`AuthServiceRoot::new`] but with a caller-supplied dApp ID.
-    pub fn with_dapp_id(context: Arc<ClientContext>, dapp_id: impl Into<String>) -> Self {
-        let params = crate::account::ParamsOfNewContract::new(Self::DEFAULT_ADDRESS, dapp_id);
-        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    /// Wrapper bound to the default address, under the AuthService system dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        )
     }
 
     /// # Set auth profile code
@@ -852,7 +859,7 @@ mod tests {
     #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_deploy_profile_flow() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone());
+        let root = AuthServiceRoot::new_default(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,
@@ -1020,7 +1027,7 @@ mod tests {
     #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_add_context_message_found() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone());
+        let root = AuthServiceRoot::new_default(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,

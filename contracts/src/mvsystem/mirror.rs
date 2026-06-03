@@ -153,7 +153,11 @@ pub struct ResultOfGetMinerAddress {
 }
 
 impl Mirror {
-    pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
+    pub fn new(
+        context: Arc<ClientContext>,
+        public: impl AsRef<str>,
+        dapp_id: impl Into<String>,
+    ) -> KitResult<Self> {
         let public = {
             let bytes = hex::decode(public.as_ref()).map_err(|e| {
                 KitError::new(
@@ -177,7 +181,7 @@ impl Mirror {
         };
         let address = format!("0:2{index:063x}");
 
-        let dapp_id = crate::dapp::SystemDapp::MobileVerifiers.dapp_id().to_string();
+        let dapp_id = dapp_id.into();
         Ok(Self {
             context: context.clone(),
             address: address.clone(),
@@ -186,6 +190,11 @@ impl Mirror {
             abi: Abi::Json(ABI.to_string()),
             account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
         })
+    }
+
+    /// Wrapper for the mirror of `public`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
+        Self::new(context, public, crate::dapp::SystemDapp::MobileVerifiers)
     }
 
     pub fn index(&self) -> u128 {

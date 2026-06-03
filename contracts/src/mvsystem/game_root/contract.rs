@@ -124,21 +124,30 @@ pub struct ResultOfGetCellForBoost {
 }
 
 impl MobileVerifiersGameRoot {
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        Self::with_dapp_id(context, crate::dapp::SystemDapp::MobileVerifiers)
-    }
-
-    /// Like [`Self::new`] but with a caller-supplied dApp ID.
-    pub fn with_dapp_id(context: Arc<ClientContext>, dapp_id: impl Into<String>) -> Self {
-        let address = "0:0505050505050505050505050505050505050505050505050505050505050505";
-        let dapp_id = dapp_id.into();
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.to_string(),
-            dapp_id: dapp_id.clone(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to the default address, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                "0:0505050505050505050505050505050505050505050505050505050505050505",
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
     }
 
     /// # Get cell for boost contract to upgrade code
