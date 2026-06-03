@@ -15,6 +15,7 @@ pub enum KitModule {
     MvSystem(MvSystemModule),
     BkSystem(BkSystemModule),
     MvConfig,
+    Multisig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
