@@ -110,19 +110,6 @@ impl RootOracle {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// NOTE: DEX is not yet deployed and its dApp ID is unverified on-chain;
-    /// `SystemDapp::System` is a compile-time placeholder. Once the DEX is
-    /// deployed, pass the real dApp ID via `new(ctx, ParamsOfNewContract::new(..))`.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(
-            context,
-            crate::account::ParamsOfNewContract::new(
-                Self::DEFAULT_ADDRESS,
-                crate::dapp::SystemDapp::System,
-            ),
-        )
-    }
-
     /// # Deploy oracle
     ///
     /// Original contract method: `deployOracle`

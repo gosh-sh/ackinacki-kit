@@ -246,7 +246,13 @@ async fn deploy_test_oracle(
 #[ignore = "requires network access"]
 async fn test_oracle_deploy_and_add_event() {
     let context = create_context();
-    let root = RootOracle::new_default(context.clone());
+    let root = RootOracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootOracle::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root, "RootOracle").await;
     assert_version(&root, "RootOracle").await;
@@ -393,7 +399,13 @@ async fn test_oracle_deploy_and_add_event() {
 #[ignore = "requires network access"]
 async fn test_oracle_multi_shard_management() {
     let context = create_context();
-    let root = RootOracle::new_default(context.clone());
+    let root = RootOracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootOracle::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root, "RootOracle").await;
     assert_version(&root, "RootOracle").await;
@@ -534,7 +546,13 @@ async fn test_oracle_multi_shard_management() {
 #[ignore = "requires network access"]
 async fn test_root_pn_getters() {
     let context = create_context();
-    let root_pn = RootPn::new_default(context.clone());
+    let root_pn = RootPn::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootPn::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root_pn, "RootPN").await;
     assert_version(&root_pn, "RootPN").await;
