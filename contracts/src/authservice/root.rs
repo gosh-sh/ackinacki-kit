@@ -1157,7 +1157,7 @@ mod tests {
             };
             eprintln!("query_context_added_events fetched {} decoded events", events.len());
 
-            for decoded_event in events {
+            if let Some(decoded_event) = events.into_iter().next() {
                 let event = decoded_event.event;
                 let data = decoded_event.data;
                 assert_eq!(data.text, context_text);
@@ -1165,7 +1165,6 @@ mod tests {
                 eprintln!("ContextAdded raw event: {:?}", event);
                 eprintln!("ContextAdded decoded event: {:?}", data);
                 found_context_added = true;
-                break;
             }
 
             if found_context_added {

@@ -456,7 +456,7 @@ async fn test_oracle_multi_shard_management() {
 
     oracle
         .deploy_event_list(
-            ParamsOfDeployEventList { index: 1 },
+            ParamsOfDeployEventList { index: 1, description: "Event list #1".to_string() },
             Signer::Keys { keys: oracle_owner_keys.clone() },
         )
         .await

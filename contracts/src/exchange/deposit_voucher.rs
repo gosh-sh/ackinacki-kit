@@ -19,7 +19,7 @@ const ABI: &str = include_str!("../../abi/exchange/DepositVoucher.abi.json");
 
 #[derive(Debug, Clone)]
 /// Wrapper for `DepositVoucher` contract. The voucher exposes no callable
-/// methods beyond `getVersion`; it is deployed by `TokenBridge` as a proof
+/// methods beyond `getVersion`; it is deployed by `USDCBridge` as a proof
 /// that a cross-chain deposit was finalized.
 pub struct DepositVoucher {
     base: ContractBase,

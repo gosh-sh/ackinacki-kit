@@ -69,6 +69,8 @@ impl AsyncGuardedMut<Account> for Oracle {
 /// Parameters for `Oracle.deployEventList`.
 pub struct ParamsOfDeployEventList {
     pub index: u128,
+    /// Human-readable description of the list.
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

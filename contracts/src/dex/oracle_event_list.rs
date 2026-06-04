@@ -86,6 +86,12 @@ pub struct ParamsOfDeleteEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `OracleEventList.setDescription`.
+pub struct ParamsOfSetDescription {
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Parameters for `OracleEventList.confirmEvent` and `OracleEventList.cancelEvent`.
 pub struct ParamsOfConfirmOrCancelEvent {
@@ -111,6 +117,24 @@ impl OracleEventList {
     ) -> Self {
         let params = params.into();
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// # Update human-readable list description
+    ///
+    /// Original contract method: `setDescription`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn set_description(
+        &self,
+        params: ParamsOfSetDescription,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setDescription".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Add oracle-serviced event

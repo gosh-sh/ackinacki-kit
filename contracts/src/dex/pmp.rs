@@ -108,7 +108,7 @@ pub struct ParamsOfAcceptStake {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Parameters for `PMP.cancelStake` and `PMP.claim`.
+/// Parameters for `PMP.cancelStake`, `PMP.claim` and `PMP.forfeitStake`.
 pub struct ParamsOfCancelOrClaimStake {
     pub stake_amount: Vec<u128>,
     pub debt_amount: Vec<u128>,
@@ -310,6 +310,27 @@ impl Pmp {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cancelStake".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Forfeit stake (callback from PrivateNote `deleteStake`)
+    ///
+    /// Original contract method: `forfeitStake`
+    ///
+    /// Notifies the PMP that the caller's PrivateNote abandons its stake so
+    /// the PMP can decrement `_totalWinPool` by the win-outcome contribution
+    /// and stay closable (every winning stake must be either claimed or
+    /// forfeited). Acked back via `PrivateNote.onForfeitAccepted`.
+    pub async fn forfeit_stake(
+        &self,
+        params: ParamsOfCancelOrClaimStake,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "forfeitStake".to_string(),
             header: None,
             input: Some(json!(params)),
         };
