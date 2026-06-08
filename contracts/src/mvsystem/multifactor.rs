@@ -110,6 +110,7 @@ pub struct JwkData {
 pub struct Multifactor {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -133,6 +134,10 @@ impl AbiAccessor for Multifactor {
 impl AddressAccessor for Multifactor {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -358,13 +363,29 @@ pub struct ParamsOfSetWasmHash {
 }
 
 impl Multifactor {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
     }
 
     /// # Get expiration unixtime of provided ephemeral public key
@@ -730,7 +751,13 @@ mod tests {
     async fn test_decode_account_data() {
         let context = create_context();
 
-        let multifactor = Multifactor::new(context, crate::tests::MULTIFACTOR_ADDRESS);
+        let multifactor = Multifactor::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                crate::tests::MULTIFACTOR_ADDRESS,
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        );
         let fetch = multifactor.fetch_account().await;
         assert!(fetch.is_ok());
 

@@ -3,5 +3,5 @@
 pub mod deposit_voucher;
 pub mod events;
 pub mod exchange_contract;
-pub mod token_bridge;
-pub mod token_bridge_events;
+pub mod usdc_bridge;
+pub mod usdc_bridge_events;

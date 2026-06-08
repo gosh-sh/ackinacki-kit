@@ -19,7 +19,7 @@ const ABI: &str = include_str!("../../abi/exchange/DepositVoucher.abi.json");
 
 #[derive(Debug, Clone)]
 /// Wrapper for `DepositVoucher` contract. The voucher exposes no callable
-/// methods beyond `getVersion`; it is deployed by `TokenBridge` as a proof
+/// methods beyond `getVersion`; it is deployed by `USDCBridge` as a proof
 /// that a cross-chain deposit was finalized.
 pub struct DepositVoucher {
     base: ContractBase,
@@ -60,7 +60,22 @@ impl AsyncGuardedMut<Account> for DepositVoucher {
 
 impl DepositVoucher {
     /// Create wrapper for a deployed `DepositVoucher` contract.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Wrapper bound to `address`, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 }

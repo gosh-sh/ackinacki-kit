@@ -38,10 +38,41 @@ impl From<u8> for AccountStatus {
     }
 }
 
+/// Identity parameters for constructing a contract wrapper.
+///
+/// Future-proof: new identity fields can be added here without changing the
+/// `new(...)` signature of every contract again.
+///
+/// `dapp_id` is the bare 64-char hex dApp ID (no `0x`, no workchain) and is
+/// **mandatory** — every contract belongs to a dApp. It is consumed by the SDK
+/// on `>= 1.0.0` servers and simply ignored on legacy (`< 1.0.0`) ones.
+#[derive(Debug, Clone)]
+pub struct ParamsOfNewContract {
+    /// Raw account address, e.g. `"0:<64hex>"`.
+    pub address: String,
+    /// Bare 64-hex dApp ID (no `0x`, no workchain). Required.
+    pub dapp_id: String,
+}
+
+impl ParamsOfNewContract {
+    pub fn new(address: impl Into<String>, dapp_id: impl Into<String>) -> Self {
+        Self { address: address.into(), dapp_id: dapp_id.into() }
+    }
+}
+
+/// Extracts the bare account-id hex from an address, dropping the workchain
+/// prefix (`"0:<hex>"` -> `"<hex>"`). Returns the input unchanged if it has no
+/// `:` separator.
+pub(crate) fn account_id_from_address(address: &str) -> &str {
+    address.rsplit_once(':').map(|(_, id)| id).unwrap_or(address)
+}
+
 #[derive(Debug, Clone)]
 pub struct Account {
     pub context: Arc<ClientContext>,
     pub address: String,
+    /// Bare 64-hex dApp ID. Required; ignored by the SDK on legacy (`< 1.0.0`) servers.
+    pub dapp_id: String,
     pub boc: Option<String>,
     pub data: Option<String>,
     pub balance: Option<BigInt>,
@@ -74,10 +105,15 @@ impl Default for ParamsOfWaitAccount {
 }
 
 impl Account {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(
+        context: Arc<ClientContext>,
+        address: impl AsRef<str>,
+        dapp_id: impl Into<String>,
+    ) -> Self {
         Self {
             context: context.clone(),
             address: address.as_ref().to_string(),
+            dapp_id: dapp_id.into(),
             boc: None,
             data: None,
             balance: None,
@@ -104,7 +140,11 @@ impl Account {
         // Fetch account boc
         let get_account_result = tvm_client::account::get_account(
             self.context.clone(),
-            ParamsOfGetAccount { address: self.address.clone() },
+            ParamsOfGetAccount {
+                account_id: account_id_from_address(&self.address).to_string(),
+                // Ignored by the SDK on legacy (`< 1.0.0`) servers.
+                dapp_id: self.dapp_id.clone(),
+            },
         )
         .await;
 
@@ -230,6 +270,7 @@ mod tests {
         let mut account = Account::new(
             context,
             "0:2222222222222222222222222222222222222222222222222222222222222222",
+            crate::dapp::SystemDapp::MobileVerifiers,
         );
         let fetch_result =
             account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e:?})"));
@@ -249,6 +290,7 @@ mod tests {
         let mut account = Account::new(
             context.clone(),
             "0:2222222222222222222222222222222222222222222222222222222222222222",
+            crate::dapp::SystemDapp::MobileVerifiers,
         );
         let wait_result = account
             .wait(ParamsOfWaitAccount { status: AccountStatus::Active, ..Default::default() })
@@ -260,6 +302,7 @@ mod tests {
         let mut account = Account::new(
             context.clone(),
             "0:2222222222222222222222222222222222222222222222222222222222222220",
+            crate::dapp::SystemDapp::System,
         );
         let wait_result = account
             .wait(ParamsOfWaitAccount {
@@ -280,7 +323,41 @@ mod tests {
         let mut account = Account::new(
             context.clone(),
             "0:269840b497d21dc35c73ccfd31158eade4245ba01230196842acd5f8f3655011",
+            crate::dapp::SystemDapp::System,
         );
         account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e:?})")).unwrap();
+    }
+
+    #[test]
+    fn account_id_from_address_strips_workchain() {
+        use crate::account::account_id_from_address;
+
+        let hex = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+        // Basechain / masterchain prefixes are dropped.
+        assert_eq!(account_id_from_address(&format!("0:{hex}")), hex);
+        assert_eq!(account_id_from_address(&format!("-1:{hex}")), hex);
+        // Already bare → unchanged.
+        assert_eq!(account_id_from_address(hex), hex);
+        // Extended `<dapp>::<account>` → returns the account part (last segment).
+        assert_eq!(account_id_from_address(&format!("{hex}::{hex}")), hex);
+    }
+
+    #[test]
+    fn params_new_sets_dapp_id() {
+        use crate::account::ParamsOfNewContract;
+
+        let p = ParamsOfNewContract::new("0:ab", "deadbeef");
+        assert_eq!(p.address, "0:ab");
+        assert_eq!(p.dapp_id, "deadbeef");
+    }
+
+    #[test]
+    fn params_new_accepts_system_dapp() {
+        use crate::account::ParamsOfNewContract;
+        use crate::dapp::SystemDapp;
+
+        // `SystemDapp` plugs straight into `new` via `Into<String>`.
+        let p = ParamsOfNewContract::new("0:ab", SystemDapp::AuthService);
+        assert_eq!(p.dapp_id, SystemDapp::AuthService.dapp_id());
     }
 }

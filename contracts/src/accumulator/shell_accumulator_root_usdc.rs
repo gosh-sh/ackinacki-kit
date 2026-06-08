@@ -17,6 +17,7 @@ use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
+use crate::account::account_id_from_address;
 use crate::account::Account;
 use crate::accumulator::events::AccumulatorRootEvent;
 use crate::accumulator::events::DecodedAccumulatorRootEvent;
@@ -25,6 +26,7 @@ use crate::accumulator::events::UsdcClaimedData;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
 use crate::accumulator::VALID_DENOMS;
+use crate::dapp::supports_dapp_id;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
@@ -50,10 +52,32 @@ const ABI: &str = include_str!("../../abi/accumulator/ShellAccumulatorRootUSDC.a
 const ROOT_EVENT_KIND_COUNT: usize = 5;
 const ROOT_EVENT_PREFETCH_PER_KIND: usize = 2;
 const SELL_ORDER_CREATED_PAGE_SIZE: i32 = 100;
+/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
 const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY: &str = r#"
     query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
         account(address: $address) {
+          events(dst: $dst, last: $last, before: $before) {
+            edges {
+              cursor
+              node {
+                msg_id
+                created_at
+                dst
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+"#;
+
+/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
+const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3: &str = r#"
+    query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(account_id: $account_id, dapp_id: $dapp_id) {
           events(dst: $dst, last: $last, before: $before) {
             edges {
               cursor
@@ -251,13 +275,25 @@ impl ShellAccumulatorRootUsdc {
         "0:3535353535353535353535353535353535353535353535353535353535353535";
 
     /// Create a wrapper for a deployed `ShellAccumulatorRootUSDC`.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Create a wrapper bound to the default zerostate accumulator root.
+    /// Create a wrapper bound to the default zerostate accumulator root, under
+    /// dApp `…0001` (verified on mainnet). Pass an explicit
+    /// [`ParamsOfNewContract`](crate::account::ParamsOfNewContract) to `new` to override.
     pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
     }
 
     /// Original contract method: `claimUSDC`.
@@ -338,7 +374,10 @@ impl ShellAccumulatorRootUsdc {
             .get_sell_order_address(ParamsOfGetSellOrderAddress { d, order_id })
             .await?
             .sell_order_addr;
-        let sell_order_lot = ShellSellOrderLot::new(self.context().clone(), &sell_order_addr);
+        let sell_order_lot = ShellSellOrderLot::new(
+            self.context().clone(),
+            crate::account::ParamsOfNewContract::new(sell_order_addr, self.dapp_id()),
+        );
         sell_order_lot.claim(signer).await
     }
 
@@ -413,8 +452,13 @@ impl ShellAccumulatorRootUsdc {
                 .await?
                 .sell_order_addr;
 
-            let sell_order_lot =
-                ShellSellOrderLot::new(self.context().clone(), &sell_order_address);
+            let sell_order_lot = ShellSellOrderLot::new(
+                self.context().clone(),
+                crate::account::ParamsOfNewContract::new(
+                    sell_order_address.clone(),
+                    self.dapp_id(),
+                ),
+            );
             let details = match sell_order_lot.get_details().await {
                 Ok(d) => d,
                 Err(_) => continue,
@@ -483,6 +527,7 @@ impl ShellAccumulatorRootUsdc {
         let raw_events = query_external_events(
             self.context().clone(),
             self.address(),
+            self.dapp_id(),
             Some(prefetch_limit as u32),
         )
         .await?;
@@ -549,18 +594,34 @@ impl ShellAccumulatorRootUsdc {
         let mut before: Option<String> = None;
         let mut seen = BTreeSet::<(u16, u64)>::new();
 
+        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
+        let query = if v3 {
+            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3
+        } else {
+            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY
+        };
+        let account_id = account_id_from_address(self.address());
+
         loop {
+            let variables = if v3 {
+                json!({
+                    "account_id": account_id,
+                    "dapp_id": self.dapp_id(),
+                    "dst": dst,
+                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                    "before": before,
+                })
+            } else {
+                json!({
+                    "address": self.address(),
+                    "dst": dst,
+                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                    "before": before,
+                })
+            };
             let raw = net::query(
                 self.context().clone(),
-                net::ParamsOfQuery {
-                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
-                    variables: Some(json!({
-                        "address": self.address(),
-                        "dst": dst,
-                        "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                        "before": before,
-                    })),
-                },
+                net::ParamsOfQuery { query: query.to_string(), variables: Some(variables) },
             )
             .await
             .map_err(|e| {
@@ -651,18 +712,34 @@ impl ShellAccumulatorRootUsdc {
         let mut before: Option<String> = None;
         let mut claimed = BTreeSet::<(u16, u64)>::new();
 
+        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
+        let query = if v3 {
+            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3
+        } else {
+            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY
+        };
+        let account_id = account_id_from_address(self.address());
+
         loop {
+            let variables = if v3 {
+                json!({
+                    "account_id": account_id,
+                    "dapp_id": self.dapp_id(),
+                    "dst": dst,
+                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                    "before": before,
+                })
+            } else {
+                json!({
+                    "address": self.address(),
+                    "dst": dst,
+                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                    "before": before,
+                })
+            };
             let raw = net::query(
                 self.context().clone(),
-                net::ParamsOfQuery {
-                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
-                    variables: Some(json!({
-                        "address": self.address(),
-                        "dst": dst,
-                        "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                        "before": before,
-                    })),
-                },
+                net::ParamsOfQuery { query: query.to_string(), variables: Some(variables) },
             )
             .await
             .map_err(|e| {

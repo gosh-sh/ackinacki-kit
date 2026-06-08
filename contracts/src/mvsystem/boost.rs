@@ -37,6 +37,7 @@ const ABI_1_0_1: &str = include_str!("../../abi/mvsystem/Boost_1.0.1.abi.json");
 pub struct Boost {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -60,6 +61,10 @@ impl AbiAccessor for Boost {
 impl AddressAccessor for Boost {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -122,13 +127,22 @@ pub struct ParamsOfUpdateCode {
 }
 
 impl Boost {
-    pub async fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> KitResult<Self> {
+    pub async fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> KitResult<Self> {
+        let params = params.into();
         let version = {
             let instance = Self {
                 context: context.clone(),
-                address: address.as_ref().to_string(),
+                address: params.address.clone(),
+                dapp_id: params.dapp_id.clone(),
                 abi: Abi::Json(ABI.to_string()),
-                account: Arc::new(Mutex::new(Account::new(context.clone(), &address))),
+                account: Arc::new(Mutex::new(Account::new(
+                    context.clone(),
+                    &params.address,
+                    params.dapp_id.clone(),
+                ))),
             };
             instance.get_version().await?
         };
@@ -140,10 +154,26 @@ impl Boost {
 
         Ok(Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(abi.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         })
+    }
+
+    /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
+    pub async fn new_default(
+        context: Arc<ClientContext>,
+        address: impl AsRef<str>,
+    ) -> KitResult<Self> {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
+        .await
     }
 
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
