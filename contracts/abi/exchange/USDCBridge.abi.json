@@ -44,6 +44,42 @@
 			]
 		},
 		{
+			"name": "initiateWithdrawal",
+			"inputs": [
+				{"name":"dstChainId","type":"uint256"},
+				{"name":"recipient","type":"bytes"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "finalizeDeposit",
+			"inputs": [
+				{"name":"proof","type":"bytes"},
+				{"name":"srcDappId","type":"uint256"},
+				{"name":"srcSender","type":"bytes"},
+				{"name":"recipient_an","type":"uint256"},
+				{"name":"amount","type":"uint128"},
+				{"name":"tokenId","type":"uint32"},
+				{"name":"srcDepositId","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "confirmDeposit",
+			"inputs": [
+				{"name":"srcDappId","type":"uint256"},
+				{"name":"srcSender","type":"bytes"},
+				{"name":"recipient_an","type":"uint256"},
+				{"name":"amount","type":"uint128"},
+				{"name":"tokenId","type":"uint32"},
+				{"name":"srcDepositId","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "setPubkey",
 			"inputs": [
 				{"name":"pubkey","type":"uint256"}
@@ -63,7 +99,7 @@
 			"name": "updateCode",
 			"inputs": [
 				{"name":"newcode","type":"cell"},
-				{"name":"cell","type":"cell"}
+				{"name":"userCell","type":"cell"}
 			],
 			"outputs": [
 			]
@@ -90,6 +126,24 @@
 			],
 			"outputs": [
 				{"name":"value0","type":"uint128"}
+			]
+		},
+		{
+			"name": "getTotalBridged",
+			"inputs": [
+				{"name":"tokenId","type":"uint32"}
+			],
+			"outputs": [
+				{"name":"minted","type":"uint128"},
+				{"name":"burned","type":"uint128"}
+			]
+		},
+		{
+			"name": "getDepositVoucherCodeHash",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"uint256"}
 			]
 		},
 		{
@@ -129,6 +183,31 @@
 			],
 			"outputs": [
 			]
+		},
+		{
+			"name": "WithdrawalInitiated",
+			"inputs": [
+				{"name":"dstChainId","type":"uint256"},
+				{"name":"recipient","type":"bytes"},
+				{"name":"amount","type":"uint128"},
+				{"name":"tokenId","type":"uint32"},
+				{"name":"sender","type":"address"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "DepositFinalized",
+			"inputs": [
+				{"name":"srcDappId","type":"uint256"},
+				{"name":"srcSender","type":"bytes"},
+				{"name":"recipient","type":"uint256"},
+				{"name":"amount","type":"uint128"},
+				{"name":"tokenId","type":"uint32"},
+				{"name":"srcDepositId","type":"uint256"}
+			],
+			"outputs": [
+			]
 		}
 	],
 	"fields": [
@@ -139,6 +218,9 @@
 		{"init":false,"name":"_usdcWallet","type":"address"},
 		{"init":false,"name":"_totalMinted","type":"uint128"},
 		{"init":false,"name":"_mintNonce","type":"uint64"},
-		{"init":false,"name":"_mintAccumulatorNonce","type":"uint64"}
+		{"init":false,"name":"_mintAccumulatorNonce","type":"uint64"},
+		{"init":false,"name":"_totalMintedBridgeByToken","type":"map(uint32,uint128)"},
+		{"init":false,"name":"_totalBurnedBridgeByToken","type":"map(uint32,uint128)"},
+		{"init":false,"name":"_depositVoucherCode","type":"cell"}
 	]
 }

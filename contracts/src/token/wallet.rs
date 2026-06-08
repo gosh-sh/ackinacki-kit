@@ -36,6 +36,7 @@ const ABI: &str = include_str!("../../abi/token/TokenWallet.abi.json");
 pub struct TokenWallet {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -59,6 +60,10 @@ impl AbiAccessor for TokenWallet {
 impl AddressAccessor for TokenWallet {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -248,12 +253,17 @@ impl From<Transaction> for ParamsOfDeployTransaction {
 }
 
 impl TokenWallet {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
     }
 

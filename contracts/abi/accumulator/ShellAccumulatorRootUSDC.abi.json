@@ -7,7 +7,16 @@
 			"name": "constructor",
 			"inputs": [
 				{"name":"sellOrderCode","type":"cell"},
-				{"name":"pubkey","type":"uint256"}
+				{"name":"pubkey","type":"uint256"},
+				{"name":"unixstart","type":"uint32"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "buyShellFor",
+			"inputs": [
+				{"name":"buyer","type":"address"}
 			],
 			"outputs": [
 			]

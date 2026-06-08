@@ -1,12 +1,17 @@
 {
 	"ABI version": 2,
 	"version": "2.4",
-	"header": ["pubkey", "time", "expire"],
+	"header": ["time", "expire"],
 	"functions": [
 		{
 			"name": "constructor",
 			"inputs": [
-				{"name":"to","type":"address"}
+				{"name":"srcDappId","type":"uint256"},
+				{"name":"srcSender","type":"bytes"},
+				{"name":"recipient","type":"uint256"},
+				{"name":"amount","type":"uint128"},
+				{"name":"tokenId","type":"uint32"},
+				{"name":"srcDepositId","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -27,6 +32,6 @@
 		{"init":true,"name":"_pubkey","type":"uint256"},
 		{"init":false,"name":"_timestamp","type":"uint64"},
 		{"init":false,"name":"_constructorFlag","type":"bool"},
-		{"init":true,"name":"_nullifierHash","type":"uint256"}
+		{"init":true,"name":"_depositHash","type":"uint256"}
 	]
 }

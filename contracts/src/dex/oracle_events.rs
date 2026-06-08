@@ -101,9 +101,12 @@ pub struct OracleEventListDeployedData {
     pub event_list_address: String,
     #[serde(deserialize_with = "deserialize_u128")]
     pub index: u128,
+    /// Human-readable description of the deployed list.
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEvent::EventPublished`.
 pub struct EventPublishedData {
     pub event_id: String,

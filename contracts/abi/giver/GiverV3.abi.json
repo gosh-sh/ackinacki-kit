@@ -111,7 +111,9 @@
 			"name": "getExchangeData",
 			"inputs": [
 				{"name":"pubkey","type":"uint256"},
-				{"name":"usdcWallet","type":"address"}
+				{"name":"usdcWallet","type":"address"},
+				{"name":"mintNonce","type":"uint64"},
+				{"name":"mintAccumulatorNonce","type":"uint64"}
 			],
 			"outputs": [
 				{"name":"value0","type":"cell"}

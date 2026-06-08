@@ -32,6 +32,7 @@ const ABI: &str = include_str!("../../abi/bksystem/AckiNackiBlockKeeperNodeWalle
 pub struct BlockKeeperWallet {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -55,6 +56,10 @@ impl AbiAccessor for BlockKeeperWallet {
 impl AddressAccessor for BlockKeeperWallet {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -108,13 +113,30 @@ pub struct ResultOfGetDetails {
 }
 
 impl BlockKeeperWallet {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to `address`, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
@@ -134,7 +156,10 @@ mod tests {
 
         let bk_wallet = BlockKeeperWallet::new(
             context,
-            "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
+            crate::account::ParamsOfNewContract::new(
+                "0:733e033541ad17c4251cdf97378045e44d8eb89ddfe4659cf5b45e4376a3a02e",
+                crate::dapp::SystemDapp::System,
+            ),
         );
 
         let details = bk_wallet

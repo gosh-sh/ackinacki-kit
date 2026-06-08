@@ -14,10 +14,12 @@ use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
+use crate::account::account_id_from_address;
 use crate::account::Account;
 use crate::authservice::events::AuthProfileDeployedData;
 use crate::authservice::events::AuthServiceEvent;
 use crate::authservice::profile::AuthProfile;
+use crate::dapp::supports_dapp_id;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -216,6 +218,7 @@ fn oldest_edge_cursor(edges: &[GqlEdge]) -> Option<String> {
     edges.first().map(|edge| edge.cursor.clone())
 }
 
+/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
 const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
     query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
@@ -236,13 +239,48 @@ const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
     }
 "#;
 
+/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
+const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3: &str = r#"
+    query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(account_id: $account_id, dapp_id: $dapp_id) {
+          events(dst: $dst, last: $last, before: $before) {
+            edges {
+              cursor
+              node {
+                msg_id
+                dst
+                created_at
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+"#;
+
 impl AuthServiceRoot {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:0404040404040404040404040404040404040404040404040404040404040404";
 
-    /// Creates AuthServiceRoot wrapper bound to the default address.
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        Self { base: ContractBase::new(context, Self::DEFAULT_ADDRESS, Abi::Json(ABI.to_string())) }
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Wrapper bound to the default address, under the AuthService system dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        )
     }
 
     /// # Set auth profile code
@@ -332,7 +370,10 @@ impl AuthServiceRoot {
     /// Original contract method: `getProfileAddress`
     pub async fn get_profile(&self, params: ParamsOfGetProfileAddress) -> KitResult<AuthProfile> {
         let profile = self.get_profile_address(params).await?;
-        Ok(AuthProfile::new(self.context().clone(), profile.profile))
+        Ok(AuthProfile::new(
+            self.context().clone(),
+            crate::account::ParamsOfNewContract::new(profile.profile, self.dapp_id()),
+        ))
     }
 
     /// # Hash pubkey
@@ -378,16 +419,33 @@ impl AuthServiceRoot {
             AuthServiceEvent::auth_profile_deployed_external_address(&multifactor_hash)?;
         let limit = params.limit.unwrap_or(50);
 
+        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
+        let variables = if v3 {
+            json!({
+                "account_id": account_id_from_address(self.address()),
+                "dapp_id": self.dapp_id(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        } else {
+            json!({
+                "address": self.address(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        };
         let raw = net::query(
             self.context().clone(),
             net::ParamsOfQuery {
-                query: GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.to_string(),
-                variables: Some(json!({
-                    "address": self.address(),
-                    "dst": expected_dst,
-                    "last": limit,
-                    "before": params.before,
-                })),
+                query: if v3 {
+                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3
+                } else {
+                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY
+                }
+                .to_string(),
+                variables: Some(variables),
             },
         )
         .await
@@ -570,7 +628,13 @@ mod tests {
         context: std::sync::Arc<tvm_client::ClientContext>,
         profile: &AuthProfile,
     ) -> bool {
-        let multifactor = Multifactor::new(context.clone(), AUTH_SERVICE_MULTIFACTOR_ADDRESS);
+        let multifactor = Multifactor::new(
+            context.clone(),
+            crate::account::ParamsOfNewContract::new(
+                AUTH_SERVICE_MULTIFACTOR_ADDRESS,
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        );
         top_up_native_with_giver_if_below(
             context.clone(),
             &multifactor,
@@ -578,7 +642,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceMultifactor",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceMultifactor");
 
         let chain_epk_expire_at = multifactor
             .get_epk_expire_at(ParamsOfGetEpkExpire {
@@ -791,9 +856,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_deploy_profile_flow() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone());
+        let root = AuthServiceRoot::new_default(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,
@@ -801,7 +867,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceRoot",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceRoot");
 
         let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
         let stranger_keys = gen_signer_keys(context.clone(), 24).expect("Generate stranger keys");
@@ -957,9 +1024,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires shellnet + initialised multifactor account"]
     async fn test_add_context_message_found() {
         let context = create_context();
-        let root = AuthServiceRoot::new(context.clone());
+        let root = AuthServiceRoot::new_default(context.clone());
         top_up_native_with_giver_if_below(
             context.clone(),
             &root,
@@ -967,7 +1035,8 @@ mod tests {
             5_000_000_000,
             "AuthServiceRoot",
         )
-        .await;
+        .await
+        .expect("top up AuthServiceRoot");
 
         let owner_keys = gen_signer_keys(context.clone(), 24).expect("Generate owner keys");
         let owner_signer = Signer::Keys { keys: owner_keys.clone() };
@@ -1088,7 +1157,7 @@ mod tests {
             };
             eprintln!("query_context_added_events fetched {} decoded events", events.len());
 
-            for decoded_event in events {
+            if let Some(decoded_event) = events.into_iter().next() {
                 let event = decoded_event.event;
                 let data = decoded_event.data;
                 assert_eq!(data.text, context_text);
@@ -1096,7 +1165,6 @@ mod tests {
                 eprintln!("ContextAdded raw event: {:?}", event);
                 eprintln!("ContextAdded decoded event: {:?}", data);
                 found_context_added = true;
-                break;
             }
 
             if found_context_added {

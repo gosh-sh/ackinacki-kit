@@ -38,6 +38,8 @@ pub enum AccumulatorModule {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ExchangeModule {
     Exchange,
+    UsdcBridge,
+    DepositVoucher,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

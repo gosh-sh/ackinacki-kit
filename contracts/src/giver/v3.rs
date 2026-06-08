@@ -141,56 +141,6 @@ pub struct ParamsOfGetData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForPMP`.
-pub struct ParamsOfGetDataForPmp {
-    #[serde(rename(serialize = "PMPCode"))]
-    pub pmp_code: String,
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    #[serde(rename(serialize = "NullifierCode"))]
-    pub nullifier_code: String,
-    #[serde(rename(serialize = "OracleCode"))]
-    pub oracle_code: String,
-    #[serde(rename(serialize = "OracleEventListCode"))]
-    pub oracle_event_list_code: String,
-    #[serde(rename(serialize = "OrderBookCode"))]
-    pub order_book_code: String,
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForOracle`.
-pub struct ParamsOfGetDataForOracle {
-    #[serde(rename(serialize = "PMPCode"))]
-    pub pmp_code: String,
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    #[serde(rename(serialize = "OracleCode"))]
-    pub oracle_code: String,
-    #[serde(rename(serialize = "OracleEventListCode"))]
-    pub oracle_event_list_code: String,
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForVault`.
-pub struct ParamsOfGetDataForVault {
-    #[serde(rename(serialize = "PMPWalletCode"))]
-    pub pmp_wallet_code: String,
-    pub pubkey: String,
-    pub root: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-/// Parameters for `GiverV3.getDataForAuthService`.
-pub struct ParamsOfGetDataForAuthService {
-    #[serde(rename(serialize = "profileCode"))]
-    pub profile_code: String,
-    /// `uint256` encoded as decimal or hex string.
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
 /// Parameters for `GiverV3.getAccumulatorData`.
 pub struct ParamsOfGetAccumulatorData {
     #[serde(rename(serialize = "sellOrderCode"))]
@@ -206,6 +156,10 @@ pub struct ParamsOfGetExchangeData {
     pub pubkey: String,
     #[serde(rename(serialize = "usdcWallet"))]
     pub usdc_wallet: String,
+    #[serde(rename(serialize = "mintNonce"))]
+    pub mint_nonce: u64,
+    #[serde(rename(serialize = "mintAccumulatorNonce"))]
+    pub mint_accumulator_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -240,14 +194,24 @@ impl GiverV3 {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
 
-    /// Creates wrapper for a deployed giver.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    /// Creates wrapper for a deployed giver with a caller-supplied dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Creates wrapper for default shellnet giver.
+    /// Creates wrapper for the default shellnet giver, under the all-zero system dApp.
     pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     /// Original contract method: `sendTransaction`.
@@ -344,54 +308,6 @@ impl GiverV3 {
         self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetData>("getData", params).await
     }
 
-    /// Original contract method: `getDataForPMP`.
-    pub async fn get_data_for_pmp(
-        &self,
-        params: ParamsOfGetDataForPmp,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForPmp>(
-            "getDataForPMP",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForOracle`.
-    pub async fn get_data_for_oracle(
-        &self,
-        params: ParamsOfGetDataForOracle,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForOracle>(
-            "getDataForOracle",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForVault`.
-    pub async fn get_data_for_vault(
-        &self,
-        params: ParamsOfGetDataForVault,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForVault>(
-            "getDataForVault",
-            params,
-        )
-        .await
-    }
-
-    /// Original contract method: `getDataForAuthService`.
-    pub async fn get_data_for_auth_service(
-        &self,
-        params: ParamsOfGetDataForAuthService,
-    ) -> KitResult<ResultOfGetDataCell> {
-        self.call_get_method_with::<ResultOfGetDataCell, ParamsOfGetDataForAuthService>(
-            "getDataForAuthService",
-            params,
-        )
-        .await
-    }
-
     /// Original contract method: `getAccumulatorData`.
     pub async fn get_accumulator_data(
         &self,
@@ -452,21 +368,20 @@ pub async fn send_currency_with_flag_from_default_giver(
     native_value: u64,
     ecc: HashMap<u32, u64>,
     flag: u8,
-) {
+) -> KitResult<()> {
     let giver = GiverV3::new_default(context);
     let params =
         ParamsOfSendCurrencyWithFlag { dest: dest.to_string(), value: native_value, ecc, flag };
 
     match giver.send_currency_with_flag(params, Signer::None).await {
-        Ok(_) => {}
+        Ok(_) => Ok(()),
         Err(err) if is_duplicate_message_error(&err) => {
             eprintln!(
                 "send_currency_with_flag_from_default_giver: duplicate message, continue: {err:?}"
             );
+            Ok(())
         }
-        Err(err) => {
-            panic!("send GiverV3.sendCurrencyWithFlag: {err:?}");
-        }
+        Err(err) => Err(err),
     }
 }
 
@@ -477,7 +392,8 @@ pub async fn top_up_native_with_giver_if_below<T>(
     min_native_balance: u64,
     top_up_native_value: u64,
     label: &str,
-) where
+) -> KitResult<()>
+where
     T: AccountAccessor + AddressAccessor,
 {
     async fn fetch_account_with_retry<T: AccountAccessor + AddressAccessor>(
@@ -521,7 +437,7 @@ pub async fn top_up_native_with_giver_if_below<T>(
 
     let min_native = BigInt::from(min_native_balance);
     if current_balance >= min_native {
-        return;
+        return Ok(());
     }
 
     eprintln!(
@@ -536,11 +452,12 @@ pub async fn top_up_native_with_giver_if_below<T>(
         HashMap::new(),
         1,
     )
-    .await;
+    .await?;
 
     sleep_ms(3_000).await;
     fetch_account_with_retry(contract, label, "after top-up").await;
 
     let guard = contract.account().lock().await;
     eprintln!("{label} after top-up: balance={:?}, ecc={:?}", guard.balance, guard.ecc);
+    Ok(())
 }

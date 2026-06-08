@@ -17,7 +17,9 @@ use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
+use crate::account::account_id_from_address;
 use crate::account::Account;
+use crate::dapp::supports_dapp_id;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -204,6 +206,7 @@ struct GqlEventNode {
     body: String,
 }
 
+/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
 const GQL_PROFILE_EVENTS_QUERY: &str = r#"
     query($address: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
@@ -227,9 +230,48 @@ const GQL_PROFILE_EVENTS_QUERY: &str = r#"
     }
 "#;
 
+/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
+const GQL_PROFILE_EVENTS_QUERY_V3: &str = r#"
+    query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
+      blockchain {
+        account(account_id: $account_id, dapp_id: $dapp_id) {
+          events(dst: $dst, last: $last, before: $before) {
+            edges {
+              node {
+                msg_id
+                dst
+                created_at
+                body
+              }
+            }
+            pageInfo {
+              startCursor
+              hasPreviousPage
+            }
+          }
+        }
+      }
+    }
+"#;
+
 impl AuthProfile {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Wrapper bound to `address`, under the AuthService dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::AuthService,
+            ),
+        )
     }
 
     /// # Get profile details
@@ -313,17 +355,29 @@ impl AuthProfile {
     ) -> KitResult<ResultOfQueryProfileEvents> {
         let limit = params.limit.unwrap_or(50);
         let expected_dst = profile_internal_to_external_address(self.address());
-        let variables = json!({
-            "address": self.address(),
-            "dst": expected_dst,
-            "last": limit,
-            "before": params.before,
-        });
+        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
+        let variables = if v3 {
+            json!({
+                "account_id": account_id_from_address(self.address()),
+                "dapp_id": self.dapp_id(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        } else {
+            json!({
+                "address": self.address(),
+                "dst": expected_dst,
+                "last": limit,
+                "before": params.before,
+            })
+        };
 
         let raw = net::query(
             self.context().clone(),
             net::ParamsOfQuery {
-                query: GQL_PROFILE_EVENTS_QUERY.to_string(),
+                query: if v3 { GQL_PROFILE_EVENTS_QUERY_V3 } else { GQL_PROFILE_EVENTS_QUERY }
+                    .to_string(),
                 variables: Some(variables),
             },
         )

@@ -18,6 +18,7 @@ use crate::KitResult;
 /// External events emitted by `OracleEventList`.
 pub enum OracleEventListEvent {
     EventConfirmed = 106,
+    DescriptionUpdated = 107,
     EventAdded = 133,
 }
 
@@ -36,6 +37,7 @@ impl TryFrom<String> for OracleEventListEvent {
 
         match number {
             106 => Ok(OracleEventListEvent::EventConfirmed),
+            107 => Ok(OracleEventListEvent::DescriptionUpdated),
             133 => Ok(OracleEventListEvent::EventAdded),
             _ => Err(KitError::new(
                 KitModule::Event,
@@ -62,6 +64,7 @@ impl OracleEventListEvent {
 pub enum DecodedOracleEventListEvent {
     EventAdded { event: Event, kind: OracleEventListEvent, data: EventAddedData },
     EventConfirmed { event: Event, kind: OracleEventListEvent, data: EventConfirmedData },
+    DescriptionUpdated { event: Event, kind: OracleEventListEvent, data: DescriptionUpdatedData },
 }
 
 impl FromEvent for DecodedOracleEventListEvent {
@@ -96,11 +99,30 @@ impl FromEvent for DecodedOracleEventListEvent {
                 })?;
                 Ok(DecodedOracleEventListEvent::EventConfirmed { event: event.clone(), kind, data })
             }
+            OracleEventListEvent::DescriptionUpdated => {
+                let decoded = event.decode::<DescriptionUpdatedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!(
+                            "Unexpected empty data for oracle event list event `{}`",
+                            event.dst
+                        ),
+                    )
+                })?;
+                Ok(DecodedOracleEventListEvent::DescriptionUpdated {
+                    event: event.clone(),
+                    kind,
+                    data,
+                })
+            }
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEventListEvent::EventAdded`.
 pub struct EventAddedData {
     pub event_id: String,
@@ -112,9 +134,15 @@ pub struct EventAddedData {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Payload of `OracleEventListEvent::EventConfirmed`.
 pub struct EventConfirmedData {
     pub event_id: String,
-    #[serde(rename = "pmpAddress")]
     pub pmp_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `OracleEventListEvent::DescriptionUpdated`.
+pub struct DescriptionUpdatedData {
+    pub description: String,
 }

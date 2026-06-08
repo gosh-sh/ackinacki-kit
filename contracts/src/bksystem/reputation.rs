@@ -36,6 +36,7 @@ const TVC: &[u8] = include_bytes!("../../abi/bksystem/ReputationCoefficientCalcu
 pub struct ReputationCoefficientCalculator {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -72,6 +73,7 @@ impl AccountAccessor for ReputationCoefficientCalculator {
         let created_account = Account {
             context: self.context.clone(),
             address: self.address.clone(),
+            dapp_id: self.dapp_id.clone(),
             boc: Some(encoded_account.account),
             data: None,
             balance: None,
@@ -97,6 +99,10 @@ impl AbiAccessor for ReputationCoefficientCalculator {
 impl AddressAccessor for ReputationCoefficientCalculator {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -144,15 +150,30 @@ pub struct ResultOfCalculate {
 }
 
 impl ReputationCoefficientCalculator {
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        let address = "0:0000000000000000000000000000000000000000000000000000000000000000";
-
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context.clone(), address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to the default address, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                "0:0000000000000000000000000000000000000000000000000000000000000000",
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     pub async fn calculate(&self, params: ParamsOfCalculate) -> KitResult<u128> {
@@ -173,7 +194,7 @@ mod tests {
     async fn test_calculate() {
         let context = create_context();
 
-        let contract = ReputationCoefficientCalculator::new(context);
+        let contract = ReputationCoefficientCalculator::new_default(context);
         let coefficient = contract
             .calculate(ParamsOfCalculate { reputation_time: 97344 })
             .await

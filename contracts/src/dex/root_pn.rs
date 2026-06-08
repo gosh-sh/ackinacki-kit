@@ -67,25 +67,37 @@ impl AsyncGuardedMut<Account> for RootPn {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.sendEccShellToPrivateNote`.
 pub struct ParamsOfSendEccShellToPrivateNote {
     pub proof: String,
     pub nullifier_hash: String,
     pub deposit_identifier_hash: String,
+    pub final_layer_historical_hash_root: String,
+    pub voucher_nominal_fr: String,
+    pub token_type_fr: String,
     pub value: u64,
+    pub layer_number: u8,
+    pub recipient_ephemeral_pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.deployPrivateNote`.
 pub struct ParamsOfDeployPrivateNote {
     pub zkproof: String,
     pub deposit_identifier_hash: String,
+    pub final_layer_historical_hash_root: String,
+    pub voucher_nominal_fr: String,
+    pub token_type_fr: String,
     pub ephemeral_pubkey: String,
     pub value: u64,
     pub token_type: u32,
+    pub layer_number: u8,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.getPrivateNoteAddress`.
 pub struct ParamsOfGetPrivateNoteAddress {
     pub deposit_identifier_hash: String,
@@ -108,6 +120,7 @@ pub struct ResultOfGetPrivateNoteCode {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.getPMPAddress`.
 pub struct ParamsOfGetPmpAddress {
     pub event_id: String,
@@ -116,6 +129,7 @@ pub struct ParamsOfGetPmpAddress {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.privateNoteDeployed`.
 pub struct ParamsOfPrivateNoteDeployed {
     pub deposit_identifier_hash: String,
@@ -124,19 +138,20 @@ pub struct ParamsOfPrivateNoteDeployed {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `RootPN.generatevoucher`.
+/// Parameters for `RootPN.generateVoucher`.
 pub struct ParamsOfGenerateVoucher {
+    #[serde(rename(serialize = "skUCommit"))]
     pub sk_u_commit: String,
     #[serde(rename(serialize = "isFee"))]
     pub is_fee: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
     pub withdrawed_value: u128,
     pub token_type: u32,
-    pub flags: u8,
     pub wallet_addr: String,
     pub initial_data_hash: String,
 }
@@ -176,12 +191,12 @@ impl RootPn {
 
     /// Allows passing the root address explicitly (useful for shellnet/testnet
     /// or local networks where RootPN may live at a non-premine address).
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
-    }
-
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Send ECC shell to a deterministic PrivateNote via ZK proof
@@ -280,14 +295,14 @@ impl RootPn {
 
     /// # Generate voucher in RootPN vault
     ///
-    /// Original contract method: `generatevoucher`
+    /// Original contract method: `generateVoucher`
     pub async fn generate_voucher(
         &self,
         params: ParamsOfGenerateVoucher,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "generatevoucher".to_string(),
+            function_name: "generateVoucher".to_string(),
             header: None,
             input: Some(json!(params)),
         };

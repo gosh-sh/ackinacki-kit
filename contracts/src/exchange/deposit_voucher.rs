@@ -7,7 +7,7 @@ use tvm_client::abi::Abi;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
-use crate::error::DexModule;
+use crate::error::ExchangeModule;
 use crate::error::KitModule;
 use crate::traits::AccountAccessor;
 use crate::traits::AutoContract;
@@ -15,30 +15,29 @@ use crate::traits::ContractBase;
 use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 
-const ABI: &str = include_str!("../../abi/dex/Nullifier.abi.json");
+const ABI: &str = include_str!("../../abi/exchange/DepositVoucher.abi.json");
 
 #[derive(Debug, Clone)]
-/// Wrapper for the DEX `Nullifier` contract.
-///
-/// In practice this contract is deployed and controlled by `RootPN`; the only
-/// public method exposed by ABI is `getVersion` (available via `VersionAccessor`).
-pub struct Nullifier {
+/// Wrapper for `DepositVoucher` contract. The voucher exposes no callable
+/// methods beyond `getVersion`; it is deployed by `USDCBridge` as a proof
+/// that a cross-chain deposit was finalized.
+pub struct DepositVoucher {
     base: ContractBase,
 }
 
-impl ModuleAccessor for Nullifier {
-    const MODULE: KitModule = KitModule::Dex(DexModule::Nullifier);
+impl ModuleAccessor for DepositVoucher {
+    const MODULE: KitModule = KitModule::Exchange(ExchangeModule::DepositVoucher);
 }
 
-impl HasContractBase for Nullifier {
+impl HasContractBase for DepositVoucher {
     fn base(&self) -> &ContractBase {
         &self.base
     }
 }
 
-impl AutoContract for Nullifier {}
+impl AutoContract for DepositVoucher {}
 
-impl AsyncGuarded<Account> for Nullifier {
+impl AsyncGuarded<Account> for DepositVoucher {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
@@ -48,7 +47,7 @@ impl AsyncGuarded<Account> for Nullifier {
     }
 }
 
-impl AsyncGuardedMut<Account> for Nullifier {
+impl AsyncGuardedMut<Account> for DepositVoucher {
     async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
@@ -59,13 +58,24 @@ impl AsyncGuardedMut<Account> for Nullifier {
     }
 }
 
-impl Nullifier {
-    /// Create a wrapper for a deployed `Nullifier`.
+impl DepositVoucher {
+    /// Create wrapper for a deployed `DepositVoucher` contract.
     pub fn new(
         context: Arc<ClientContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Wrapper bound to `address`, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 }

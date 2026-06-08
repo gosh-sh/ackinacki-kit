@@ -67,25 +67,32 @@ impl AsyncGuardedMut<Account> for OracleEventList {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `OracleEventList.addEvent`.
 pub struct ParamsOfAddEvent {
     pub event_name: String,
     pub oracle_fee: u128,
     pub deadline: u64,
     pub describe: String,
-    #[serde(rename(serialize = "outcomeNames"))]
     pub outcome_names: HashMap<u32, String>,
-    #[serde(rename(serialize = "trustAddr"))]
     pub trust_addr: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `OracleEventList.deleteEvent`.
 pub struct ParamsOfDeleteEvent {
     pub event_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Parameters for `OracleEventList.setDescription`.
+pub struct ParamsOfSetDescription {
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `OracleEventList.confirmEvent` and `OracleEventList.cancelEvent`.
 pub struct ParamsOfConfirmOrCancelEvent {
     pub event_id: String,
@@ -104,8 +111,30 @@ pub struct ResultOfGetEvents {
 
 impl OracleEventList {
     /// Create a wrapper for a deployed `OracleEventList` shard.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// # Update human-readable list description
+    ///
+    /// Original contract method: `setDescription`
+    ///
+    /// Should be signed with oracle owner keys
+    pub async fn set_description(
+        &self,
+        params: ParamsOfSetDescription,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "setDescription".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
     }
 
     /// # Add oracle-serviced event

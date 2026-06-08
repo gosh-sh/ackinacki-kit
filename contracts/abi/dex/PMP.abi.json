@@ -6,10 +6,10 @@
 		{
 			"name": "constructor",
 			"inputs": [
-				{"name":"deposit_identifier_hash","type":"uint256"},
-				{"name":"token_type","type":"uint32"},
-				{"name":"oracle_event_lists","type":"address[]"},
-				{"name":"oracle_fees","type":"uint128[]"},
+				{"name":"depositIdentifierHash","type":"uint256"},
+				{"name":"tokenType","type":"uint32"},
+				{"name":"oracleEventLists","type":"address[]"},
+				{"name":"oracleFees","type":"uint128[]"},
 				{"name":"initialStakes","type":"uint128[]"},
 				{"name":"orderBookCode","type":"cell"}
 			],
@@ -26,7 +26,7 @@
 		{
 			"name": "approveEvent",
 			"inputs": [
-				{"name":"oracle_pubkey","type":"uint256"},
+				{"name":"oraclePubkey","type":"uint256"},
 				{"name":"outcomeNames","type":"map(uint32,string)"},
 				{"name":"describe","type":"string"},
 				{"name":"name","type":"string"},
@@ -40,8 +40,8 @@
 			"inputs": [
 				{"name":"outcomeId","type":"uint32"},
 				{"name":"stakeAmount","type":"uint128"},
-				{"name":"deposit_identifier_hash","type":"uint256"},
-				{"name":"bet_type","type":"uint8"}
+				{"name":"depositIdentifierHash","type":"uint256"},
+				{"name":"betType","type":"uint8"}
 			],
 			"outputs": [
 			]
@@ -52,7 +52,14 @@
 				{"name":"stakeAmount","type":"uint128[]"},
 				{"name":"debtAmount","type":"uint128[]"},
 				{"name":"couponsAmount","type":"uint128[]"},
-				{"name":"deposit_identifier_hash","type":"uint256"}
+				{"name":"depositIdentifierHash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "freezeNow",
+			"inputs": [
 			],
 			"outputs": [
 			]
@@ -61,7 +68,7 @@
 			"name": "splitFullSet",
 			"inputs": [
 				{"name":"collateral","type":"uint128"},
-				{"name":"deposit_identifier_hash","type":"uint256"}
+				{"name":"depositIdentifierHash","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -70,7 +77,7 @@
 			"name": "mergeFullSet",
 			"inputs": [
 				{"name":"amount","type":"uint128[]"},
-				{"name":"deposit_identifier_hash","type":"uint256"}
+				{"name":"depositIdentifierHash","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -81,7 +88,18 @@
 				{"name":"stakeAmount","type":"uint128[]"},
 				{"name":"debtAmount","type":"uint128[]"},
 				{"name":"couponsAmount","type":"uint128[]"},
-				{"name":"deposit_identifier_hash","type":"uint256"}
+				{"name":"depositIdentifierHash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "forfeitStake",
+			"inputs": [
+				{"name":"stakeAmount","type":"uint128[]"},
+				{"name":"debtAmount","type":"uint128[]"},
+				{"name":"couponsAmount","type":"uint128[]"},
+				{"name":"depositIdentifierHash","type":"uint256"}
 			],
 			"outputs": [
 			]
@@ -115,9 +133,9 @@
 			],
 			"outputs": [
 				{"name":"name","type":"string"},
-				{"name":"token_type","type":"uint32"},
-				{"name":"event_id","type":"uint256"},
-				{"name":"oracle_list_hash","type":"uint256"},
+				{"name":"tokenType","type":"uint32"},
+				{"name":"eventId","type":"uint256"},
+				{"name":"oracleListHash","type":"uint256"},
 				{"name":"deployer","type":"address"},
 				{"name":"privateNoteCodeHash","type":"uint256"},
 				{"name":"totalPool","type":"uint128"},
@@ -136,7 +154,27 @@
 				{"name":"creatorFee","type":"uint128"},
 				{"name":"frozen","type":"bool"},
 				{"name":"baseTotalPool","type":"uint128"},
-				{"name":"profitToClean","type":"uint128"}
+				{"name":"profitToClean","type":"uint128"},
+				{"name":"totalRewardsClean","type":"uint128"},
+				{"name":"totalRewardsDebt","type":"uint128"},
+				{"name":"totalRewardsCoupon","type":"uint128"}
+			]
+		},
+		{
+			"name": "getShutdownState",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"orderBookDone","type":"bool"},
+				{"name":"shutdownTriggered","type":"bool"}
+			]
+		},
+		{
+			"name": "getUnclaimedBalance",
+			"inputs": [
+			],
+			"outputs": [
+				{"name":"value0","type":"uint128"}
 			]
 		},
 		{
@@ -145,6 +183,21 @@
 			],
 			"outputs": [
 				{"name":"orderBookAddress","type":"address"}
+			]
+		},
+		{
+			"name": "confirmRefundReceived",
+			"inputs": [
+				{"name":"depositIdentifierHash","type":"uint256"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "onOrderBookShutdownComplete",
+			"inputs": [
+			],
+			"outputs": [
 			]
 		},
 		{
@@ -164,7 +217,7 @@
 				{"name":"note","type":"address"},
 				{"name":"outcomeId","type":"uint32"},
 				{"name":"amount","type":"uint128"},
-				{"name":"bet_type","type":"uint8"}
+				{"name":"betType","type":"uint8"}
 			],
 			"outputs": [
 			]
@@ -231,7 +284,7 @@
 			]
 		},
 		{
-			"name": "PMPCancelled",
+			"name": "PMPRejected",
 			"inputs": [
 			],
 			"outputs": [
@@ -278,11 +331,11 @@
 		{"init":false,"name":"_constructorFlag","type":"bool"},
 		{"init":false,"name":"_name","type":"string"},
 		{"init":false,"name":"_describe","type":"string"},
-		{"init":true,"name":"_token_type","type":"uint32"},
-		{"init":true,"name":"_event_id","type":"uint256"},
-		{"init":true,"name":"_oracle_list_hash","type":"uint256"},
+		{"init":true,"name":"_tokenType","type":"uint32"},
+		{"init":true,"name":"_eventId","type":"uint256"},
+		{"init":true,"name":"_oracleListHash","type":"uint256"},
 		{"init":false,"name":"_deployer","type":"address"},
-		{"init":false,"name":"_PrivateNoteCode","type":"cell"},
+		{"init":false,"name":"_privateNoteCode","type":"cell"},
 		{"init":false,"name":"_totalPool","type":"uint128"},
 		{"init":false,"name":"_typedOutcomePools","type":"map(uint32,map(uint8,uint128))"},
 		{"init":false,"name":"_typedOutcomeCounts","type":"map(uint32,map(uint8,uint128))"},
@@ -293,6 +346,9 @@
 		{"init":false,"name":"_debtWinCoef","type":"uint128"},
 		{"init":false,"name":"_totalWinPool","type":"uint128"},
 		{"init":false,"name":"_profitToClean","type":"uint128"},
+		{"init":false,"name":"_totalRewardsClean","type":"uint128"},
+		{"init":false,"name":"_totalRewardsDebt","type":"uint128"},
+		{"init":false,"name":"_totalRewardsCoupon","type":"uint128"},
 		{"init":false,"name":"_creatorFee","type":"uint128"},
 		{"init":false,"name":"_resolvedOutcome","type":"optional(uint32)"},
 		{"init":false,"name":"_approved","type":"bool"},
@@ -314,14 +370,18 @@
 		{"init":false,"name":"_cancelVoteCount","type":"uint128"},
 		{"init":false,"name":"_initialStakes","type":"uint128[]"},
 		{"init":false,"name":"_frozen","type":"bool"},
+		{"init":false,"name":"_normRefundPending","type":"bool"},
 		{"init":false,"name":"_baseTotalPool","type":"uint128"},
 		{"init":false,"name":"_frozenCleanPools","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_frozenDebtPools","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_frozenCouponWinCoef","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_frozenDebtWinCoef","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_frozenProfitToClean","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_frozenCreatorFee","type":"map(uint32,uint128)"},
-		{"init":false,"name":"_maxFixedObligation","type":"uint128"},
-		{"init":false,"name":"_orderBookCode","type":"cell"}
+		{"init":false,"name":"_resolvedWinClean","type":"uint128"},
+		{"init":false,"name":"_debtRefundMode","type":"bool"},
+		{"init":false,"name":"_debtRefundRemaining","type":"uint128"},
+		{"init":false,"name":"_splitMergeQ","type":"uint128"},
+		{"init":false,"name":"_frozenCleanUnitsPerQ","type":"map(uint32,uint128)"},
+		{"init":false,"name":"_orderBookCode","type":"cell"},
+		{"init":false,"name":"_orderBookDone","type":"bool"},
+		{"init":false,"name":"_orderBookAddress","type":"address"},
+		{"init":false,"name":"_shutdownTriggered","type":"bool"},
+		{"init":false,"name":"_totalUnclaimedBalance","type":"uint128"}
 	]
 }

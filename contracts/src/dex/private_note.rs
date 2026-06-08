@@ -16,6 +16,8 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u128_map;
+use crate::deserialize::deserialize_u32;
+use crate::dex::order_book::OrderBookOrder;
 use crate::error::DexModule;
 use crate::error::KitModule;
 use crate::traits::AccountAccessor;
@@ -69,26 +71,26 @@ impl AsyncGuardedMut<Account> for PrivateNote {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.changeOwner`.
 pub struct ParamsOfChangeOwner {
-    #[serde(rename(serialize = "new_pubkey"))]
     pub new_pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.deployPMP`.
 pub struct ParamsOfDeployPmp {
     pub event_id: String,
-    #[serde(rename(serialize = "oracleFee"))]
     pub oracle_fee: Vec<u128>,
     pub token_type: u32,
     pub names: Vec<String>,
     pub index: Vec<u128>,
-    #[serde(rename(serialize = "initialStakes"))]
     pub initial_stakes: Vec<u128>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Shared PMP key (`event_id`, `oracle_list_hash`, `token_type`) used by
 /// multiple `PrivateNote` methods (`deleteStake`, `cancelStake`, `claim`).
 pub struct ParamsOfStakeKey {
@@ -98,8 +100,9 @@ pub struct ParamsOfStakeKey {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.withdrawFullSet`.
-pub struct ParamsOfWithdrawFullSet {
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.mergeFullSet`.
+pub struct ParamsOfMergeFullSet {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
@@ -107,6 +110,7 @@ pub struct ParamsOfWithdrawFullSet {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onInitialStakesAccepted`.
 pub struct ParamsOfOnInitialStakesAccepted {
     pub event_id: String,
@@ -116,16 +120,28 @@ pub struct ParamsOfOnInitialStakesAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onInitialStakesFailed`.
 pub struct ParamsOfOnInitialStakesFailed {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "refundTotal"))]
     pub refund_total: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onPmpCleanRefund`.
+pub struct ParamsOfOnPmpCleanRefund {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub refund_amounts: Vec<u128>,
+    pub refund_total: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onStakeCancelled`.
 pub struct ParamsOfOnStakeCancelled {
     pub event_id: String,
@@ -136,15 +152,7 @@ pub struct ParamsOfOnStakeCancelled {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onFullSetStakeCancelled`.
-pub struct ParamsOfOnFullSetStakeCancelled {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.splitFullSet`.
 pub struct ParamsOfSplitFullSet {
     pub event_id: String,
@@ -154,15 +162,18 @@ pub struct ParamsOfSplitFullSet {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onSplitAccepted`.
 pub struct ParamsOfOnSplitAccepted {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub amounts: Vec<u128>,
+    pub collateral_used: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onMergeAccepted`.
 pub struct ParamsOfOnMergeAccepted {
     pub event_id: String,
@@ -173,6 +184,7 @@ pub struct ParamsOfOnMergeAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onStakeAccepted`.
 pub struct ParamsOfOnStakeAccepted {
     pub event_id: String,
@@ -183,30 +195,21 @@ pub struct ParamsOfOnStakeAccepted {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onFullSetStakeAccepted`.
-pub struct ParamsOfOnFullSetStakeAccepted {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.onClaimAccepted`.
 pub struct ParamsOfOnClaimAccepted {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub outcome: Option<u32>,
-    #[serde(rename(serialize = "payoutClean"))]
     pub payout_clean: u128,
     pub payout_debt: u128,
     pub payout_coupon: u128,
-    #[serde(rename(serialize = "debtPaid"))]
     pub debt_paid: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.acceptFee`.
 pub struct ParamsOfAcceptFee {
     pub fee: u128,
@@ -216,6 +219,7 @@ pub struct ParamsOfAcceptFee {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.setStake`.
 pub struct ParamsOfSetStake {
     pub event_id: String,
@@ -227,21 +231,14 @@ pub struct ParamsOfSetStake {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.setFullSetStake`.
-pub struct ParamsOfSetFullSetStake {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub amount: Vec<u128>,
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.generateCoupon`.
 pub struct ParamsOfGenerateCoupon {
     pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.initTransfer`.
 pub struct ParamsOfInitTransfer {
     pub dest_deposit_hash: String,
@@ -250,6 +247,7 @@ pub struct ParamsOfInitTransfer {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.offerTransfer`.
 pub struct ParamsOfOfferTransfer {
     pub token_type: u32,
@@ -258,85 +256,169 @@ pub struct ParamsOfOfferTransfer {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
-    pub flags: u8,
     pub dest_wallet_addr: String,
     pub token_type: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.revertWithdraw`.
 pub struct ParamsOfRevertWithdraw {
     pub token_type: u32,
     pub value: u128,
 }
 
+// ─── OrderBook proxy methods (PrivateNote → OrderBook) ────────────────────
+
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.placeOrder`.
 pub struct ParamsOfPlaceOrder {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
-    /// `uint256` encoded as decimal or hex string.
-    #[serde(rename(serialize = "priceBps"))]
-    pub price_bps: String,
+    /// `uint256` decimal or hex string.
+    pub price: String,
     pub amount: u128,
     pub flags: u8,
-    #[serde(rename(serialize = "minAmount"))]
     pub min_amount: u128,
-    #[serde(rename(serialize = "epochId"))]
     pub epoch_id: u64,
+    pub client_order_id: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderPlaced` and `PrivateNote.cancelOrder`.
-pub struct ParamsOfOrderId {
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.placeBatch`.
+///
+/// Atomic batch: cancels `cancel_ids` and places `orders` in a single
+/// `OrderBook.executeBatch` dispatch. Either side may be empty (but not
+/// both).
+pub struct ParamsOfPlaceBatch {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "orderId"))]
+    pub orders: Vec<OrderBookOrder>,
+    pub cancel_ids: Vec<u128>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelOrder`.
+pub struct ParamsOfCancelOrder {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
     pub order_id: u128,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderCancelled`.
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelOrderByClient`.
+pub struct ParamsOfCancelOrderByClient {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub client_order_id: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.cancelAllOrders`.
+pub struct ParamsOfCancelAllOrders {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+}
+
+// ─── OrderBook → PrivateNote callbacks ────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderPlaced` (callback from OrderBook).
+pub struct ParamsOfOnOrderPlaced {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub order_id: u128,
+    pub fee_reserve: u128,
+    pub lock: u128,
+    pub client_order_id: u128,
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    pub flags: u8,
+    /// `uint256` decimal or hex string.
+    pub price: String,
+    pub amount: u128,
+    pub op_nonce: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderRejected` (callback from OrderBook).
+pub struct ParamsOfOnOrderRejected {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub outcome_id: u32,
+    pub is_buy: bool,
+    pub flags: u8,
+    /// `uint256` decimal or hex string.
+    pub price: String,
+    pub amount: u128,
+    pub num_outcomes: u32,
+    pub client_order_id: u128,
+    pub op_nonce: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderCancelled` (callback from OrderBook).
 pub struct ParamsOfOnOrderCancelled {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "orderId"))]
     pub order_id: u128,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
     pub amount: u128,
+    pub client_order_id: u128,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `PrivateNote.onOrderFilled`.
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onOrderFilled` (callback from OrderBook).
 pub struct ParamsOfOnOrderFilled {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
-    #[serde(rename(serialize = "outcomeId"))]
     pub outcome_id: u32,
-    #[serde(rename(serialize = "filledAmount"))]
     pub filled_amount: u128,
-    /// `uint256` encoded as decimal or hex string.
-    #[serde(rename(serialize = "clearingPrice"))]
+    /// `uint256` decimal or hex string.
     pub clearing_price: String,
-    #[serde(rename(serialize = "isBuy"))]
     pub is_buy: bool,
-    #[serde(rename(serialize = "refundAmount"))]
     pub refund_amount: u128,
-    #[serde(rename(serialize = "feeAmount"))]
     pub fee_amount: u128,
+    pub is_rebate: bool,
+    pub order_id: u128,
+    pub is_final: bool,
+    pub num_outcomes: u32,
+    pub client_order_id: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `PrivateNote.onBatchComplete` (callback from OrderBook).
+pub struct ParamsOfOnBatchComplete {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -370,10 +452,24 @@ pub struct ResultOfGetDetails {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `PrivateNote._deposit_identifier_hash`.
+/// Result of `PrivateNote._depositIdentifierHash`.
 pub struct ResultOfGetDepositIdentifierHash {
-    #[serde(rename = "_deposit_identifier_hash")]
+    #[serde(rename = "_depositIdentifierHash")]
     pub deposit_identifier_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PrivateNote._pendingPlaceBuyLock`.
+pub struct ResultOfGetPendingPlaceBuyLock {
+    #[serde(rename = "_pendingPlaceBuyLock", deserialize_with = "deserialize_u128")]
+    pub pending_place_buy_lock: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `PrivateNote._pendingPlaceBuyTokenType`.
+pub struct ResultOfGetPendingPlaceBuyTokenType {
+    #[serde(rename = "_pendingPlaceBuyTokenType", deserialize_with = "deserialize_u32")]
+    pub pending_place_buy_token_type: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -388,8 +484,12 @@ pub struct ResultOfGetStakes {
 
 impl PrivateNote {
     /// Create a wrapper for a deployed `PrivateNote`.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Change ephemeral owner key
@@ -460,11 +560,31 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Delete stake record
+    /// # Process callback for PMP-side clean refund
+    ///
+    /// Original contract method: `onPmpCleanRefund`
+    pub async fn on_pmp_clean_refund(
+        &self,
+        params: ParamsOfOnPmpCleanRefund,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onPmpCleanRefund".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Abandon stake (forfeit any claim against the PMP)
     ///
     /// Original contract method: `deleteStake`
     ///
     /// Should be signed with PrivateNote owner keys
+    ///
+    /// Before deleting the local stake record, the PrivateNote notifies the
+    /// PMP via `forfeitStake(...)`; the record is deleted when the PMP acks
+    /// back through `onForfeitAccepted`.
     pub async fn delete_stake(
         &self,
         params: ParamsOfStakeKey,
@@ -475,6 +595,18 @@ impl PrivateNote {
             header: None,
             input: Some(json!(params)),
         };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback acknowledging forfeit
+    ///
+    /// Original contract method: `onForfeitAccepted`
+    ///
+    /// PMP→PrivateNote callback acknowledging `forfeitStake`: deletes the
+    /// local stake record and clears the busy lock.
+    pub async fn on_forfeit_accepted(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "onForfeitAccepted".to_string(), header: None, input: None };
         self.send_message(Some(call_set), None, signer).await
     }
 
@@ -506,40 +638,6 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "onStakeCancelled".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Withdraw full-set stake from PMP
-    ///
-    /// Original contract method: `withdrawFullSet`
-    ///
-    /// Should be signed with PrivateNote owner keys
-    pub async fn withdraw_full_set(
-        &self,
-        params: ParamsOfWithdrawFullSet,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "withdrawFullSet".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Process callback for canceled full-set stake
-    ///
-    /// Original contract method: `onFullSetStakeCancelled`
-    pub async fn on_full_set_stake_cancelled(
-        &self,
-        params: ParamsOfOnFullSetStakeCancelled,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "onFullSetStakeCancelled".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -583,7 +681,7 @@ impl PrivateNote {
     /// Original contract method: `mergeFullSet`
     pub async fn merge_full_set(
         &self,
-        params: ParamsOfWithdrawFullSet,
+        params: ParamsOfMergeFullSet,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
@@ -628,24 +726,6 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Place a full-set stake
-    ///
-    /// Original contract method: `setFullSetStake`
-    ///
-    /// Should be signed with PrivateNote owner keys
-    pub async fn set_full_set_stake(
-        &self,
-        params: ParamsOfSetFullSetStake,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "setFullSetStake".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
     /// # Process callback for accepted stake
     ///
     /// Original contract method: `onStakeAccepted`
@@ -656,22 +736,6 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "onStakeAccepted".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// # Process callback for accepted full-set stake
-    ///
-    /// Original contract method: `onFullSetStakeAccepted`
-    pub async fn on_full_set_stake_accepted(
-        &self,
-        params: ParamsOfOnFullSetStakeAccepted,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "onFullSetStakeAccepted".to_string(),
             header: None,
             input: Some(json!(params)),
         };
@@ -839,9 +903,10 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Place order on PMP order book
-    ///
-    /// Original contract method: `placeOrder`
+    // ─── OrderBook proxy methods ──────────────────────────────────────
+
+    /// Original contract method: `placeOrder`. Submits a single order to
+    /// the PMP's `OrderBook`.
     pub async fn place_order(
         &self,
         params: ParamsOfPlaceOrder,
@@ -855,28 +920,25 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for placed order
-    ///
-    /// Original contract method: `onOrderPlaced`
-    pub async fn on_order_placed(
+    /// Original contract method: `placeBatch`. Atomic batch: cancels
+    /// `cancel_ids` and places `orders` in a single OrderBook dispatch.
+    pub async fn place_batch(
         &self,
-        params: ParamsOfOrderId,
+        params: ParamsOfPlaceBatch,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
-            function_name: "onOrderPlaced".to_string(),
+            function_name: "placeBatch".to_string(),
             header: None,
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Cancel order on PMP order book
-    ///
-    /// Original contract method: `cancelOrder`
+    /// Original contract method: `cancelOrder`.
     pub async fn cancel_order(
         &self,
-        params: ParamsOfOrderId,
+        params: ParamsOfCancelOrder,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
@@ -887,9 +949,68 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for canceled order
-    ///
-    /// Original contract method: `onOrderCancelled`
+    /// Original contract method: `cancelOrderByClient`.
+    pub async fn cancel_order_by_client(
+        &self,
+        params: ParamsOfCancelOrderByClient,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelOrderByClient".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `cancelAllOrders`.
+    pub async fn cancel_all_orders(
+        &self,
+        params: ParamsOfCancelAllOrders,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "cancelAllOrders".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    // ─── OrderBook → PrivateNote callback bindings ────────────────────
+    // These methods are normally only invoked by the OrderBook itself.
+    // Exposed here so consumers can build admin tools / event-replay /
+    // tests that need to call them directly.
+
+    /// Original contract method: `onOrderPlaced` (callback from OrderBook).
+    pub async fn on_order_placed(
+        &self,
+        params: ParamsOfOnOrderPlaced,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderPlaced".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `onOrderRejected` (callback from OrderBook).
+    pub async fn on_order_rejected(
+        &self,
+        params: ParamsOfOnOrderRejected,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onOrderRejected".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Original contract method: `onOrderCancelled` (callback from OrderBook).
     pub async fn on_order_cancelled(
         &self,
         params: ParamsOfOnOrderCancelled,
@@ -903,9 +1024,7 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Process callback for filled order
-    ///
-    /// Original contract method: `onOrderFilled`
+    /// Original contract method: `onOrderFilled` (callback from OrderBook).
     pub async fn on_order_filled(
         &self,
         params: ParamsOfOnOrderFilled,
@@ -918,6 +1037,22 @@ impl PrivateNote {
         };
         self.send_message(Some(call_set), None, signer).await
     }
+
+    /// Original contract method: `onBatchComplete` (callback from OrderBook).
+    pub async fn on_batch_complete(
+        &self,
+        params: ParamsOfOnBatchComplete,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "onBatchComplete".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    // ─── Getters ──────────────────────────────────────────────────────
 
     /// # Get salted PMP code and hash
     ///
@@ -935,9 +1070,9 @@ impl PrivateNote {
 
     /// # Get deposit identifier hash (public static field getter)
     ///
-    /// Original contract method: `_deposit_identifier_hash`
+    /// Original contract method: `_depositIdentifierHash`
     pub async fn get_deposit_identifier_hash(&self) -> KitResult<ResultOfGetDepositIdentifierHash> {
-        self.call_get_method::<ResultOfGetDepositIdentifierHash>("_deposit_identifier_hash").await
+        self.call_get_method::<ResultOfGetDepositIdentifierHash>("_depositIdentifierHash").await
     }
 
     /// # Get raw `_stakes` mapping
@@ -948,5 +1083,22 @@ impl PrivateNote {
     /// frequently in DEX contract iterations.
     pub async fn get_stakes(&self) -> KitResult<ResultOfGetStakes> {
         self.call_get_method::<ResultOfGetStakes>("_stakes").await
+    }
+
+    /// # Get pending place-buy lock amount
+    ///
+    /// Original contract method: `_pendingPlaceBuyLock`
+    pub async fn get_pending_place_buy_lock(&self) -> KitResult<ResultOfGetPendingPlaceBuyLock> {
+        self.call_get_method::<ResultOfGetPendingPlaceBuyLock>("_pendingPlaceBuyLock").await
+    }
+
+    /// # Get pending place-buy token type
+    ///
+    /// Original contract method: `_pendingPlaceBuyTokenType`
+    pub async fn get_pending_place_buy_token_type(
+        &self,
+    ) -> KitResult<ResultOfGetPendingPlaceBuyTokenType> {
+        self.call_get_method::<ResultOfGetPendingPlaceBuyTokenType>("_pendingPlaceBuyTokenType")
+            .await
     }
 }
