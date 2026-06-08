@@ -270,7 +270,7 @@ mod tests {
         let mut account = Account::new(
             context,
             "0:2222222222222222222222222222222222222222222222222222222222222222",
-            crate::dapp::SystemDapp::System,
+            crate::dapp::SystemDapp::MobileVerifiers,
         );
         let fetch_result =
             account.fetch().await.inspect_err(|e| eprintln!("Fetch account ({e:?})"));
@@ -290,7 +290,7 @@ mod tests {
         let mut account = Account::new(
             context.clone(),
             "0:2222222222222222222222222222222222222222222222222222222222222222",
-            crate::dapp::SystemDapp::System,
+            crate::dapp::SystemDapp::MobileVerifiers,
         );
         let wait_result = account
             .wait(ParamsOfWaitAccount { status: AccountStatus::Active, ..Default::default() })
