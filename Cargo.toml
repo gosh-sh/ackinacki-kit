@@ -21,8 +21,12 @@ sha2 = "0.10"
 time = "=0.3.47"
 tokio = { version = "1", default-features = false }
 tracing = "0.1"
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.0.an", default-features = false }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.0.an", default-features = false }
+# TEMP — pinned to the tvm_abi off-by-32 multi-cell decode fix branch (PR pending).
+# Revert to the git+tag lines below once the fix is merged and tvm-sdk is re-tagged:
+#   tvm_block  = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.0.an", default-features = false }
+#   tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.0.an", default-features = false }
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "fix/abi-multicell-decode-off-by-32", default-features = false }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", branch = "fix/abi-multicell-decode-off-by-32", default-features = false }
 
 [profile.release]
 opt-level = "z"
