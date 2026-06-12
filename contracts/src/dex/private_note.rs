@@ -260,15 +260,20 @@ pub struct ParamsOfOfferTransfer {
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
     pub dest_wallet_addr: String,
-    pub token_type: u32,
+    /// `uint256` dApp id, decimal or hex string. Drives no PrivateNote logic;
+    /// forwarded to `RootPN.withdrawTokens` and surfaced in `TokensWithdrawn`.
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.revertWithdraw`.
+///
+/// `amounts` maps `tokenType → value` for the balances being reverted back
+/// into the note (callback from `RootPN` when a withdraw fails).
 pub struct ParamsOfRevertWithdraw {
-    pub token_type: u32,
-    pub value: u128,
+    pub amounts: HashMap<u32, u128>,
 }
 
 // ─── OrderBook proxy methods (PrivateNote → OrderBook) ────────────────────

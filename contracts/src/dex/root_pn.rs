@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde::Deserialize;
@@ -149,11 +150,53 @@ pub struct ParamsOfGenerateVoucher {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Parameters for `RootPN.withdrawTokens`.
+///
+/// `amounts` maps `tokenType → value` for every balance withdrawn in this
+/// single call. `dapp_id` drives no logic here — it is only surfaced in the
+/// emitted `TokensWithdrawn` event.
 pub struct ParamsOfWithdrawTokens {
-    pub withdrawed_value: u128,
-    pub token_type: u32,
+    pub amounts: HashMap<u32, u128>,
     pub wallet_addr: String,
     pub initial_data_hash: String,
+    /// `uint256`, decimal or hex string.
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for owner-only `RootPN.collectProtocolFee`.
+pub struct ParamsOfCollectProtocolFee {
+    pub event_id: String,
+    pub oracle_list_hash: String,
+    pub token_type: u32,
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for owner-only `RootPN.withdrawProtocolFees`.
+pub struct ParamsOfWithdrawProtocolFees {
+    pub to: String,
+    /// `uint256`, decimal or hex string.
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
+    pub token_type: u32,
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Parameters for `RootPN.getProtocolFee`.
+pub struct ParamsOfGetProtocolFee {
+    pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Result of `RootPN.getProtocolFee`.
+pub struct ResultOfGetProtocolFee {
+    #[serde(rename = "value0", deserialize_with = "deserialize_u128")]
+    pub value: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -323,6 +366,56 @@ impl RootPn {
             input: Some(json!(params)),
         };
         self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Collect protocol fee into the RootPN vault
+    ///
+    /// Original contract method: `collectProtocolFee`
+    ///
+    /// Owner-only; accrues the fee under `_protocolFees[tokenType]`.
+    pub async fn collect_protocol_fee(
+        &self,
+        params: ParamsOfCollectProtocolFee,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "collectProtocolFee".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Withdraw accrued protocol fees
+    ///
+    /// Original contract method: `withdrawProtocolFees`
+    ///
+    /// Owner-only; pays out `amount` of accrued `tokenType` fees to `to`.
+    pub async fn withdraw_protocol_fees(
+        &self,
+        params: ParamsOfWithdrawProtocolFees,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: "withdrawProtocolFees".to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Get accrued protocol fee for a token type
+    ///
+    /// Original contract method: `getProtocolFee`
+    pub async fn get_protocol_fee(
+        &self,
+        params: ParamsOfGetProtocolFee,
+    ) -> KitResult<ResultOfGetProtocolFee> {
+        self.call_get_method_with::<ResultOfGetProtocolFee, ParamsOfGetProtocolFee>(
+            "getProtocolFee",
+            params,
+        )
+        .await
     }
 
     /// # Update root code
