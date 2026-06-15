@@ -3,7 +3,7 @@
 resolver = "3"
 members = ["contracts", "root", "shared"]
 
-package.version = "2.0.0"
+package.version = "2.0.1"
 package.edition = "2024"
 
 [workspace.dependencies]
@@ -21,10 +21,10 @@ sha2 = "0.10"
 time = "=0.3.47"
 tokio = { version = "1", default-features = false }
 tracing = "0.1"
-# v3.0.2-rc.an carries the tvm_abi off-by-32 multi-cell decode fix. NOTE: v3.0.0.an,
+# v3.0.2.an carries the tvm_abi off-by-32 multi-cell decode fix. NOTE: v3.0.0.an,
 # v3.0.1.an and v3.0.0-rc.an do NOT have it (OrderPlaced fails to decode, error 304).
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2-rc.an", default-features = false }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2-rc.an", default-features = false }
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2.an", default-features = false }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2.an", default-features = false }
 
 [profile.release]
 opt-level = "z"
