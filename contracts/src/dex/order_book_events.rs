@@ -292,3 +292,81 @@ pub struct CallbackBouncedData {
     #[serde(deserialize_with = "deserialize_u64")]
     pub lt: u64,
 }
+
+#[cfg(test)]
+mod multicell_orderplaced_tests {
+    //! Regression for the `tvm_abi` off-by-32 multi-cell decode bug.
+    //!
+    //! `OrderPlaced` grew to 9 fields; its body is now 1033 (id+data) bits, so the
+    //! last field (`opNonce`) correctly spills into a continuation cell
+    //! (`cell0 = 969 bits + ref`, `ref = 64 bits`). The contract encodes this
+    //! correctly at ABI 2.4 — verified: the SDK encoder produces a byte-identical
+    //! 969/64 split.
+    //!
+    //! The bug is in `tvm_abi`: the *event* decode path (`Event::decode_input` →
+    //! `decode_params` → `From<SliceData> for Cursor`) seeds `Cursor.used_bits = 0`,
+    //! dropping the 32 id bits already read. `check_layout` then computes
+    //! `937 + 64 = 1001 <= 1023` and wrongly rejects the legit ref-spill with
+    //! `WrongDataLayout` (ton-client error 304). Real cell0 holds `32 + 937 = 969`,
+    //! and `969 + 64 = 1033 > 1023`, so the spill is correct. The *function* decode
+    //! path is unaffected (it seeds the cursor via `decode_header`), which is the
+    //! ONLY reason a function/internal round-trip masks the bug.
+    //!
+    //! This test decodes the REAL shellnet event body through the REAL event path
+    //! (bundled ABI, `is_internal = false`) and asserts all 9 fields. It passes only
+    //! with the fixed `tvm_abi` (the kit's `tvm_client` is currently pinned to the
+    //! fix branch in `Cargo.toml`); on the unfixed `v3.0.0.an` it fails with 304.
+
+    use num_bigint::BigUint;
+    use tvm_client::abi::decode_message_body;
+    use tvm_client::abi::Abi;
+    use tvm_client::abi::ParamsOfDecodeMessageBody;
+
+    use super::OrderPlacedData;
+    use crate::tests::create_context;
+
+    const BUNDLED_ABI: &str = include_str!("../../abi/dex/OrderBook.abi.json");
+
+    // Real ext-out OrderPlaced body captured from a live shellnet OrderBook
+    // (event-id 0x1b9c6957; cell0 = 969 bits + ref, ref = 64 bits = opNonce).
+    const SHELLNET_BODY: &str = "te6ccgEBAgEAhwAB8xucaVcAAAAAAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJxAAAAAAAAAAAAAAAA34R1gAAAAAAAAAAADUWAPOAAAfQ5a/DxBF+SmrdO5oXyLM+jKFg9ytsUGhHlk2qac6wCgvAAQAQAAAAAAAAAAE=";
+
+    const DEPOSIT_HASH: &str = "0xcb5f878822fc94d5ba77342f91667d1942c1ee56d8a0d08f2c9b54d39d601417";
+
+    fn to_uint(s: &str) -> BigUint {
+        match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+            Some(hex) => BigUint::parse_bytes(hex.as_bytes(), 16).unwrap(),
+            None => BigUint::parse_bytes(s.as_bytes(), 10).unwrap(),
+        }
+    }
+
+    #[test]
+    fn shellnet_orderplaced_event_decodes_all_9_fields() {
+        let decoded = decode_message_body(
+            create_context(),
+            ParamsOfDecodeMessageBody {
+                abi: Abi::Json(BUNDLED_ABI.to_string()),
+                body: SHELLNET_BODY.to_string(),
+                is_internal: false,
+                allow_partial: true,
+                function_name: None,
+                data_layout: None,
+            },
+        )
+        .expect("event body decodes (needs the tvm_abi off-by-32 fix)");
+
+        assert_eq!(decoded.name, "OrderPlaced");
+        let d: OrderPlacedData =
+            serde_json::from_value(decoded.value.expect("value")).expect("OrderPlacedData");
+
+        assert_eq!(d.order_id, 1);
+        assert_eq!(d.outcome_id, 1);
+        assert!(!d.is_buy);
+        assert_eq!(d.flags, 0);
+        assert_eq!(to_uint(&d.price), BigUint::from(5000u32)); // 0x1388
+        assert_eq!(d.amount, 30_000_000_000);
+        assert_eq!(d.client_order_id, 7_650_491_958_644_707_233);
+        assert_eq!(to_uint(&d.deposit_hash), to_uint(DEPOSIT_HASH));
+        assert_eq!(d.op_nonce, 1); // the field that spilled into the continuation cell
+    }
+}
