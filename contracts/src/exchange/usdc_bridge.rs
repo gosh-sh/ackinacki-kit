@@ -26,27 +26,27 @@ use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
 use crate::KitResult;
 
-const ABI: &str = include_str!("../../abi/exchange/TokenBridge.abi.json");
+const ABI: &str = include_str!("../../abi/exchange/USDCBridge.abi.json");
 
 #[derive(Debug, Clone)]
-/// Wrapper for `TokenBridge` contract.
-pub struct TokenBridge {
+/// Wrapper for `USDCBridge` contract.
+pub struct UsdcBridge {
     base: ContractBase,
 }
 
-impl ModuleAccessor for TokenBridge {
-    const MODULE: KitModule = KitModule::Exchange(ExchangeModule::TokenBridge);
+impl ModuleAccessor for UsdcBridge {
+    const MODULE: KitModule = KitModule::Exchange(ExchangeModule::UsdcBridge);
 }
 
-impl HasContractBase for TokenBridge {
+impl HasContractBase for UsdcBridge {
     fn base(&self) -> &ContractBase {
         &self.base
     }
 }
 
-impl AutoContract for TokenBridge {}
+impl AutoContract for UsdcBridge {}
 
-impl AsyncGuarded<Account> for TokenBridge {
+impl AsyncGuarded<Account> for UsdcBridge {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
@@ -56,7 +56,7 @@ impl AsyncGuarded<Account> for TokenBridge {
     }
 }
 
-impl AsyncGuardedMut<Account> for TokenBridge {
+impl AsyncGuardedMut<Account> for UsdcBridge {
     async fn async_guarded_mut<F, Fut, T, E>(&self, action: F) -> Result<T, E>
     where
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
@@ -68,7 +68,7 @@ impl AsyncGuardedMut<Account> for TokenBridge {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.mintAndSend`.
+/// Parameters for `USDCBridge.mintAndSend`.
 pub struct ParamsOfMintAndSend {
     pub recipient: String,
     pub value: u128,
@@ -76,7 +76,7 @@ pub struct ParamsOfMintAndSend {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.mintAndSendAccumulator`.
+/// Parameters for `USDCBridge.mintAndSendAccumulator`.
 pub struct ParamsOfMintAndSendAccumulator {
     pub buyer: String,
     pub value: u128,
@@ -84,7 +84,7 @@ pub struct ParamsOfMintAndSendAccumulator {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.initiateWithdrawal`.
+/// Parameters for `USDCBridge.initiateWithdrawal`.
 pub struct ParamsOfInitiateWithdrawal {
     /// `uint256` encoded as decimal or hex string.
     #[serde(rename(serialize = "dstChainId"))]
@@ -94,7 +94,7 @@ pub struct ParamsOfInitiateWithdrawal {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.finalizeDeposit`.
+/// Parameters for `USDCBridge.finalizeDeposit`.
 pub struct ParamsOfFinalizeDeposit {
     /// `bytes` payload encoded as hex.
     pub proof: String,
@@ -116,7 +116,7 @@ pub struct ParamsOfFinalizeDeposit {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.confirmDeposit`.
+/// Parameters for `USDCBridge.confirmDeposit`.
 pub struct ParamsOfConfirmDeposit {
     /// `uint256` encoded as decimal or hex string.
     #[serde(rename(serialize = "srcDappId"))]
@@ -136,21 +136,21 @@ pub struct ParamsOfConfirmDeposit {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.setPubkey`.
+/// Parameters for `USDCBridge.setPubkey`.
 pub struct ParamsOfSetPubkey {
     /// `uint256` encoded as decimal or hex string.
     pub pubkey: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.triggerTransaction`.
+/// Parameters for `USDCBridge.triggerTransaction`.
 pub struct ParamsOfTriggerTransaction {
     #[serde(rename(serialize = "txAddr"))]
     pub tx_addr: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.updateCode`.
+/// Parameters for `USDCBridge.updateCode`.
 pub struct ParamsOfUpdateCode {
     pub newcode: String,
     #[serde(rename(serialize = "userCell"))]
@@ -158,35 +158,35 @@ pub struct ParamsOfUpdateCode {
 }
 
 #[derive(Debug, Clone, Serialize)]
-/// Parameters for `TokenBridge.getTotalBridged`.
+/// Parameters for `USDCBridge.getTotalBridged`.
 pub struct ParamsOfGetTotalBridged {
     #[serde(rename(serialize = "tokenId"))]
     pub token_id: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getUsdcWallet`.
+/// Result of `USDCBridge.getUsdcWallet`.
 pub struct ResultOfGetUsdcWallet {
     #[serde(rename = "value0")]
     pub usdc_wallet: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getOwnerPubkey`.
+/// Result of `USDCBridge.getOwnerPubkey`.
 pub struct ResultOfGetOwnerPubkey {
     #[serde(rename = "value0")]
     pub owner_pubkey: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getTotalMinted`.
+/// Result of `USDCBridge.getTotalMinted`.
 pub struct ResultOfGetTotalMinted {
     #[serde(rename = "value0", deserialize_with = "deserialize_u128")]
     pub total_minted: u128,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getTotalBridged`.
+/// Result of `USDCBridge.getTotalBridged`.
 pub struct ResultOfGetTotalBridged {
     #[serde(deserialize_with = "deserialize_u128")]
     pub minted: u128,
@@ -195,14 +195,14 @@ pub struct ResultOfGetTotalBridged {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getDepositVoucherCodeHash`. `uint256` returned as hex string.
+/// Result of `USDCBridge.getDepositVoucherCodeHash`. `uint256` returned as hex string.
 pub struct ResultOfGetDepositVoucherCodeHash {
     #[serde(rename = "value0")]
     pub code_hash: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Result of `TokenBridge.getNonces`.
+/// Result of `USDCBridge.getNonces`.
 pub struct ResultOfGetNonces {
     #[serde(rename = "mintNonce", deserialize_with = "deserialize_u64")]
     pub mint_nonce: u64,
@@ -210,10 +210,25 @@ pub struct ResultOfGetNonces {
     pub mint_accumulator_nonce: u64,
 }
 
-impl TokenBridge {
-    /// Create wrapper for deployed `TokenBridge` contract.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+impl UsdcBridge {
+    /// Create wrapper for deployed `USDCBridge` contract.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
+    }
+
+    /// Wrapper bound to `address`, under the all-zero system dApp.
+    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                address.as_ref(),
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     /// Original contract method: `mintAndSend`.

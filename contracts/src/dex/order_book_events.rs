@@ -196,6 +196,10 @@ pub struct OrderPlacedData {
     pub amount: u128,
     #[serde(deserialize_with = "deserialize_u128")]
     pub client_order_id: u128,
+    /// `uint256` represented as returned by ABI.
+    pub deposit_hash: String,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub op_nonce: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -221,6 +225,10 @@ pub struct OrderFilledData {
     #[serde(deserialize_with = "deserialize_u128")]
     pub fee_amount: u128,
     pub is_taker: bool,
+    #[serde(deserialize_with = "deserialize_u64")]
+    pub match_id: u64,
+    /// `uint256` represented as returned by ABI.
+    pub deposit_hash: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

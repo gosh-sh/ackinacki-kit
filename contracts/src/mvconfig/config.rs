@@ -31,6 +31,7 @@ const ABI: &str = include_str!("../../abi/mvconfig/MVConfig.abi.json");
 pub struct MobileVerifiersConfig {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -54,6 +55,10 @@ impl AbiAccessor for MobileVerifiersConfig {
 impl AddressAccessor for MobileVerifiersConfig {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -105,14 +110,30 @@ pub struct ParamsOfSetRootPublic {
 }
 
 impl MobileVerifiersConfig {
-    pub fn new(context: Arc<ClientContext>) -> Self {
-        let address = "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    /// General constructor — caller supplies address + dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
+    }
+
+    /// Wrapper bound to the default address, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>) -> Self {
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                "0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                crate::dapp::SystemDapp::MobileVerifiers,
+            ),
+        )
     }
 
     /// # Set root public key

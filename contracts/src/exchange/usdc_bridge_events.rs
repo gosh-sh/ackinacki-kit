@@ -15,21 +15,21 @@ use crate::KitResult;
 /// External event IDs are defined in `exchange/modifiers/modifiers.sol`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u128)]
-pub enum TokenBridgeEvent {
+pub enum UsdcBridgeEvent {
     UsdcMigrated = 615,
     UsdcMinted = 616,
     WithdrawalInitiated = 618,
     DepositFinalized = 619,
 }
 
-impl TokenBridgeEvent {
+impl UsdcBridgeEvent {
     /// Returns external destination form used by GraphQL / query_collection.
     pub fn to_external_address(&self) -> String {
         format!(":{:064x}", *self as u128)
     }
 }
 
-impl TryFrom<String> for TokenBridgeEvent {
+impl TryFrom<String> for UsdcBridgeEvent {
     type Error = KitError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -38,7 +38,7 @@ impl TryFrom<String> for TokenBridgeEvent {
             KitError::new(
                 KitModule::Event,
                 KitErrorCode::Parse,
-                format!("Parse token bridge event `{cleaned}` into u128 ({e})"),
+                format!("Parse usdc bridge event `{cleaned}` into u128 ({e})"),
             )
         })?;
 
@@ -50,27 +50,27 @@ impl TryFrom<String> for TokenBridgeEvent {
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
-                format!("Unknown token bridge event `{cleaned}`"),
+                format!("Unknown usdc bridge event `{cleaned}`"),
             )),
         }
     }
 }
 
-impl Display for TokenBridgeEvent {
+impl Display for UsdcBridgeEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, ":{:064x}", *self as u128)
     }
 }
 
 #[derive(Debug)]
-pub enum DecodedTokenBridgeEvent {
-    UsdcMigrated { event: Event, kind: TokenBridgeEvent, data: UsdcMigratedData },
-    UsdcMinted { event: Event, kind: TokenBridgeEvent, data: UsdcMintedData },
-    WithdrawalInitiated { event: Event, kind: TokenBridgeEvent, data: WithdrawalInitiatedData },
-    DepositFinalized { event: Event, kind: TokenBridgeEvent, data: DepositFinalizedData },
+pub enum DecodedUsdcBridgeEvent {
+    UsdcMigrated { event: Event, kind: UsdcBridgeEvent, data: UsdcMigratedData },
+    UsdcMinted { event: Event, kind: UsdcBridgeEvent, data: UsdcMintedData },
+    WithdrawalInitiated { event: Event, kind: UsdcBridgeEvent, data: WithdrawalInitiatedData },
+    DepositFinalized { event: Event, kind: UsdcBridgeEvent, data: DepositFinalizedData },
 }
 
-impl DecodedTokenBridgeEvent {
+impl DecodedUsdcBridgeEvent {
     pub fn event(&self) -> &Event {
         match self {
             Self::UsdcMigrated { event, .. } => event,
@@ -81,50 +81,50 @@ impl DecodedTokenBridgeEvent {
     }
 }
 
-impl FromEvent for DecodedTokenBridgeEvent {
+impl FromEvent for DecodedUsdcBridgeEvent {
     fn from_event(event: &Event, contract: &impl DecodeMessage) -> KitResult<Self> {
-        let kind = TokenBridgeEvent::try_from(event.dst.clone())?;
+        let kind = UsdcBridgeEvent::try_from(event.dst.clone())?;
         match kind {
-            TokenBridgeEvent::UsdcMigrated => {
+            UsdcBridgeEvent::UsdcMigrated => {
                 let decoded = event.decode::<UsdcMigratedData>(contract)?;
                 let data = decoded.ok_or_else(|| {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for token bridge event `{}`", event.dst),
+                        format!("Unexpected empty data for usdc bridge event `{}`", event.dst),
                     )
                 })?;
                 Ok(Self::UsdcMigrated { event: event.clone(), kind, data })
             }
-            TokenBridgeEvent::UsdcMinted => {
+            UsdcBridgeEvent::UsdcMinted => {
                 let decoded = event.decode::<UsdcMintedData>(contract)?;
                 let data = decoded.ok_or_else(|| {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for token bridge event `{}`", event.dst),
+                        format!("Unexpected empty data for usdc bridge event `{}`", event.dst),
                     )
                 })?;
                 Ok(Self::UsdcMinted { event: event.clone(), kind, data })
             }
-            TokenBridgeEvent::WithdrawalInitiated => {
+            UsdcBridgeEvent::WithdrawalInitiated => {
                 let decoded = event.decode::<WithdrawalInitiatedData>(contract)?;
                 let data = decoded.ok_or_else(|| {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for token bridge event `{}`", event.dst),
+                        format!("Unexpected empty data for usdc bridge event `{}`", event.dst),
                     )
                 })?;
                 Ok(Self::WithdrawalInitiated { event: event.clone(), kind, data })
             }
-            TokenBridgeEvent::DepositFinalized => {
+            UsdcBridgeEvent::DepositFinalized => {
                 let decoded = event.decode::<DepositFinalizedData>(contract)?;
                 let data = decoded.ok_or_else(|| {
                     KitError::new(
                         KitModule::Event,
                         KitErrorCode::EmptyData,
-                        format!("Unexpected empty data for token bridge event `{}`", event.dst),
+                        format!("Unexpected empty data for usdc bridge event `{}`", event.dst),
                     )
                 })?;
                 Ok(Self::DepositFinalized { event: event.clone(), kind, data })
@@ -134,7 +134,7 @@ impl FromEvent for DecodedTokenBridgeEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Payload of `TokenBridgeEvent::UsdcMigrated`.
+/// Payload of `UsdcBridgeEvent::UsdcMigrated`.
 pub struct UsdcMigratedData {
     pub from: String,
     #[serde(deserialize_with = "deserialize_u128")]
@@ -142,7 +142,7 @@ pub struct UsdcMigratedData {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-/// Payload of `TokenBridgeEvent::UsdcMinted`.
+/// Payload of `UsdcBridgeEvent::UsdcMinted`.
 pub struct UsdcMintedData {
     pub recipient: String,
     #[serde(deserialize_with = "deserialize_u128")]
@@ -151,7 +151,7 @@ pub struct UsdcMintedData {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// Payload of `TokenBridgeEvent::WithdrawalInitiated`.
+/// Payload of `UsdcBridgeEvent::WithdrawalInitiated`.
 pub struct WithdrawalInitiatedData {
     /// `uint256` represented as returned by ABI.
     pub dst_chain_id: String,
@@ -166,7 +166,7 @@ pub struct WithdrawalInitiatedData {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// Payload of `TokenBridgeEvent::DepositFinalized`.
+/// Payload of `UsdcBridgeEvent::DepositFinalized`.
 pub struct DepositFinalizedData {
     /// `uint256` represented as returned by ABI.
     pub src_dapp_id: String,

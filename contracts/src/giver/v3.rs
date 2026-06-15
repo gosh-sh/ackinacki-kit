@@ -194,14 +194,24 @@ impl GiverV3 {
     pub const DEFAULT_ADDRESS: &'static str =
         "0:1111111111111111111111111111111111111111111111111111111111111111";
 
-    /// Creates wrapper for a deployed giver.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    /// Creates wrapper for a deployed giver with a caller-supplied dApp ID.
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Creates wrapper for default shellnet giver.
+    /// Creates wrapper for the default shellnet giver, under the all-zero system dApp.
     pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     /// Original contract method: `sendTransaction`.

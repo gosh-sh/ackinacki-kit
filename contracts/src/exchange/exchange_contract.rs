@@ -132,13 +132,25 @@ impl Exchange {
         "0:1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a";
 
     /// Create wrapper for deployed `Exchange` contract.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
-    /// Create wrapper bound to default zerostate `Exchange` address.
+    /// Create wrapper bound to the default zerostate `Exchange` address, under
+    /// the all-zero system dApp (verified on mainnet). Pass an explicit
+    /// [`ParamsOfNewContract`](crate::account::ParamsOfNewContract) to `new` to override.
     pub fn new_default(context: Arc<ClientContext>) -> Self {
-        Self::new(context, Self::DEFAULT_ADDRESS)
+        Self::new(
+            context,
+            crate::account::ParamsOfNewContract::new(
+                Self::DEFAULT_ADDRESS,
+                crate::dapp::SystemDapp::System,
+            ),
+        )
     }
 
     /// Original contract method: `mintAndSend`.

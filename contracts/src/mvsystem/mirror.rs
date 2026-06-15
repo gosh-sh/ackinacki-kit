@@ -40,6 +40,7 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 pub struct Mirror {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     index: u128,
     abi: Abi,
     account: Arc<Mutex<Account>>,
@@ -64,6 +65,10 @@ impl AbiAccessor for Mirror {
 impl AddressAccessor for Mirror {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -148,7 +153,11 @@ pub struct ResultOfGetMinerAddress {
 }
 
 impl Mirror {
-    pub fn new(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
+    pub fn new(
+        context: Arc<ClientContext>,
+        public: impl AsRef<str>,
+        dapp_id: impl Into<String>,
+    ) -> KitResult<Self> {
         let public = {
             let bytes = hex::decode(public.as_ref()).map_err(|e| {
                 KitError::new(
@@ -172,13 +181,20 @@ impl Mirror {
         };
         let address = format!("0:2{index:063x}");
 
+        let dapp_id = dapp_id.into();
         Ok(Self {
             context: context.clone(),
             address: address.clone(),
+            dapp_id: dapp_id.clone(),
             index,
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
         })
+    }
+
+    /// Wrapper for the mirror of `public`, under the Mobile Verifiers dApp.
+    pub fn new_default(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
+        Self::new(context, public, crate::dapp::SystemDapp::MobileVerifiers)
     }
 
     pub fn index(&self) -> u128 {
@@ -196,7 +212,10 @@ impl Mirror {
             )
             .await?;
 
-        Ok(Miner::new(self.context.clone(), res_of_get_addr.address))
+        Ok(Miner::new(
+            self.context.clone(),
+            crate::account::ParamsOfNewContract::new(res_of_get_addr.address, self.dapp_id()),
+        ))
     }
 
     /// # Deploy multifactor account

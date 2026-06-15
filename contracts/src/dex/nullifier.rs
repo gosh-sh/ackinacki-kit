@@ -61,7 +61,11 @@ impl AsyncGuardedMut<Account> for Nullifier {
 
 impl Nullifier {
     /// Create a wrapper for a deployed `Nullifier`.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 }

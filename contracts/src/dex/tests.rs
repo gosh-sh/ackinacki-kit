@@ -212,7 +212,13 @@ async fn deploy_test_oracle(
         .oracle_address;
     eprintln!("Oracle address: {oracle_address}");
 
-    let oracle = Oracle::new(context.clone(), &oracle_address);
+    let oracle = Oracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            oracle_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&oracle, "Oracle").await;
     assert_version(&oracle, "Oracle").await;
 
@@ -223,7 +229,13 @@ async fn deploy_test_oracle(
         .address;
     eprintln!("OracleEventList[0] address: {event_list0_address}");
 
-    let event_list0 = OracleEventList::new(context, &event_list0_address);
+    let event_list0 = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list0_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list0, "OracleEventList[0]").await;
     assert_version(&event_list0, "OracleEventList").await;
 
@@ -234,7 +246,13 @@ async fn deploy_test_oracle(
 #[ignore = "requires network access"]
 async fn test_oracle_deploy_and_add_event() {
     let context = create_context();
-    let root = RootOracle::new_default(context.clone());
+    let root = RootOracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootOracle::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root, "RootOracle").await;
     assert_version(&root, "RootOracle").await;
@@ -287,7 +305,13 @@ async fn test_oracle_deploy_and_add_event() {
         .oracle_address;
     eprintln!("Oracle address: {oracle_address}");
 
-    let oracle = Oracle::new(context.clone(), &oracle_address);
+    let oracle = Oracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            oracle_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&oracle, "Oracle").await;
     assert_version(&oracle, "Oracle").await;
 
@@ -299,7 +323,13 @@ async fn test_oracle_deploy_and_add_event() {
         .address;
     eprintln!("OracleEventList address: {event_list_address}");
 
-    let event_list = OracleEventList::new(context, &event_list_address);
+    let event_list = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list, "OracleEventList").await;
     assert_version(&event_list, "OracleEventList").await;
 
@@ -369,7 +399,13 @@ async fn test_oracle_deploy_and_add_event() {
 #[ignore = "requires network access"]
 async fn test_oracle_multi_shard_management() {
     let context = create_context();
-    let root = RootOracle::new_default(context.clone());
+    let root = RootOracle::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootOracle::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root, "RootOracle").await;
     assert_version(&root, "RootOracle").await;
@@ -420,7 +456,7 @@ async fn test_oracle_multi_shard_management() {
 
     oracle
         .deploy_event_list(
-            ParamsOfDeployEventList { index: 1 },
+            ParamsOfDeployEventList { index: 1, description: "Event list #1".to_string() },
             Signer::Keys { keys: oracle_owner_keys.clone() },
         )
         .await
@@ -433,7 +469,13 @@ async fn test_oracle_multi_shard_management() {
         .address;
     eprintln!("OracleEventList[1] address: {event_list1_address}");
 
-    let event_list1 = OracleEventList::new(context, &event_list1_address);
+    let event_list1 = OracleEventList::new(
+        context,
+        crate::account::ParamsOfNewContract::new(
+            event_list1_address.clone(),
+            crate::dapp::SystemDapp::System,
+        ),
+    );
     wait_active(&event_list1, "OracleEventList[1]").await;
     assert_version(&event_list1, "OracleEventList").await;
 
@@ -504,7 +546,13 @@ async fn test_oracle_multi_shard_management() {
 #[ignore = "requires network access"]
 async fn test_root_pn_getters() {
     let context = create_context();
-    let root_pn = RootPn::new_default(context.clone());
+    let root_pn = RootPn::new(
+        context.clone(),
+        crate::account::ParamsOfNewContract::new(
+            RootPn::DEFAULT_ADDRESS,
+            crate::dapp::SystemDapp::System,
+        ),
+    );
 
     wait_active(&root_pn, "RootPN").await;
     assert_version(&root_pn, "RootPN").await;

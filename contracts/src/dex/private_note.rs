@@ -260,15 +260,20 @@ pub struct ParamsOfOfferTransfer {
 /// Parameters for `PrivateNote.withdrawTokens`.
 pub struct ParamsOfWithdrawTokens {
     pub dest_wallet_addr: String,
-    pub token_type: u32,
+    /// `uint256` dApp id, decimal or hex string. Drives no PrivateNote logic;
+    /// forwarded to `RootPN.withdrawTokens` and surfaced in `TokensWithdrawn`.
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.revertWithdraw`.
+///
+/// `amounts` maps `tokenType → value` for the balances being reverted back
+/// into the note (callback from `RootPN` when a withdraw fails).
 pub struct ParamsOfRevertWithdraw {
-    pub token_type: u32,
-    pub value: u128,
+    pub amounts: HashMap<u32, u128>,
 }
 
 // ─── OrderBook proxy methods (PrivateNote → OrderBook) ────────────────────
@@ -294,11 +299,16 @@ pub struct ParamsOfPlaceOrder {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Parameters for `PrivateNote.placeBatch`.
+///
+/// Atomic batch: cancels `cancel_ids` and places `orders` in a single
+/// `OrderBook.executeBatch` dispatch. Either side may be empty (but not
+/// both).
 pub struct ParamsOfPlaceBatch {
     pub event_id: String,
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub orders: Vec<OrderBookOrder>,
+    pub cancel_ids: Vec<u128>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -319,16 +329,6 @@ pub struct ParamsOfCancelOrderByClient {
     pub oracle_list_hash: String,
     pub token_type: u32,
     pub client_order_id: u128,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-/// Parameters for `PrivateNote.cancelBatch`.
-pub struct ParamsOfCancelBatch {
-    pub event_id: String,
-    pub oracle_list_hash: String,
-    pub token_type: u32,
-    pub order_ids: Vec<u128>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -489,8 +489,12 @@ pub struct ResultOfGetStakes {
 
 impl PrivateNote {
     /// Create a wrapper for a deployed `PrivateNote`.
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
-        Self { base: ContractBase::new(context, address, Abi::Json(ABI.to_string())) }
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Change ephemeral owner key
@@ -577,11 +581,15 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// # Delete stake record
+    /// # Abandon stake (forfeit any claim against the PMP)
     ///
     /// Original contract method: `deleteStake`
     ///
     /// Should be signed with PrivateNote owner keys
+    ///
+    /// Before deleting the local stake record, the PrivateNote notifies the
+    /// PMP via `forfeitStake(...)`; the record is deleted when the PMP acks
+    /// back through `onForfeitAccepted`.
     pub async fn delete_stake(
         &self,
         params: ParamsOfStakeKey,
@@ -592,6 +600,18 @@ impl PrivateNote {
             header: None,
             input: Some(json!(params)),
         };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// # Process callback acknowledging forfeit
+    ///
+    /// Original contract method: `onForfeitAccepted`
+    ///
+    /// PMP→PrivateNote callback acknowledging `forfeitStake`: deletes the
+    /// local stake record and clears the busy lock.
+    pub async fn on_forfeit_accepted(&self, signer: Signer) -> KitResult<ResultOfSendMessage> {
+        let call_set =
+            CallSet { function_name: "onForfeitAccepted".to_string(), header: None, input: None };
         self.send_message(Some(call_set), None, signer).await
     }
 
@@ -905,7 +925,8 @@ impl PrivateNote {
         self.send_message(Some(call_set), None, signer).await
     }
 
-    /// Original contract method: `placeBatch`. Submits a batch of orders.
+    /// Original contract method: `placeBatch`. Atomic batch: cancels
+    /// `cancel_ids` and places `orders` in a single OrderBook dispatch.
     pub async fn place_batch(
         &self,
         params: ParamsOfPlaceBatch,
@@ -941,20 +962,6 @@ impl PrivateNote {
     ) -> KitResult<ResultOfSendMessage> {
         let call_set = CallSet {
             function_name: "cancelOrderByClient".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
-    }
-
-    /// Original contract method: `cancelBatch`.
-    pub async fn cancel_batch(
-        &self,
-        params: ParamsOfCancelBatch,
-        signer: Signer,
-    ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "cancelBatch".to_string(),
             header: None,
             input: Some(json!(params)),
         };
