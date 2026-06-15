@@ -1,5 +1,5 @@
-//! Binding for the `UpdateCustodianMultisigWallet` contract — the standard
-//! multisig wallet users deploy via `tvm-cli` on Acki Nacki networks.
+//! Binding for the `Multisig` contract — the standard multisig wallet users
+//! deploy via `tvm-cli` on Acki Nacki networks.
 //!
 //! Scope is wallet operations callers need from the SDK:
 //!
@@ -122,12 +122,17 @@ pub struct Transaction {
     pub send_flags: String,
     pub payload: String,
     pub bounce: bool,
+    /// Destination dapp id stored with the queued transaction. Caller-supplied
+    /// and retained for off-chain/API use; not consulted when the outbound
+    /// message is sent.
+    pub dapp_id: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct Multisig {
     context: Arc<ClientContext>,
     address: String,
+    dapp_id: String,
     abi: Abi,
     account: Arc<Mutex<Account>>,
 }
@@ -151,6 +156,10 @@ impl AbiAccessor for Multisig {
 impl AddressAccessor for Multisig {
     fn address(&self) -> &str {
         &self.address
+    }
+
+    fn dapp_id(&self) -> &str {
+        &self.dapp_id
     }
 }
 
@@ -205,6 +214,10 @@ pub struct ParamsOfSubmitTransaction {
     /// ABI-encoded body cell, base64-encoded BOC. Empty string for plain
     /// value transfers with no body.
     pub payload: String,
+    /// Destination dapp id, as a uint256 decimal/hex string. Stored with the
+    /// queued transaction for off-chain/API use; not consulted when the
+    /// outbound message is sent. Defaults to `"0"`.
+    pub dapp_id: String,
 }
 
 impl Default for ParamsOfSubmitTransaction {
@@ -216,6 +229,7 @@ impl Default for ParamsOfSubmitTransaction {
             bounce: true,
             flag: 1,
             payload: Default::default(),
+            dapp_id: "0".to_string(),
         }
     }
 }
@@ -236,6 +250,10 @@ pub struct ParamsOfSendTransaction {
     /// `submit_transaction`'s singular `flag`.
     pub flags: u8,
     pub payload: String,
+    /// Destination dapp id, as a uint256 decimal/hex string. Stored with the
+    /// queued transaction for off-chain/API use; not consulted when the
+    /// outbound message is sent. Defaults to `"0"`.
+    pub dapp_id: String,
 }
 
 impl Default for ParamsOfSendTransaction {
@@ -247,6 +265,7 @@ impl Default for ParamsOfSendTransaction {
             bounce: true,
             flags: 1,
             payload: Default::default(),
+            dapp_id: "0".to_string(),
         }
     }
 }
@@ -306,12 +325,17 @@ pub struct ResultOfGetVersion {
 }
 
 impl Multisig {
-    pub fn new(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new(
+        context: Arc<ClientContext>,
+        params: impl Into<crate::account::ParamsOfNewContract>,
+    ) -> Self {
+        let params = params.into();
         Self {
             context: context.clone(),
-            address: address.as_ref().to_string(),
+            address: params.address.clone(),
+            dapp_id: params.dapp_id.clone(),
             abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address))),
+            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
         }
     }
 

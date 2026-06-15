@@ -31,7 +31,8 @@
 				{"name":"cc","type":"map(uint32,varuint32)"},
 				{"name":"bounce","type":"bool"},
 				{"name":"flags","type":"uint8"},
-				{"name":"payload","type":"cell"}
+				{"name":"payload","type":"cell"},
+				{"name":"dapp_id","type":"uint256"}
 			],
 			"outputs": [
 				{"name":"value0","type":"address"}
@@ -45,7 +46,8 @@
 				{"name":"cc","type":"map(uint32,varuint32)"},
 				{"name":"bounce","type":"bool"},
 				{"name":"flag","type":"uint8"},
-				{"name":"payload","type":"cell"}
+				{"name":"payload","type":"cell"},
+				{"name":"dapp_id","type":"uint256"}
 			],
 			"outputs": [
 				{"name":"transId","type":"uint64"}
@@ -107,7 +109,7 @@
 				{"name":"transactionId","type":"uint64"}
 			],
 			"outputs": [
-				{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"}],"name":"trans","type":"tuple"}
+				{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"},{"name":"dapp_id","type":"uint256"}],"name":"trans","type":"tuple"}
 			]
 		},
 		{
@@ -124,7 +126,7 @@
 			"inputs": [
 			],
 			"outputs": [
-				{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"}],"name":"transactions","type":"tuple[]"}
+				{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"},{"name":"dapp_id","type":"uint256"}],"name":"transactions","type":"tuple[]"}
 			]
 		},
 		{
@@ -187,7 +189,7 @@
 		{"init":false,"name":"m_ownerAddress","type":"optional(address)"},
 		{"init":false,"name":"m_requestsMask","type":"uint256"},
 		{"init":false,"name":"m_requestsMaskData","type":"uint256"},
-		{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"}],"init":false,"name":"m_transactions","type":"map(uint64,tuple)"},
+		{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"dest","type":"address"},{"name":"value","type":"uint128"},{"name":"cc","type":"map(uint32,varuint32)"},{"name":"sendFlags","type":"uint16"},{"name":"payload","type":"cell"},{"name":"bounce","type":"bool"},{"name":"dapp_id","type":"uint256"}],"init":false,"name":"m_transactions","type":"map(uint64,tuple)"},
 		{"components":[{"name":"id","type":"uint64"},{"name":"confirmationsMask","type":"uint32"},{"name":"signsRequired","type":"uint8"},{"name":"signsReceived","type":"uint8"},{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"name":"creator","type":"tuple"},{"name":"owners_pubkey","type":"uint256[]"},{"name":"owners_address","type":"address[]"},{"name":"reqConfirms","type":"uint8"},{"name":"reqConfirmsData","type":"uint8"}],"init":false,"name":"m_data","type":"map(uint64,tuple)"},
 		{"components":[{"name":"owner_pubkey","type":"optional(uint256)"},{"name":"owner_address","type":"optional(address)"},{"name":"index","type":"uint8"}],"init":false,"name":"m_custodians","type":"map(uint256,tuple)"},
 		{"init":false,"name":"m_custodianCount","type":"uint8"},
