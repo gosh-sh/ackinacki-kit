@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use serde::Deserialize;
 
 use crate::deserialize::deserialize_u128;
+use crate::deserialize::deserialize_u128_map;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
 use crate::error::KitError;
@@ -21,6 +23,9 @@ pub enum RootPnEvent {
     PrivateNoteDeployed = 101,
     NullifierDeployed = 102,
     VoucherGenerated = 135,
+    TokensWithdrawn = 154,
+    ProtocolFeeCollected = 155,
+    ProtocolFeeWithdrawn = 156,
 }
 
 impl TryFrom<String> for RootPnEvent {
@@ -40,6 +45,9 @@ impl TryFrom<String> for RootPnEvent {
             101 => Ok(RootPnEvent::PrivateNoteDeployed),
             102 => Ok(RootPnEvent::NullifierDeployed),
             135 => Ok(RootPnEvent::VoucherGenerated),
+            154 => Ok(RootPnEvent::TokensWithdrawn),
+            155 => Ok(RootPnEvent::ProtocolFeeCollected),
+            156 => Ok(RootPnEvent::ProtocolFeeWithdrawn),
             _ => Err(KitError::new(
                 KitModule::Event,
                 KitErrorCode::UnknownEvent,
@@ -66,6 +74,9 @@ pub enum DecodedRootPnEvent {
     PrivateNoteDeployed { event: Event, kind: RootPnEvent, data: PrivateNoteDeployedData },
     NullifierDeployed { event: Event, kind: RootPnEvent, data: NullifierDeployedData },
     VoucherGenerated { event: Event, kind: RootPnEvent, data: VoucherGeneratedData },
+    TokensWithdrawn { event: Event, kind: RootPnEvent, data: TokensWithdrawnData },
+    ProtocolFeeCollected { event: Event, kind: RootPnEvent, data: ProtocolFeeCollectedData },
+    ProtocolFeeWithdrawn { event: Event, kind: RootPnEvent, data: ProtocolFeeWithdrawnData },
 }
 
 impl FromEvent for DecodedRootPnEvent {
@@ -106,6 +117,39 @@ impl FromEvent for DecodedRootPnEvent {
                 })?;
                 Ok(DecodedRootPnEvent::VoucherGenerated { event: event.clone(), kind, data })
             }
+            RootPnEvent::TokensWithdrawn => {
+                let decoded = event.decode::<TokensWithdrawnData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for root pn event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedRootPnEvent::TokensWithdrawn { event: event.clone(), kind, data })
+            }
+            RootPnEvent::ProtocolFeeCollected => {
+                let decoded = event.decode::<ProtocolFeeCollectedData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for root pn event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedRootPnEvent::ProtocolFeeCollected { event: event.clone(), kind, data })
+            }
+            RootPnEvent::ProtocolFeeWithdrawn => {
+                let decoded = event.decode::<ProtocolFeeWithdrawnData>(contract)?;
+                let data = decoded.ok_or_else(|| {
+                    KitError::new(
+                        KitModule::Event,
+                        KitErrorCode::EmptyData,
+                        format!("Unexpected empty data for root pn event `{}`", event.dst),
+                    )
+                })?;
+                Ok(DecodedRootPnEvent::ProtocolFeeWithdrawn { event: event.clone(), kind, data })
+            }
         }
     }
 }
@@ -139,4 +183,40 @@ pub struct VoucherGeneratedData {
     pub voucher_nominal: String,
     #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
     pub token_type: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `RootPnEvent::TokensWithdrawn`.
+pub struct TokensWithdrawnData {
+    /// `tokenType → value` for every balance withdrawn in the call.
+    #[serde(deserialize_with = "deserialize_u128_map")]
+    pub amounts: HashMap<String, u128>,
+    /// The PrivateNote that initiated the withdraw (`msg.sender`).
+    #[serde(rename = "noteAddress")]
+    pub note_address: String,
+    /// Destination wallet the tokens were sent to.
+    pub to: String,
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `RootPnEvent::ProtocolFeeCollected`.
+pub struct ProtocolFeeCollectedData {
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
+    pub token_type: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+/// Payload of `RootPnEvent::ProtocolFeeWithdrawn`.
+pub struct ProtocolFeeWithdrawnData {
+    pub to: String,
+    #[serde(rename = "dapp_id")]
+    pub dapp_id: String,
+    #[serde(rename = "tokenType", deserialize_with = "deserialize_u32")]
+    pub token_type: u32,
+    #[serde(deserialize_with = "deserialize_u128")]
+    pub amount: u128,
 }

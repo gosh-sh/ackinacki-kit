@@ -22,5 +22,7 @@ tracing.workspace = true
 
 tvm_block.workspace = true
 tvm_client = { workspace = true, optional = true }
+# Not used directly — present only to pin transitive `time` < 0.3.48 (see workspace Cargo.toml).
+time = { workspace = true }
 
 shared = { path = "../shared", optional = true, default-features = false }
