@@ -331,8 +331,7 @@ mod multicell_orderplaced_tests {
     // (event-id 0x1b9c6957; cell0 = 969 bits + ref, ref = 64 bits = opNonce).
     const SHELLNET_BODY: &str = "te6ccgEBAgEAhwAB8xucaVcAAAAAAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJxAAAAAAAAAAAAAAAA34R1gAAAAAAAAAAADUWAPOAAAfQ5a/DxBF+SmrdO5oXyLM+jKFg9ytsUGhHlk2qac6wCgvAAQAQAAAAAAAAAAE=";
 
-    const DEPOSIT_HASH: &str =
-        "0xcb5f878822fc94d5ba77342f91667d1942c1ee56d8a0d08f2c9b54d39d601417";
+    const DEPOSIT_HASH: &str = "0xcb5f878822fc94d5ba77342f91667d1942c1ee56d8a0d08f2c9b54d39d601417";
 
     fn to_uint(s: &str) -> BigUint {
         match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
