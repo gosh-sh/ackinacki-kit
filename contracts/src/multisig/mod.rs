@@ -446,3 +446,54 @@ impl Multisig {
         self.call_get_method::<ResultOfGetVersion>("getVersion").await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ParamsOfSendTransaction;
+    use super::ParamsOfSubmitTransaction;
+    use super::ABI;
+
+    /// Input-parameter names declared for `func` in the bundled ABI.
+    fn abi_input_names(func: &str) -> Vec<String> {
+        let abi: serde_json::Value = serde_json::from_str(ABI).expect("ABI is valid JSON");
+        abi["functions"]
+            .as_array()
+            .expect("ABI.functions array")
+            .iter()
+            .find(|f| f["name"] == func)
+            .unwrap_or_else(|| panic!("function `{func}` not found in ABI"))["inputs"]
+            .as_array()
+            .expect("function inputs array")
+            .iter()
+            .map(|i| i["name"].as_str().expect("input name").to_string())
+            .collect()
+    }
+
+    /// Every ABI input of `func` must have a matching key in the serialized
+    /// params struct. This guards the binding against drifting from the ABI —
+    /// a renamed/missing field (`flag` vs `flags`, `dapp_id` vs `dappId`, the
+    /// `dapp_id` addition, …) would only fail on-chain otherwise.
+    fn assert_params_cover_abi(func: &str, serialized: &serde_json::Value) {
+        for name in abi_input_names(func) {
+            assert!(
+                serialized.get(&name).is_some(),
+                "ABI input `{name}` of `{func}` is missing from the serialized params \
+                 — binding is out of sync with the ABI"
+            );
+        }
+    }
+
+    #[test]
+    fn submit_transaction_params_match_abi() {
+        let v = serde_json::to_value(ParamsOfSubmitTransaction::default())
+            .expect("serialize submit params");
+        assert_params_cover_abi("submitTransaction", &v);
+    }
+
+    #[test]
+    fn send_transaction_params_match_abi() {
+        let v = serde_json::to_value(ParamsOfSendTransaction::default())
+            .expect("serialize send params");
+        assert_params_cover_abi("sendTransaction", &v);
+    }
+}
