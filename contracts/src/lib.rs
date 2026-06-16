@@ -9,6 +9,7 @@ pub mod error;
 pub mod event;
 pub mod exchange;
 pub mod giver;
+pub mod multisig;
 pub mod mvconfig;
 pub mod mvsystem;
 pub mod token;
