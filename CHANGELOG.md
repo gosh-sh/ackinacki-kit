@@ -4,6 +4,34 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [3.0.0]
+
+DEX contract wrappers moved out of the kit into the consumer crate
+(`dodex-contracts`). The kit now ships only the wrapper framework (traits +
+infra); downstream crates name their module via a new open `KitModule` variant.
+
+### Added
+- `KitModule::External(&'static str)` — an open module identity for wrappers that
+  live in downstream crates built on the kit traits. The payload is a stable,
+  caller-chosen id (e.g. `"dex.private_note"`) and is `&'static str` so it stays
+  usable in the const `ModuleAccessor::MODULE`.
+- `#[non_exhaustive]` on `KitModule`, so future external module groups never
+  require an enum edit.
+
+### Removed (breaking)
+- All DEX bindings and event decoders (`contracts/src/dex/`: `private_note`,
+  `order_book`, `pmp`, `oracle`, `oracle_event_list`, `root_oracle`, `root_pn`,
+  `nullifier`, their `*_events`, and `dex/tests.rs`) and their ABIs
+  (`contracts/abi/dex/`). The `dex` module is no longer exported from the crate.
+- `KitModule::Dex` and the `DexModule` enum — relocated wrappers identify their
+  module via `KitModule::External("dex.<contract>")`. (The DEX market never
+  shipped to mainnet, so no transition period / deprecation window was needed.)
+
+### Unchanged (relied on downstream)
+- The trait framework (`traits.rs`), `KitError`/`KitErrorCode`/`KitResult`, and
+  `account`/`event`/`deserialize`/`dapp`/`giver`/`multisig` plus the `shared`
+  guard traits and the root `pub use tvm_client` re-export keep their signatures.
+
 ## [2.1.0]
 
 ### Added

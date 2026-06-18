@@ -4,7 +4,6 @@ pub mod authservice;
 pub mod bksystem;
 pub mod dapp;
 pub mod deserialize;
-pub mod dex;
 pub mod error;
 pub mod event;
 pub mod exchange;
