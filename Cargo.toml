@@ -3,7 +3,7 @@
 resolver = "3"
 members = ["contracts", "root", "shared"]
 
-package.version = "2.1.0"
+package.version = "3.0.0"
 package.edition = "2024"
 
 [workspace.dependencies]
