@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use tvm_client::error::ClientError;
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KitModule {
     Token(TokenModule),
@@ -11,11 +12,17 @@ pub enum KitModule {
     Event,
     Account,
     AuthService(AuthServiceModule),
-    Dex(DexModule),
     MvSystem(MvSystemModule),
     BkSystem(BkSystemModule),
     MvConfig,
     Multisig,
+    /// Module owned by a downstream crate that builds on the kit traits.
+    ///
+    /// The payload is a stable, caller-chosen id (e.g. `"dex.private_note"`),
+    /// letting relocated wrappers name their module without a kit-internal enum
+    /// variant. Must be `&'static str` so it stays usable in the const
+    /// `ModuleAccessor::MODULE`.
+    External(&'static str),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,18 +54,6 @@ pub enum ExchangeModule {
 pub enum AuthServiceModule {
     Root,
     Profile,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DexModule {
-    RootOracle,
-    RootPn,
-    Oracle,
-    OracleEventList,
-    OrderBook,
-    PrivateNote,
-    Pmp,
-    Nullifier,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -115,12 +110,6 @@ impl From<MvSystemModule> for KitModule {
 impl From<AuthServiceModule> for KitModule {
     fn from(value: AuthServiceModule) -> Self {
         KitModule::AuthService(value)
-    }
-}
-
-impl From<DexModule> for KitModule {
-    fn from(value: DexModule) -> Self {
-        KitModule::Dex(value)
     }
 }
 
