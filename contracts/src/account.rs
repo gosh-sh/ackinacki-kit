@@ -44,8 +44,7 @@ impl From<u8> for AccountStatus {
 /// `new(...)` signature of every contract again.
 ///
 /// `dapp_id` is the bare 64-char hex dApp ID (no `0x`, no workchain) and is
-/// **mandatory** — every contract belongs to a dApp. It is consumed by the SDK
-/// on `>= 1.0.0` servers and simply ignored on legacy (`< 1.0.0`) ones.
+/// **mandatory** — every contract belongs to a dApp.
 #[derive(Debug, Clone)]
 pub struct ParamsOfNewContract {
     /// Raw account address, e.g. `"0:<64hex>"`.
@@ -71,7 +70,7 @@ pub(crate) fn account_id_from_address(address: &str) -> &str {
 pub struct Account {
     pub context: Arc<ClientContext>,
     pub address: String,
-    /// Bare 64-hex dApp ID. Required; ignored by the SDK on legacy (`< 1.0.0`) servers.
+    /// Bare 64-hex dApp ID. Required.
     pub dapp_id: String,
     pub boc: Option<String>,
     pub data: Option<String>,
@@ -142,7 +141,6 @@ impl Account {
             self.context.clone(),
             ParamsOfGetAccount {
                 account_id: account_id_from_address(&self.address).to_string(),
-                // Ignored by the SDK on legacy (`< 1.0.0`) servers.
                 dapp_id: self.dapp_id.clone(),
             },
         )

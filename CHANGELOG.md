@@ -4,6 +4,29 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [4.0.0]
+
+The GraphQL server is now stable at `>= 1.0.0` across all networks, so the kit
+no longer carries the legacy (`< 1.0.0`) wire format or the runtime
+version-detection that switched between them. Every address-bearing query now
+unconditionally uses the v3 `account(account_id, dapp_id)` form.
+
+### Removed (breaking)
+- `dapp::supports_dapp_id(context, module)` — the server-generation probe. The
+  kit no longer branches on server version; the SDK already gates `dapp_id`
+  internally for `get_account` / `send_message`.
+
+### Changed
+- Dropped the legacy `account(address:)` GraphQL queries and the per-call
+  `if v3 { … } else { … }` branches in `event`, `authservice::root`,
+  `authservice::profile`, and `accumulator` event paging. The v3 queries (their
+  former `*_V3` constants, now un-suffixed) are the only form sent.
+
+### Unchanged
+- `dapp::SystemDapp` and its fixed dApp IDs.
+- All public wrapper constructors and `query_*` signatures (`dapp_id` was already
+  mandatory).
+
 ## [3.0.0]
 
 DEX contract wrappers moved out of the kit into the consumer crate

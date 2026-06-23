@@ -1,19 +1,7 @@
-//! dApp ID helpers for talking to both GraphQL server generations.
+//! Well-known system dApp IDs.
 //!
-//! Acki Nacki's GraphQL server gained a breaking change at `gql-server 1.0.0`:
-//! `blockchain.account(...)` dropped the single `address` argument in favour of
-//! separate `account_id` + `dapp_id` arguments. The kit must keep working
-//! against both generations, so address-bearing queries are gated at runtime on
-//! [`supports_dapp_id`].
-
-use std::sync::Arc;
-
-use tvm_client::ClientContext;
-
-use crate::error::KitError;
-use crate::error::KitErrorCode;
-use crate::error::KitModule;
-use crate::KitResult;
+//! Acki Nacki's `gql-server >= 1.0.0` addresses accounts by `account_id` +
+//! `dapp_id`. [`SystemDapp`] maps each subsystem to its fixed dApp ID.
 
 /// Well-known system dApps in Acki Nacki.
 ///
@@ -56,19 +44,6 @@ impl From<SystemDapp> for String {
     fn from(dapp: SystemDapp) -> Self {
         dapp.dapp_id().to_string()
     }
-}
-
-/// Whether the connected GraphQL server speaks the v3 dApp ID API
-/// (`info.version >= "1.0.0"`).
-///
-/// The SDK resolves the endpoint on the first call and caches the parsed server
-/// version on it, so repeated calls are cheap — hoist the result out of paging
-/// loops rather than calling it per page.
-pub async fn supports_dapp_id(context: &Arc<ClientContext>, module: KitModule) -> KitResult<bool> {
-    context.supports_dapp_id().await.map_err(|e| {
-        KitError::new(module, KitErrorCode::QueryEvents, "Detect GraphQL server version")
-            .with_tvm_error(e)
-    })
 }
 
 #[cfg(test)]
