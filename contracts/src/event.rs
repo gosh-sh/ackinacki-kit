@@ -6,7 +6,6 @@ use tvm_client::net;
 use tvm_client::ClientContext;
 
 use crate::account::account_id_from_address;
-use crate::dapp::supports_dapp_id;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
@@ -15,29 +14,8 @@ use crate::KitResult;
 
 const DEFAULT_PAGE_SIZE: i32 = 100;
 
-/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
+/// Addresses the account by `account_id` + `dapp_id` (gql-server `>= 1.0.0`).
 const GQL_ACCOUNT_EVENTS_QUERY: &str = r#"
-    query($address: String!, $last: Int!, $before: String) {
-      blockchain {
-        account(address: $address) {
-          events(last: $last, before: $before) {
-            edges {
-              cursor
-              node {
-                msg_id
-                created_at
-                dst
-                body
-              }
-            }
-          }
-        }
-      }
-    }
-"#;
-
-/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
-const GQL_ACCOUNT_EVENTS_QUERY_V3: &str = r#"
     query($account_id: String!, $dapp_id: String!, $last: Int!, $before: String) {
       blockchain {
         account(account_id: $account_id, dapp_id: $dapp_id) {
@@ -107,30 +85,21 @@ pub async fn query_events_while(
     let mut all_events = Vec::new();
     let mut before: Option<String> = None;
 
-    // Pick the wire format once: `>= 1.0.0` servers address the account by
-    // `account_id` + `dapp_id`, legacy servers by `address`.
-    let v3 = supports_dapp_id(&context, KitModule::Event).await?;
-    let query = if v3 { GQL_ACCOUNT_EVENTS_QUERY_V3 } else { GQL_ACCOUNT_EVENTS_QUERY };
     let account_id = account_id_from_address(address);
 
     loop {
-        let variables = if v3 {
-            serde_json::json!({
-                "account_id": account_id,
-                "dapp_id": dapp_id,
-                "last": page_size,
-                "before": before,
-            })
-        } else {
-            serde_json::json!({
-                "address": address,
-                "last": page_size,
-                "before": before,
-            })
-        };
+        let variables = serde_json::json!({
+            "account_id": account_id,
+            "dapp_id": dapp_id,
+            "last": page_size,
+            "before": before,
+        });
         let raw = net::query(
             context.clone(),
-            net::ParamsOfQuery { query: query.to_string(), variables: Some(variables) },
+            net::ParamsOfQuery {
+                query: GQL_ACCOUNT_EVENTS_QUERY.to_string(),
+                variables: Some(variables),
+            },
         )
         .await
         .map_err(|e| {
