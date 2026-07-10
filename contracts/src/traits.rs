@@ -347,7 +347,6 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 abi: Some(self.abi().clone()),
                 thread_id: None,
                 send_events: false,
-                // Ignored on legacy (`< 1.0.0`) servers; required on `>= 1.0.0`.
                 dapp_id: self.dapp_id().to_string(),
             };
 

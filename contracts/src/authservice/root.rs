@@ -19,7 +19,6 @@ use crate::account::Account;
 use crate::authservice::events::AuthProfileDeployedData;
 use crate::authservice::events::AuthServiceEvent;
 use crate::authservice::profile::AuthProfile;
-use crate::dapp::supports_dapp_id;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -218,29 +217,8 @@ fn oldest_edge_cursor(edges: &[GqlEdge]) -> Option<String> {
     edges.first().map(|edge| edge.cursor.clone())
 }
 
-/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
+/// Addresses the account by `account_id` + `dapp_id` (gql-server `>= 1.0.0`).
 const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY: &str = r#"
-    query($address: String!, $dst: String!, $last: Int!, $before: String) {
-      blockchain {
-        account(address: $address) {
-          events(dst: $dst, last: $last, before: $before) {
-            edges {
-              cursor
-              node {
-                msg_id
-                dst
-                created_at
-                body
-              }
-            }
-          }
-        }
-      }
-    }
-"#;
-
-/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
-const GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3: &str = r#"
     query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
         account(account_id: $account_id, dapp_id: $dapp_id) {
@@ -419,32 +397,17 @@ impl AuthServiceRoot {
             AuthServiceEvent::auth_profile_deployed_external_address(&multifactor_hash)?;
         let limit = params.limit.unwrap_or(50);
 
-        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
-        let variables = if v3 {
-            json!({
-                "account_id": account_id_from_address(self.address()),
-                "dapp_id": self.dapp_id(),
-                "dst": expected_dst,
-                "last": limit,
-                "before": params.before,
-            })
-        } else {
-            json!({
-                "address": self.address(),
-                "dst": expected_dst,
-                "last": limit,
-                "before": params.before,
-            })
-        };
+        let variables = json!({
+            "account_id": account_id_from_address(self.address()),
+            "dapp_id": self.dapp_id(),
+            "dst": expected_dst,
+            "last": limit,
+            "before": params.before,
+        });
         let raw = net::query(
             self.context().clone(),
             net::ParamsOfQuery {
-                query: if v3 {
-                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY_V3
-                } else {
-                    GQL_AUTHSERVICE_ROOT_EVENTS_QUERY
-                }
-                .to_string(),
+                query: GQL_AUTHSERVICE_ROOT_EVENTS_QUERY.to_string(),
                 variables: Some(variables),
             },
         )
