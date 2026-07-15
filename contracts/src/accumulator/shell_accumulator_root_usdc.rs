@@ -26,7 +26,6 @@ use crate::accumulator::events::UsdcClaimedData;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
 use crate::accumulator::VALID_DENOMS;
-use crate::dapp::supports_dapp_id;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
@@ -52,29 +51,8 @@ const ABI: &str = include_str!("../../abi/accumulator/ShellAccumulatorRootUSDC.a
 const ROOT_EVENT_KIND_COUNT: usize = 5;
 const ROOT_EVENT_PREFETCH_PER_KIND: usize = 2;
 const SELL_ORDER_CREATED_PAGE_SIZE: i32 = 100;
-/// Legacy (`< 1.0.0`) query — addresses the account by `address`.
+/// Addresses the account by `account_id` + `dapp_id` (gql-server `>= 1.0.0`).
 const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY: &str = r#"
-    query($address: String!, $dst: String!, $last: Int!, $before: String) {
-      blockchain {
-        account(address: $address) {
-          events(dst: $dst, last: $last, before: $before) {
-            edges {
-              cursor
-              node {
-                msg_id
-                created_at
-                dst
-                body
-              }
-            }
-          }
-        }
-      }
-    }
-"#;
-
-/// v3 (`>= 1.0.0`) query — addresses the account by `account_id` + `dapp_id`.
-const GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3: &str = r#"
     query($account_id: String!, $dapp_id: String!, $dst: String!, $last: Int!, $before: String) {
       blockchain {
         account(account_id: $account_id, dapp_id: $dapp_id) {
@@ -594,34 +572,22 @@ impl ShellAccumulatorRootUsdc {
         let mut before: Option<String> = None;
         let mut seen = BTreeSet::<(u16, u64)>::new();
 
-        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
-        let query = if v3 {
-            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3
-        } else {
-            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY
-        };
         let account_id = account_id_from_address(self.address());
 
         loop {
-            let variables = if v3 {
-                json!({
-                    "account_id": account_id,
-                    "dapp_id": self.dapp_id(),
-                    "dst": dst,
-                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                    "before": before,
-                })
-            } else {
-                json!({
-                    "address": self.address(),
-                    "dst": dst,
-                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                    "before": before,
-                })
-            };
+            let variables = json!({
+                "account_id": account_id,
+                "dapp_id": self.dapp_id(),
+                "dst": dst,
+                "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                "before": before,
+            });
             let raw = net::query(
                 self.context().clone(),
-                net::ParamsOfQuery { query: query.to_string(), variables: Some(variables) },
+                net::ParamsOfQuery {
+                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
+                    variables: Some(variables),
+                },
             )
             .await
             .map_err(|e| {
@@ -712,34 +678,22 @@ impl ShellAccumulatorRootUsdc {
         let mut before: Option<String> = None;
         let mut claimed = BTreeSet::<(u16, u64)>::new();
 
-        let v3 = supports_dapp_id(self.context(), Self::MODULE).await?;
-        let query = if v3 {
-            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY_V3
-        } else {
-            GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY
-        };
         let account_id = account_id_from_address(self.address());
 
         loop {
-            let variables = if v3 {
-                json!({
-                    "account_id": account_id,
-                    "dapp_id": self.dapp_id(),
-                    "dst": dst,
-                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                    "before": before,
-                })
-            } else {
-                json!({
-                    "address": self.address(),
-                    "dst": dst,
-                    "last": SELL_ORDER_CREATED_PAGE_SIZE,
-                    "before": before,
-                })
-            };
+            let variables = json!({
+                "account_id": account_id,
+                "dapp_id": self.dapp_id(),
+                "dst": dst,
+                "last": SELL_ORDER_CREATED_PAGE_SIZE,
+                "before": before,
+            });
             let raw = net::query(
                 self.context().clone(),
-                net::ParamsOfQuery { query: query.to_string(), variables: Some(variables) },
+                net::ParamsOfQuery {
+                    query: GQL_ACCUMULATOR_ROOT_EVENTS_BY_DST_QUERY.to_string(),
+                    variables: Some(variables),
+                },
             )
             .await
             .map_err(|e| {
