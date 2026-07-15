@@ -21,6 +21,8 @@ pub enum SystemDapp {
     MobileVerifiers,
     /// AuthService subsystem.
     AuthService,
+    /// DEX subsystem.
+    Dex,
 }
 
 impl SystemDapp {
@@ -35,6 +37,9 @@ impl SystemDapp {
             }
             SystemDapp::AuthService => {
                 "0000000000000000000000000000000000000000000000000000000000000002"
+            }
+            SystemDapp::Dex => {
+                "0000000000000000000000000000000000000000000000000000000000000004"
             }
         }
     }
@@ -63,5 +68,6 @@ mod tests {
         assert_dapp_id(SystemDapp::System, '0');
         assert_dapp_id(SystemDapp::MobileVerifiers, '1');
         assert_dapp_id(SystemDapp::AuthService, '2');
+        assert_dapp_id(SystemDapp::Dex, '4');
     }
 }
