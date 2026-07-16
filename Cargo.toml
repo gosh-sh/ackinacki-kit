@@ -21,10 +21,29 @@ sha2 = "0.10"
 time = "=0.3.47"
 tokio = { version = "1", default-features = false }
 tracing = "0.1"
-# v3.0.2.an carries the tvm_abi off-by-32 multi-cell decode fix. NOTE: v3.0.0.an,
+# v3.0.2.an+ carries the tvm_abi off-by-32 multi-cell decode fix. NOTE: v3.0.0.an,
 # v3.0.1.an and v3.0.0-rc.an do NOT have it (OrderPlaced fails to decode, error 304).
-tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2.an", default-features = false }
-tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.2.an", default-features = false }
+tvm_block = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.4.an", default-features = false }
+tvm_client = { git = "https://github.com/tvmlabs/tvm-sdk.git", tag = "v3.0.4.an", default-features = false }
+
+# Replicated from tvm-sdk's workspace root (v3.0.4.an). Cargo [patch] tables only
+# apply from the top-level workspace, so tvm-sdk's own patches are ignored when it
+# is consumed as a git dependency — without these, tvm_vm's zk stack resolves TWO
+# copies of halo2-axiom/halo2-base (gosh-sh fork vs crates.io/axiom-crypto) and
+# fails with E0277 Circuit<F> trait mismatches.
+[patch.crates-io]
+halo2-base = { git = "https://github.com/gosh-sh/halo2-lib-zkevm-sha256-and-bls12-381", branch = "bump-halo2-lib-v0.4.1" }
+halo2-axiom = { git = "https://github.com/gosh-sh/halo2-axiom", branch = "main" }
+
+[patch."https://github.com/axiom-crypto/halo2-lib.git"]
+halo2-base = { git = "https://github.com/gosh-sh/halo2-lib-zkevm-sha256-and-bls12-381", branch = "bump-halo2-lib-v0.4.1" }
+halo2-ecc = { git = "https://github.com/gosh-sh/halo2-lib-zkevm-sha256-and-bls12-381", branch = "bump-halo2-lib-v0.4.1" }
+zkevm-hashes = { git = "https://github.com/gosh-sh/halo2-lib-zkevm-sha256-and-bls12-381", branch = "bump-halo2-lib-v0.4.1" }
+
+# gosh-sh stable-Rust fork of axiom-eth; pinned by rev so the transitively selected
+# snark-verifier-sdk cannot drift (see tvm-sdk workspace Cargo.toml for details).
+[patch."https://github.com/axiom-crypto/axiom-eth"]
+axiom-eth = { git = "https://github.com/gosh-sh/axiom-eth", rev = "1d61be00a63ec73b3f709d74eb9e6b09b754b911" }
 
 [profile.release]
 opt-level = "z"
