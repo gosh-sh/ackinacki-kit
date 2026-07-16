@@ -4,6 +4,18 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [4.0.1]
+
+### Changed
+- Bumped the `tvm-sdk` pin (`tvm_block` / `tvm_client`) from `v3.0.2.an` to
+  `v3.0.4.an`.
+- Added `[patch]` tables to the root `Cargo.toml`, replicated from the tvm-sdk
+  workspace root: since `v3.0.4.an`, `tvm_vm` pulls the zk stack (`axiom-eth`
+  plus the gosh-sh halo2 forks), and Cargo only honors `[patch]` from the
+  top-level workspace — without the replicas the graph resolves two
+  incompatible copies of `halo2-axiom`/`halo2-base` and fails to compile
+  (E0277 `Circuit<F>` trait mismatch).
+
 ## [4.0.0]
 
 The GraphQL server is now stable at `>= 1.0.0` across all networks, so the kit
