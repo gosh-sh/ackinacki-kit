@@ -4,6 +4,70 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [5.0.0]
+
+The `multisig` binding now targets `UpdateCustodianMultisigWallet_v2`
+exclusively. The bundled ABI/TVC under `contracts/abi/multisig/` are vendored
+verbatim from `gosh-sh/acki-nacki` (`dev`, commit `6ad89549`,
+`contracts/0.81.0_compiled/updatecustodianmultisigwallet_v2/`), replacing the
+older flat `Multisig` build.
+
+### Added
+- `submit_update_code` / `confirm_update_code` — the v2-only code upgrade,
+  queued and confirmed like a transaction, with `ParamsOfSubmitUpdateCode`,
+  `ResultOfSubmitUpdateCode` and `ParamsOfConfirmUpdateCode`.
+- `Multisig::account_data()` — fetches the account and decodes its persistent
+  storage. This is the single round-trip behind every read method; call it
+  directly when you need more than one of them.
+- Storage now decoded in full: `AccountData` gains `transactions`,
+  `data_updates`, `code_updates` and `custodians` (all `BTreeMap`, so iteration
+  order is stable) plus the v2 field `requests_mask_code`. New `DataUpdate` and
+  `CodeUpdate` types.
+- Contract constants mirrored from the vendored build, since they live in code
+  and not in the data cell: `MAX_QUEUED_TRANSACTIONS`, `MAX_CUSTODIAN_COUNT`,
+  `EXPIRATION_TIME`, `VERSION`, `CONTRACT_NAME`, and `CODE_HASH` (the code hash
+  a node reports for accounts deployed from the bundled TVC).
+- Tests pinning the vendored assets (TVC sha256 + code hash + `sol 0.81.0`),
+  asserting the ABI is the v2 build, and decoding the TVC's initial data cell
+  through `AccountData` so the storage layout is checked without a network.
+
+### Changed (breaking)
+- `get_version` is no longer a network call: it is now a synchronous
+  `fn get_version(&self) -> ResultOfGetVersion` answering from the vendored
+  constants. It describes the bundled assets, not the code deployed at the
+  wallet's address — compare the account's code hash against `CODE_HASH` to
+  confirm the two agree.
+- `multisig::ResultOfGetVersion` is gone; the binding reuses
+  `traits::ResultOfGetVersion`, whose fields are `version` / `contract_name`
+  (the removed local type had `kind` / `version`).
+- Every read method (`get_parameters`, `get_custodians`, `get_transactions`,
+  `get_transaction`, `get_transaction_ids`) now decodes the account's data cell
+  instead of executing a get-method — `Multisig` no longer goes through
+  `GetMethodAccessor`. Running any get-method against the v2 code fails in
+  `run_tvm` with `code 404 TVM internal error: can not parse actions: 0`,
+  because `tvm_block`'s action-list parser does not recognise a tag emitted by
+  `sol 0.81.0` output (identical in tvm-sdk 3.0.2 and 3.0.4, so bumping the SDK
+  does not help). Verified on shellnet for all six read methods. Writes are
+  unaffected — they go through `process_message`.
+- Consequences of reading storage: `get_parameters` answers
+  `maxQueuedTransactions` / `maxCustodianCount` / `expirationTime` from the
+  mirrored constants above; `get_transaction` now errors with
+  `KitErrorCode::EmptyResult` when the id is not queued (the contract throws
+  `102` in the same case); `get_transactions` / `get_transaction_ids` sort ids
+  numerically and `get_custodians` is ordered by `owner_pubkey`.
+- Wallets deployed from the older flat `Multisig` build still accept *writes*
+  from this binding (all 17 shared functions keep their signatures and function
+  ids), but decoding their storage with the v2 ABI is not valid, so the read
+  methods are only defined for v2 wallets.
+
+### Unchanged
+- `submit_transaction`, `send_transaction`, `confirm_transaction` and their
+  params, including `dapp_id`.
+- Deploy stays out of scope — wallets are deployed by the end-user via
+  `tvm-cli`. Note that on ABI ≥ 2.3 the deploy address depends on the ABI's
+  `fields` list as well as the code, so a deployer must pair this TVC with this
+  ABI.
+
 ## [4.0.1]
 
 ### Changed
