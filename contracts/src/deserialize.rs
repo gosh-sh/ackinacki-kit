@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use num_bigint::BigInt;
+use num_bigint::Sign;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -206,8 +207,62 @@ where
                 let padded = format!("{:0>width$}", s, width = (s.len() + 1) & !1);
                 hex::decode(padded).map_err(Error::custom)?
             };
-            Ok(Some(BigInt::from_signed_bytes_be(&bytes)))
+            // Account `balance` is TVM `Grams` (`VarUInteger 16`). GraphQL
+            // renders it as hexadecimal bytes, so a leading high bit is part
+            // of a positive magnitude, not a two's-complement sign bit.
+            Ok(Some(BigInt::from_bytes_be(Sign::Plus, &bytes)))
         }
         None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use num_bigint::BigInt;
+    use serde::Deserialize;
+    use serde_json::json;
+    use serde_json::Value;
+
+    use super::deserialize_account_balance;
+
+    #[derive(Debug, Deserialize)]
+    struct AccountBalanceFixture {
+        #[serde(deserialize_with = "deserialize_account_balance")]
+        balance: Option<BigInt>,
+    }
+
+    fn decode(value: Value) -> Result<Option<BigInt>, serde_json::Error> {
+        serde_json::from_value::<AccountBalanceFixture>(json!({ "balance": value }))
+            .map(|fixture| fixture.balance)
+    }
+
+    #[test]
+    fn account_balance_hex_is_unsigned_at_high_bit_boundaries() {
+        for (raw, expected) in [
+            ("0x0", 0_u64),
+            ("0x7f", 127),
+            ("0x80", 128),
+            ("ff", 255),
+            ("0x0100", 256),
+            ("0x7fffffff", 2_147_483_647),
+            ("0x80000000", 2_147_483_648),
+            ("0xffffffff", 4_294_967_295),
+        ] {
+            assert_eq!(decode(json!(raw)).unwrap(), Some(BigInt::from(expected)), "raw={raw}");
+        }
+    }
+
+    #[test]
+    fn account_balance_decodes_shellnet_agent_wallet_vectors() {
+        // Captured from two v2.4 multisigs on shellnet (2026-08-11). The old
+        // signed decoder reported -1_583_123_296 and -1_476_594_296.
+        assert_eq!(decode(json!("0xa1a374a0")).unwrap(), Some(BigInt::from(2_711_844_000_u64)));
+        assert_eq!(decode(json!("0xa7fcf588")).unwrap(), Some(BigInt::from(2_818_373_000_u64)));
+    }
+
+    #[test]
+    fn account_balance_preserves_none_and_rejects_malformed_hex() {
+        assert_eq!(decode(Value::Null).unwrap(), None);
+        assert!(decode(json!("0xnot-hex")).is_err());
     }
 }
