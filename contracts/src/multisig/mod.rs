@@ -1,30 +1,47 @@
 //! Binding for `UpdateCustodianMultisigWallet_v2` — the only multisig build
 //! the kit speaks to. The bundled ABI/TVC under `contracts/abi/multisig/` are
-//! vendored verbatim from `gosh-sh/acki-nacki` (`dev`, commit `6ad89549`,
+//! vendored verbatim from `gosh-sh/acki-nacki` (`dev`, commit `44fe02ea`,
 //! `contracts/0.81.0_compiled/updatecustodianmultisigwallet_v2/`); see
 //! [`CODE_HASH`] and the `vendored_asset_is_pinned` test.
 //!
-//! Scope is wallet operations callers need from the SDK:
+//! The vendored build is `v2.4.0` ([`VERSION`]). Nothing older is supported:
+//! the wallet gained a fourth request queue and a stored balance config, so the
+//! storage layout, the constructor and the event set all differ from earlier
+//! builds. Writes signed for one build are not portable to another either — a
+//! wallet whose code hash is not [`CODE_HASH`] should be driven by whatever
+//! binding matches it, not by this one.
 //!
-//! - `submit_transaction` — propose (and, when a single confirmation is
-//!   required, immediately execute) an internal message to an arbitrary
-//!   destination, carrying ECC currency and an ABI-encoded body cell.
-//!   This is the path for routing calls like `RootPN.generateVoucher`
-//!   through a user's wallet.
-//! - `send_transaction` — direct send with explicit flags (single-custodian
-//!   shortcut; bypasses the queued-confirmation flow).
-//! - `confirm_transaction` — co-sign a queued transaction when
-//!   `reqConfirms > 1`.
-//! - `submit_update_code` / `confirm_update_code` — v2-only code upgrade,
-//!   queued and confirmed like a transaction.
-//! - Read methods (`get_parameters`, `get_custodians`, `get_transactions`,
-//!   `get_transaction`, `get_transaction_ids`, `get_version`).
+//! The binding covers the whole contract surface:
+//!
+//! - Transfers — `submit_transaction` (propose, and execute in the same block
+//!   when a single confirmation is required), `send_transaction` (direct send
+//!   with explicit flags, single-custodian wallets only) and
+//!   `confirm_transaction`. This is the path for routing a call through a
+//!   user's wallet: the ABI-encoded body travels in `payload`.
+//! - Custodian-set updates — `submit_data_update` / `confirm_data_update`.
+//!   Applying one clears *all four* queues (see `RequestsDropped` upstream),
+//!   so anything pending has to be submitted again under the new set.
+//! - Code upgrades — `submit_update_code` / `confirm_update_code`, queued and
+//!   confirmed like a transaction.
+//! - Balance config — `submit_config_update` / `confirm_config_update`. The
+//!   wallet tops its own vmshell (gas) balance up from SHELL when it drops
+//!   below `minBalance`, converting up to `targetBalance`; `minBalance == 0`
+//!   disables that. The config survives custodian changes.
+//! - Cleanup budget — `set_max_cleanup_operations` (expired requests removed
+//!   per pass, `>= `[`MIN_CLEANUP_OPERATIONS`]).
+//! - Reads for each of the four queues (by id, as a list, as a list of ids)
+//!   plus `get_parameters`, `get_custodians`, `get_balance_config`,
+//!   `get_max_cleanup_operations` and `get_version`.
+//!
+//! Events are not bound here — the wallet emits its lifecycle events to
+//! hardcoded external destinations (ids `1100`–`1116`), decodable through
+//! [`crate::event`] with this ABI.
 //!
 //! # Reads go through storage, not get-methods
 //!
 //! Every read here decodes the account's data cell ([`Multisig::account_data`])
-//! instead of executing a get-method. Running any get-method against the v2
-//! code fails in `run_tvm` with
+//! instead of executing a get-method. Running any get-method against this code
+//! fails in `run_tvm` with
 //!
 //! ```text
 //! code 404  TVM internal error: can not parse actions: 0
@@ -33,10 +50,11 @@
 //! because `tvm_block`'s action-list parser does not recognise a tag emitted by
 //! `sol 0.81.0` output (`tvm_block/src/out_actions.rs`; identical in tvm-sdk
 //! 3.0.2 and 3.0.4, so bumping the SDK does not help). Verified on shellnet for
-//! all six read methods, with the v2 ABI. Writes are unaffected — they go
-//! through `process_message`, not `run_tvm`.
+//! every read method of the previous `sol 0.81.0` build; this build comes from
+//! the same compiler. Writes are unaffected — they go through `process_message`,
+//! not `run_tvm`.
 //!
-//! Two consequences of reading storage:
+//! Three consequences of reading storage:
 //!
 //! - `maxQueuedTransactions`, `maxCustodianCount`, `expirationTime` and the
 //!   `getVersion` strings are compile-time constants of the contract and are
@@ -44,10 +62,14 @@
 //!   [`MAX_CUSTODIAN_COUNT`], [`EXPIRATION_TIME`], [`VERSION`] and
 //!   [`CONTRACT_NAME`], and must be re-checked whenever the assets are
 //!   refreshed.
-//! - Storage layout is build-specific. Wallets deployed from the older flat
-//!   `Multisig` build still accept *writes* from this binding (all 17 shared
-//!   functions keep their signatures and function ids), but decoding their
-//!   storage with the v2 ABI is not valid.
+//! - Expiry is a property of a request id, which the contract compares against
+//!   `block.timestamp`. Off-chain there is no block clock, so the list-shaped
+//!   reads drop expired requests using the *client's* clock ([`expiration_bound`]),
+//!   the way the contract's listing get-methods do. The by-id reads return a
+//!   stored request even when it is expired — also matching the contract. The
+//!   unfiltered queues are on [`AccountData`] if a caller wants them raw.
+//! - Storage layout is build-specific: decoding a wallet deployed from any
+//!   other build with this ABI is not valid.
 //!
 //! If `tvm_block` learns the action tag, the get-methods start working again on
 //! their own and this indirection becomes optional.
@@ -62,6 +84,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -72,6 +95,7 @@ use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
+use tvm_client::boc::ParamsOfGetBocHash;
 use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
@@ -97,10 +121,10 @@ const ABI: &str = include_str!("../../abi/multisig/Multisig.abi.json");
 
 /// Code hash of the bundled TVC — the value a node reports for an account
 /// deployed from it. Repr hash of the state-init code cell.
-pub const CODE_HASH: &str = "09f596d5bb4f63d7f2b18020ee0b7c9e88114dc90010389cc594c67954655ded";
+pub const CODE_HASH: &str = "cfcaac10d43c8dc062298cb48df097be67cddec52b9cfd558309a7549f01c1f1";
 
-/// `MAX_QUEUED_REQUESTS` — per-custodian cap on unconfirmed requests.
-/// Contract constant, not stored; mirrored from the vendored build.
+/// `MAX_QUEUED_REQUESTS` — per-custodian cap on unconfirmed requests, applied
+/// to each of the four queues separately. Contract constant, not stored.
 pub const MAX_QUEUED_TRANSACTIONS: u8 = 5;
 
 /// `MAX_CUSTODIAN_COUNT`. Contract constant, not stored.
@@ -109,11 +133,22 @@ pub const MAX_CUSTODIAN_COUNT: u8 = 32;
 /// `EXPIRATION_TIME`, in seconds. Contract constant, not stored.
 pub const EXPIRATION_TIME: u64 = 3601;
 
+/// `ZERO_TIME` — epoch offset the contract folds into every request id.
+/// Contract constant, not stored; used by [`expiration_bound`].
+pub const ZERO_TIME: u64 = 1_000_000_000;
+
+/// `MIN_CLEANUP_OPERATIONS` — smallest value `set_max_cleanup_operations`
+/// accepts (the contract throws `124` below it). Contract constant, not stored.
+pub const MIN_CLEANUP_OPERATIONS: u64 = 1;
+
+/// `DEFAULT_CLEANUP_OPERATIONS` — the cleanup budget a wallet starts with,
+/// written by the constructor and replaced by `set_max_cleanup_operations`.
+/// Contract constant; the live value is stored, and is what
+/// [`Multisig::get_max_cleanup_operations`] reads.
+pub const DEFAULT_CLEANUP_OPERATIONS: u64 = 40;
+
 /// First return value of `getVersion`. Contract constant, not stored.
-///
-/// Note it reads `2.2.0` even though the asset directory is named `v2.1.0`
-/// upstream — this is the string the deployed code returns.
-pub const VERSION: &str = "2.2.0";
+pub const VERSION: &str = "2.4.0";
 
 /// Second return value of `getVersion`. Contract constant, not stored.
 pub const CONTRACT_NAME: &str = "UpdateCustodianMultisigWallet_v2";
@@ -122,7 +157,9 @@ pub const CONTRACT_NAME: &str = "UpdateCustodianMultisigWallet_v2";
 ///
 /// Mirrors the ABI's `fields` list one-to-one (`m_*` for state, `_*` for the
 /// runtime preamble) via serde aliases, so a single `Account` decode hydrates
-/// the struct directly. The maps are `BTreeMap` so iteration order is stable.
+/// the struct directly. The maps are `BTreeMap` so iteration order is stable,
+/// and they carry every stored request, expired ones included — the read
+/// methods are what apply the contract's expiry filter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountData {
     #[serde(alias = "_pubkey")]
@@ -146,9 +183,12 @@ pub struct AccountData {
     #[serde(alias = "m_requestsMaskData")]
     pub requests_mask_data: String,
 
-    /// v2 addition: per-custodian request mask for queued code updates.
     #[serde(alias = "m_requestsMaskCode")]
     pub requests_mask_code: String,
+
+    /// Per-custodian request mask for queued balance-config updates.
+    #[serde(alias = "m_requestsMaskConfig")]
+    pub requests_mask_config: String,
 
     /// Queued transactions, keyed by transaction id (decimal string).
     #[serde(alias = "m_transactions", default)]
@@ -158,11 +198,20 @@ pub struct AccountData {
     #[serde(alias = "m_data", default)]
     pub data_updates: BTreeMap<String, DataUpdate>,
 
-    /// v2 addition: queued code updates, keyed by request id.
+    /// Queued code updates, keyed by request id.
     #[serde(alias = "m_code", default)]
     pub code_updates: BTreeMap<String, CodeUpdate>,
 
-    /// Custodians, keyed by `owner_pubkey` (`0x` + 64 hex).
+    /// Queued balance-config updates, keyed by request id.
+    #[serde(alias = "m_config", default)]
+    pub config_updates: BTreeMap<String, ConfigUpdate>,
+
+    /// Live gas self-management config.
+    #[serde(alias = "m_balanceConfig")]
+    pub balance_config: BalanceConfig,
+
+    /// Custodians, keyed by the contract's `hash(pubkey, address)` index
+    /// (`0x` + 64 hex), not by the custodian's own key.
     #[serde(alias = "m_custodians", default)]
     pub custodians: BTreeMap<String, Custodian>,
 
@@ -232,7 +281,7 @@ pub struct DataUpdate {
     pub req_confirms_data: String,
 }
 
-/// Queued code update (`submitUpdateCode`), v2 only.
+/// Queued code update (`submitUpdateCode`), carrying the pending cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeUpdate {
     pub id: String,
@@ -247,6 +296,56 @@ pub struct CodeUpdate {
     pub newcode: String,
     /// Auxiliary cell handed to the upgrade. Named `cell` in the ABI.
     pub cell: String,
+}
+
+/// Queued code update without the cells, as the contract's listing get-method
+/// reports it: a whole queue of [`CodeUpdate`]s would carry a copy of the
+/// pending code each, so the code and its migration cell are identified by
+/// hash. Use [`Multisig::get_update_code`] for one entry with its cells.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeUpdateInfo {
+    pub id: String,
+    #[serde(rename = "confirmationsMask")]
+    pub confirmations_mask: String,
+    #[serde(rename = "signsRequired")]
+    pub signs_required: String,
+    #[serde(rename = "signsReceived")]
+    pub signs_received: String,
+    /// Index of the custodian that queued the update — the creator's `index`,
+    /// not the whole [`Custodian`].
+    #[serde(rename = "creatorIndex")]
+    pub creator_index: String,
+    /// `0x` + 64 hex repr hash of `newcode`.
+    #[serde(rename = "codeHash")]
+    pub code_hash: String,
+    /// `0x` + 64 hex repr hash of `cell`.
+    #[serde(rename = "cellHash")]
+    pub cell_hash: String,
+}
+
+/// Gas self-management config: below `min_balance` vmshell the wallet converts
+/// SHELL up to `target_balance`. `min_balance == 0` disables auto top-up.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BalanceConfig {
+    #[serde(rename = "minBalance")]
+    pub min_balance: String,
+    #[serde(rename = "targetBalance")]
+    pub target_balance: String,
+}
+
+/// Queued balance-config update (`submitConfigUpdate`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigUpdate {
+    pub id: String,
+    #[serde(rename = "confirmationsMask")]
+    pub confirmations_mask: String,
+    #[serde(rename = "signsRequired")]
+    pub signs_required: String,
+    #[serde(rename = "signsReceived")]
+    pub signs_received: String,
+    pub creator: Custodian,
+    /// Config to apply once the update is confirmed.
+    pub config: BalanceConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -323,9 +422,11 @@ impl AsyncGuardedMut<Account> for Multisig {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfSubmitTransaction {
-    /// Destination contract address.
+    /// Destination contract address. The contract rejects the zero address
+    /// (throws `125`).
     pub dest: String,
-    /// Native vmshell value attached to the internal message.
+    /// Native vmshell value attached to the internal message. Ignored by the
+    /// contract when `flag` carries `128` (send all remaining).
     pub value: u128,
     /// ECC currencies to attach: `currency_id → amount`.
     pub cc: HashMap<u32, u64>,
@@ -397,7 +498,48 @@ pub struct ParamsOfConfirmTransaction {
     pub transaction_id: u64,
 }
 
-/// Parameters of `submitUpdateCode`. v2 only.
+/// Parameters of `submitDataUpdate` — the new custodian set and its two
+/// confirmation thresholds. Both thresholds must be `> 0` (the contract throws
+/// `123`), and the two owner lists together must be non-empty and no longer
+/// than [`MAX_CUSTODIAN_COUNT`] (`117`).
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSubmitDataUpdate {
+    /// Custodian pubkeys, as uint256 decimal/hex strings.
+    pub owners_pubkey: Vec<String>,
+    /// Custodian addresses.
+    pub owners_address: Vec<String>,
+    /// Confirmations required to execute a transaction.
+    #[serde(rename = "reqConfirms")]
+    pub req_confirms: u8,
+    /// Confirmations required to apply a data, code or config update.
+    #[serde(rename = "reqConfirmsData")]
+    pub req_confirms_data: u8,
+}
+
+impl Default for ParamsOfSubmitDataUpdate {
+    fn default() -> Self {
+        Self {
+            owners_pubkey: Default::default(),
+            owners_address: Default::default(),
+            req_confirms: 1,
+            req_confirms_data: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfSubmitDataUpdate {
+    #[serde(rename = "transId", deserialize_with = "deserialize_u64")]
+    pub trans_id: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ParamsOfConfirmDataUpdate {
+    #[serde(rename = "dataUpdateId")]
+    pub data_update_id: u64,
+}
+
+/// Parameters of `submitUpdateCode`.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ParamsOfSubmitUpdateCode {
     /// New contract code, base64-encoded BOC of the code cell.
@@ -413,17 +555,70 @@ pub struct ResultOfSubmitUpdateCode {
     pub code_update_id: u64,
 }
 
-/// Parameters of `confirmUpdateCode`. v2 only.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ParamsOfConfirmUpdateCode {
     #[serde(rename = "codeUpdateId")]
     pub code_update_id: u64,
 }
 
+/// Parameters of `submitConfigUpdate`. `target_balance` must be `>=`
+/// `min_balance` (the contract throws `126`); `min_balance == 0` disables
+/// auto top-up.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ParamsOfSubmitConfigUpdate {
+    #[serde(rename = "minBalance")]
+    pub min_balance: u128,
+    #[serde(rename = "targetBalance")]
+    pub target_balance: u128,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfSubmitConfigUpdate {
+    #[serde(rename = "configUpdateId", deserialize_with = "deserialize_u64")]
+    pub config_update_id: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ParamsOfConfirmConfigUpdate {
+    #[serde(rename = "configUpdateId")]
+    pub config_update_id: u64,
+}
+
+/// Parameters of `setMaxCleanupOperations`. `value` must be `>=`
+/// [`MIN_CLEANUP_OPERATIONS`] (the contract throws `124`).
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfSetMaxCleanupOperations {
+    pub value: u64,
+}
+
+impl Default for ParamsOfSetMaxCleanupOperations {
+    fn default() -> Self {
+        Self { value: DEFAULT_CLEANUP_OPERATIONS }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ParamsOfGetTransaction {
     #[serde(rename = "transactionId")]
     pub transaction_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetUpdateData {
+    #[serde(rename = "updateDataId")]
+    pub update_data_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetUpdateCode {
+    #[serde(rename = "codeUpdateId")]
+    pub code_update_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParamsOfGetConfigUpdate {
+    #[serde(rename = "configUpdateId")]
+    pub config_update_id: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -438,6 +633,60 @@ pub struct ResultOfGetTransactions {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResultOfGetTransactionIds {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateData {
+    pub data: DataUpdate,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateDatas {
+    pub data: Vec<DataUpdate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateDataIds {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateCode {
+    #[serde(rename = "codeUpdate")]
+    pub code_update: CodeUpdate,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateCodes {
+    #[serde(rename = "codeUpdates")]
+    pub code_updates: Vec<CodeUpdateInfo>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetUpdateCodeIds {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetBalanceConfig {
+    pub config: BalanceConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetConfigUpdate {
+    #[serde(rename = "configUpdate")]
+    pub config_update: ConfigUpdate,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetConfigUpdates {
+    #[serde(rename = "configUpdates")]
+    pub config_updates: Vec<ConfigUpdate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetConfigUpdateIds {
     pub ids: Vec<String>,
 }
 
@@ -458,6 +707,14 @@ pub struct ResultOfGetParameters {
     pub required_txn_confirms: String,
     #[serde(rename = "requiredDataConfirms")]
     pub required_data_confirms: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResultOfGetMaxCleanupOperations {
+    /// `uint256`, so it decodes as a `0x`-prefixed hex string — as it would
+    /// from the get-method.
+    #[serde(rename = "maxCleanupOperations")]
+    pub max_cleanup_operations: String,
 }
 
 impl Multisig {
@@ -487,12 +744,7 @@ impl Multisig {
         params: ParamsOfSubmitTransaction,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "submitTransaction".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
+        self.call("submitTransaction", params, signer).await
     }
 
     /// # Send transaction
@@ -500,19 +752,14 @@ impl Multisig {
     /// Original contract method: `sendTransaction`
     ///
     /// Direct transfer with explicit flags, bypassing the confirmation
-    /// queue. Only valid for single-custodian wallets (or wallets
-    /// configured to allow it).
+    /// queue. Only valid for single-custodian wallets (the contract throws
+    /// `108` otherwise).
     pub async fn send_transaction(
         &self,
         params: ParamsOfSendTransaction,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "sendTransaction".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
+        self.call("sendTransaction", params, signer).await
     }
 
     /// # Confirm transaction
@@ -525,12 +772,35 @@ impl Multisig {
         params: ParamsOfConfirmTransaction,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "confirmTransaction".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
+        self.call("confirmTransaction", params, signer).await
+    }
+
+    /// # Submit custodian-set update
+    ///
+    /// Original contract method: `submitDataUpdate`
+    ///
+    /// Queue a replacement of the custodian set and the two confirmation
+    /// thresholds. Needs `reqConfirmsData` confirmations, and applying it
+    /// clears every queue — pending transfers, data, code and config updates
+    /// are discarded, since they were issued against the old custodian
+    /// indices. The balance config is an operator setting and survives.
+    pub async fn submit_data_update(
+        &self,
+        params: ParamsOfSubmitDataUpdate,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        self.call("submitDataUpdate", params, signer).await
+    }
+
+    /// # Confirm custodian-set update
+    ///
+    /// Original contract method: `confirmDataUpdate`
+    pub async fn confirm_data_update(
+        &self,
+        params: ParamsOfConfirmDataUpdate,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        self.call("confirmDataUpdate", params, signer).await
     }
 
     /// # Submit code update
@@ -538,18 +808,13 @@ impl Multisig {
     /// Original contract method: `submitUpdateCode`
     ///
     /// Queue a code upgrade. Confirmed with `confirm_update_code`; applied
-    /// once `reqConfirms` custodians have signed.
+    /// once `reqConfirmsData` custodians have signed.
     pub async fn submit_update_code(
         &self,
         params: ParamsOfSubmitUpdateCode,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "submitUpdateCode".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
+        self.call("submitUpdateCode", params, signer).await
     }
 
     /// # Confirm code update
@@ -560,18 +825,55 @@ impl Multisig {
         params: ParamsOfConfirmUpdateCode,
         signer: Signer,
     ) -> KitResult<ResultOfSendMessage> {
-        let call_set = CallSet {
-            function_name: "confirmUpdateCode".to_string(),
-            header: None,
-            input: Some(json!(params)),
-        };
-        self.send_message(Some(call_set), None, signer).await
+        self.call("confirmUpdateCode", params, signer).await
+    }
+
+    /// # Submit balance-config update
+    ///
+    /// Original contract method: `submitConfigUpdate`
+    ///
+    /// Queue a change of the gas self-management thresholds. Needs
+    /// `reqConfirmsData` confirmations; applied config is readable through
+    /// [`Multisig::get_balance_config`].
+    pub async fn submit_config_update(
+        &self,
+        params: ParamsOfSubmitConfigUpdate,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        self.call("submitConfigUpdate", params, signer).await
+    }
+
+    /// # Confirm balance-config update
+    ///
+    /// Original contract method: `confirmConfigUpdate`
+    pub async fn confirm_config_update(
+        &self,
+        params: ParamsOfConfirmConfigUpdate,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        self.call("confirmConfigUpdate", params, signer).await
+    }
+
+    /// # Set cleanup budget
+    ///
+    /// Original contract method: `setMaxCleanupOperations`
+    ///
+    /// How many expired requests the wallet removes per cleanup pass. Any
+    /// custodian can set it, without confirmations, and the value survives
+    /// custodian changes.
+    pub async fn set_max_cleanup_operations(
+        &self,
+        params: ParamsOfSetMaxCleanupOperations,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        self.call("setMaxCleanupOperations", params, signer).await
     }
 
     /// Fetches the account and decodes its persistent storage.
     ///
     /// This is the single network round-trip behind every read method; call it
-    /// directly when you need more than one of them and want one fetch.
+    /// directly when you need more than one of them and want one fetch, or
+    /// when you want the queues unfiltered.
     pub async fn account_data(&self) -> KitResult<AccountData> {
         self.fetch_account().await?;
 
@@ -614,25 +916,42 @@ impl Multisig {
         })
     }
 
+    /// # Get cleanup budget
+    ///
+    /// Original contract method: `getMaxCleanupOperations`
+    pub async fn get_max_cleanup_operations(&self) -> KitResult<ResultOfGetMaxCleanupOperations> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetMaxCleanupOperations { max_cleanup_operations: data.max_cleanup_operations })
+    }
+
     /// # Get custodians
     ///
     /// Original contract method: `getCustodians`
     ///
-    /// Ordered by `owner_pubkey`, matching the on-chain dictionary iteration
-    /// order (keys are zero-padded 64-hex, so lexicographic == numeric).
+    /// Ordered by the stored `hash(pubkey, address)` key, matching the on-chain
+    /// dictionary iteration order (keys are zero-padded 64-hex, so
+    /// lexicographic == numeric).
     pub async fn get_custodians(&self) -> KitResult<ResultOfGetCustodians> {
         let data = self.account_data().await?;
         Ok(ResultOfGetCustodians { custodians: data.custodians.into_values().collect() })
     }
 
+    /// # Get wallet balance config
+    ///
+    /// Original contract method: `getBalanceConfig`
+    pub async fn get_balance_config(&self) -> KitResult<ResultOfGetBalanceConfig> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetBalanceConfig { config: data.balance_config })
+    }
+
     /// # Get all queued transactions
     ///
     /// Original contract method: `getTransactions`
+    ///
+    /// Expired requests are dropped (client clock — see the module docs).
     pub async fn get_transactions(&self) -> KitResult<ResultOfGetTransactions> {
         let data = self.account_data().await?;
-        let mut transactions: Vec<Transaction> = data.transactions.into_values().collect();
-        transactions.sort_by(|a, b| numeric_id_cmp(&a.id, &b.id));
-        Ok(ResultOfGetTransactions { transactions })
+        Ok(ResultOfGetTransactions { transactions: live_values(data.transactions) })
     }
 
     /// # Get one queued transaction
@@ -640,35 +959,151 @@ impl Multisig {
     /// Original contract method: `getTransaction`
     ///
     /// Errors when the id is not queued — the contract throws `102` in the
-    /// same case.
+    /// same case. Returns the request even when it is expired.
     pub async fn get_transaction(
         &self,
         params: ParamsOfGetTransaction,
     ) -> KitResult<ResultOfGetTransaction> {
         let mut data = self.account_data().await?;
-        let trans =
-            data.transactions.remove(&params.transaction_id.to_string()).ok_or_else(|| {
-                KitError::new(
-                    Self::MODULE,
-                    KitErrorCode::EmptyResult,
-                    format!(
-                        "Transaction `{}` is not queued on `{}`",
-                        params.transaction_id,
-                        self.address()
-                    ),
-                )
-            })?;
+        let trans = data
+            .transactions
+            .remove(&params.transaction_id.to_string())
+            .ok_or_else(|| self.not_queued("Transaction", params.transaction_id))?;
         Ok(ResultOfGetTransaction { trans })
     }
 
     /// # Get queued transaction ids
     ///
     /// Original contract method: `getTransactionIds`
+    ///
+    /// Expired requests are dropped, like `get_transactions`.
     pub async fn get_transaction_ids(&self) -> KitResult<ResultOfGetTransactionIds> {
         let data = self.account_data().await?;
-        let mut ids: Vec<String> = data.transactions.into_keys().collect();
-        ids.sort_by(|a, b| numeric_id_cmp(a, b));
-        Ok(ResultOfGetTransactionIds { ids })
+        Ok(ResultOfGetTransactionIds { ids: live_ids(data.transactions) })
+    }
+
+    /// # Get all queued custodian-set updates
+    ///
+    /// Original contract method: `getUpdateDatas`
+    ///
+    /// Expired requests are dropped.
+    pub async fn get_update_datas(&self) -> KitResult<ResultOfGetUpdateDatas> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetUpdateDatas { data: live_values(data.data_updates) })
+    }
+
+    /// # Get one queued custodian-set update
+    ///
+    /// Original contract method: `getUpdateData`
+    ///
+    /// Errors when the id is not queued (the contract throws `102`). Returns
+    /// the request even when it is expired.
+    pub async fn get_update_data(
+        &self,
+        params: ParamsOfGetUpdateData,
+    ) -> KitResult<ResultOfGetUpdateData> {
+        let mut data = self.account_data().await?;
+        let update = data
+            .data_updates
+            .remove(&params.update_data_id.to_string())
+            .ok_or_else(|| self.not_queued("Data update", params.update_data_id))?;
+        Ok(ResultOfGetUpdateData { data: update })
+    }
+
+    /// # Get queued custodian-set update ids
+    ///
+    /// Original contract method: `getUpdateDataIds`
+    pub async fn get_update_data_ids(&self) -> KitResult<ResultOfGetUpdateDataIds> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetUpdateDataIds { ids: live_ids(data.data_updates) })
+    }
+
+    /// # Get all queued code updates
+    ///
+    /// Original contract method: `getUpdateCodes`
+    ///
+    /// Identifies each pending code by hash, as the contract does; the hashes
+    /// are computed here from the stored cells. Expired requests are dropped.
+    pub async fn get_update_codes(&self) -> KitResult<ResultOfGetUpdateCodes> {
+        let data = self.account_data().await?;
+        let code_updates = live_values(data.code_updates)
+            .into_iter()
+            .map(|update| {
+                Ok(CodeUpdateInfo {
+                    id: update.id,
+                    confirmations_mask: update.confirmations_mask,
+                    signs_required: update.signs_required,
+                    signs_received: update.signs_received,
+                    creator_index: update.creator.index,
+                    code_hash: self.cell_hash(&update.newcode)?,
+                    cell_hash: self.cell_hash(&update.cell)?,
+                })
+            })
+            .collect::<KitResult<Vec<_>>>()?;
+        Ok(ResultOfGetUpdateCodes { code_updates })
+    }
+
+    /// # Get one queued code update
+    ///
+    /// Original contract method: `getUpdateCode`
+    ///
+    /// Carries the pending cells, so a custodian can inspect the code before
+    /// confirming it. Errors when the id is not queued (the contract throws
+    /// `102`). Returns the request even when it is expired.
+    pub async fn get_update_code(
+        &self,
+        params: ParamsOfGetUpdateCode,
+    ) -> KitResult<ResultOfGetUpdateCode> {
+        let mut data = self.account_data().await?;
+        let code_update = data
+            .code_updates
+            .remove(&params.code_update_id.to_string())
+            .ok_or_else(|| self.not_queued("Code update", params.code_update_id))?;
+        Ok(ResultOfGetUpdateCode { code_update })
+    }
+
+    /// # Get queued code update ids
+    ///
+    /// Original contract method: `getUpdateCodeIds`
+    pub async fn get_update_code_ids(&self) -> KitResult<ResultOfGetUpdateCodeIds> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetUpdateCodeIds { ids: live_ids(data.code_updates) })
+    }
+
+    /// # Get all queued balance-config updates
+    ///
+    /// Original contract method: `getConfigUpdates`
+    ///
+    /// Expired requests are dropped.
+    pub async fn get_config_updates(&self) -> KitResult<ResultOfGetConfigUpdates> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetConfigUpdates { config_updates: live_values(data.config_updates) })
+    }
+
+    /// # Get one queued balance-config update
+    ///
+    /// Original contract method: `getConfigUpdate`
+    ///
+    /// Errors when the id is not queued (the contract throws `102`). Returns
+    /// the request even when it is expired.
+    pub async fn get_config_update(
+        &self,
+        params: ParamsOfGetConfigUpdate,
+    ) -> KitResult<ResultOfGetConfigUpdate> {
+        let mut data = self.account_data().await?;
+        let config_update = data
+            .config_updates
+            .remove(&params.config_update_id.to_string())
+            .ok_or_else(|| self.not_queued("Config update", params.config_update_id))?;
+        Ok(ResultOfGetConfigUpdate { config_update })
+    }
+
+    /// # Get queued balance-config update ids
+    ///
+    /// Original contract method: `getConfigUpdateIds`
+    pub async fn get_config_update_ids(&self) -> KitResult<ResultOfGetConfigUpdateIds> {
+        let data = self.account_data().await?;
+        Ok(ResultOfGetConfigUpdateIds { ids: live_ids(data.config_updates) })
     }
 
     /// # Get wallet kind/version
@@ -686,6 +1121,87 @@ impl Multisig {
             contract_name: CONTRACT_NAME.to_string(),
         }
     }
+
+    /// Encodes `function_name(params)` and sends it as an external message.
+    async fn call(
+        &self,
+        function_name: &str,
+        params: impl Serialize,
+        signer: Signer,
+    ) -> KitResult<ResultOfSendMessage> {
+        let call_set = CallSet {
+            function_name: function_name.to_string(),
+            header: None,
+            input: Some(json!(params)),
+        };
+        self.send_message(Some(call_set), None, signer).await
+    }
+
+    /// Repr hash of a stored cell, in the `0x` + 64 hex form the contract's
+    /// `uint256` outputs decode to.
+    fn cell_hash(&self, boc: &str) -> KitResult<String> {
+        let hash = tvm_client::boc::get_boc_hash(
+            self.context().clone(),
+            ParamsOfGetBocHash { boc: boc.to_string() },
+        )
+        .map_err(|e| {
+            KitError::new(Self::MODULE, KitErrorCode::Decode, "Get cell hash").with_tvm_error(e)
+        })?
+        .hash;
+        Ok(format!("0x{hash}"))
+    }
+
+    fn not_queued(&self, kind: &str, id: u64) -> KitError {
+        KitError::new(
+            Self::MODULE,
+            KitErrorCode::EmptyResult,
+            format!("{kind} `{id}` is not queued on `{}`", self.address()),
+        )
+    }
+}
+
+/// Mirrors the contract's `isConfirmed`: whether the custodian at `index` has
+/// already signed the request carrying `mask`.
+pub fn is_confirmed(mask: u32, index: u8) -> bool {
+    index < u32::BITS as u8 && mask & (1 << index) != 0
+}
+
+/// Lower bound on live request ids, mirroring the contract's
+/// `_getExpirationBound()`: a request is expired once its id is `<=` the bound.
+///
+/// Request ids embed their submission time (`(block.timestamp - ZERO_TIME) << 32`),
+/// which is what makes this comparison work. `now` is unix seconds.
+pub fn expiration_bound(now: u64) -> u64 {
+    now.saturating_sub(EXPIRATION_TIME).saturating_sub(ZERO_TIME).saturating_mul(1 << 32)
+}
+
+/// Live entries of a decoded queue, ordered by id.
+fn live_entries<T>(queue: BTreeMap<String, T>) -> Vec<(String, T)> {
+    let bound = expiration_bound(now_secs());
+    let mut entries: Vec<(String, T)> =
+        queue.into_iter().filter(|(id, _)| !is_expired(id, bound)).collect();
+    entries.sort_by(|(a, _), (b, _)| numeric_id_cmp(a, b));
+    entries
+}
+
+fn live_values<T>(queue: BTreeMap<String, T>) -> Vec<T> {
+    live_entries(queue).into_iter().map(|(_, value)| value).collect()
+}
+
+fn live_ids<T>(queue: BTreeMap<String, T>) -> Vec<String> {
+    live_entries(queue).into_iter().map(|(id, _)| id).collect()
+}
+
+/// Ids are decimal `uint64` map keys; one that does not parse is kept rather
+/// than silently dropped.
+fn is_expired(id: &str, bound: u64) -> bool {
+    id.parse::<u64>().is_ok_and(|id| id <= bound)
+}
+
+/// The contract compares request ids against `block.timestamp`, which is not
+/// available off-chain — the client's clock stands in for it.
+fn now_secs() -> u64 {
+    Utc::now().timestamp().max(0) as u64
 }
 
 /// Orders unsigned decimal ids numerically. Map keys arrive as decimal strings
@@ -703,23 +1219,37 @@ mod tests {
     use sha2::Sha256;
     use tvm_client::boc::ParamsOfDecodeStateInit;
 
+    use super::expiration_bound;
+    use super::is_confirmed;
+    use super::is_expired;
+    use super::live_ids;
+    use super::now_secs;
     use super::numeric_id_cmp;
     use super::AccountData;
+    use super::ParamsOfConfirmConfigUpdate;
+    use super::ParamsOfConfirmDataUpdate;
     use super::ParamsOfConfirmTransaction;
     use super::ParamsOfConfirmUpdateCode;
+    use super::ParamsOfGetConfigUpdate;
     use super::ParamsOfGetTransaction;
+    use super::ParamsOfGetUpdateCode;
+    use super::ParamsOfGetUpdateData;
     use super::ParamsOfSendTransaction;
+    use super::ParamsOfSetMaxCleanupOperations;
+    use super::ParamsOfSubmitConfigUpdate;
+    use super::ParamsOfSubmitDataUpdate;
     use super::ParamsOfSubmitTransaction;
     use super::ParamsOfSubmitUpdateCode;
     use super::ABI;
     use super::CODE_HASH;
+    use super::EXPIRATION_TIME;
+    use super::ZERO_TIME;
     use crate::tests::create_context;
 
     const TVC: &[u8] = include_bytes!("../../abi/multisig/Multisig.tvc");
 
-    /// sha256 of the vendored TVC, as recorded in bee-engine's
-    /// `bee_wallet/assets/multisig/PROVENANCE.md`.
-    const TVC_SHA256: &str = "535e180e85ee019c23631c6046449fa2a5536d88f55b26d64e026d671e82d520";
+    /// sha256 of the vendored TVC.
+    const TVC_SHA256: &str = "b0d72acbbdc6af309823e74b96b0b3ffb0f871a5b98316b6e89affdfb56c5c9d";
 
     fn abi_json() -> serde_json::Value {
         serde_json::from_str(ABI).expect("ABI is valid JSON")
@@ -754,54 +1284,50 @@ mod tests {
         }
     }
 
-    #[test]
-    fn submit_transaction_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfSubmitTransaction::default())
-            .expect("serialize submit params");
-        assert_params_cover_abi("submitTransaction", &v);
+    fn assert_params_match_abi(func: &str, params: impl serde::Serialize) {
+        let value = serde_json::to_value(params).expect("serialize params");
+        assert_params_cover_abi(func, &value);
     }
 
     #[test]
-    fn send_transaction_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfSendTransaction::default())
-            .expect("serialize send params");
-        assert_params_cover_abi("sendTransaction", &v);
+    fn write_params_match_abi() {
+        assert_params_match_abi("submitTransaction", ParamsOfSubmitTransaction::default());
+        assert_params_match_abi("sendTransaction", ParamsOfSendTransaction::default());
+        assert_params_match_abi(
+            "confirmTransaction",
+            ParamsOfConfirmTransaction { transaction_id: 1 },
+        );
+        assert_params_match_abi("submitDataUpdate", ParamsOfSubmitDataUpdate::default());
+        assert_params_match_abi("confirmDataUpdate", ParamsOfConfirmDataUpdate::default());
+        assert_params_match_abi("submitUpdateCode", ParamsOfSubmitUpdateCode::default());
+        assert_params_match_abi("confirmUpdateCode", ParamsOfConfirmUpdateCode::default());
+        assert_params_match_abi("submitConfigUpdate", ParamsOfSubmitConfigUpdate::default());
+        assert_params_match_abi("confirmConfigUpdate", ParamsOfConfirmConfigUpdate::default());
+        assert_params_match_abi(
+            "setMaxCleanupOperations",
+            ParamsOfSetMaxCleanupOperations::default(),
+        );
     }
 
+    /// The by-id reads take the same inputs as the get-methods they mirror,
+    /// even though they answer from storage — a renamed id would make a
+    /// caller's code silently non-portable.
     #[test]
-    fn confirm_transaction_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfConfirmTransaction { transaction_id: 1 })
-            .expect("serialize confirm params");
-        assert_params_cover_abi("confirmTransaction", &v);
+    fn read_params_match_abi() {
+        assert_params_match_abi("getTransaction", ParamsOfGetTransaction { transaction_id: 1 });
+        assert_params_match_abi("getUpdateData", ParamsOfGetUpdateData { update_data_id: 1 });
+        assert_params_match_abi("getUpdateCode", ParamsOfGetUpdateCode { code_update_id: 1 });
+        assert_params_match_abi("getConfigUpdate", ParamsOfGetConfigUpdate { config_update_id: 1 });
     }
 
+    /// The bundled ABI must be the v2.4 build: the config-update queue and the
+    /// stored balance config are what tell it apart from the earlier v2 builds,
+    /// which share every other function.
     #[test]
-    fn get_transaction_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfGetTransaction { transaction_id: 1 })
-            .expect("serialize get params");
-        assert_params_cover_abi("getTransaction", &v);
-    }
-
-    #[test]
-    fn submit_update_code_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfSubmitUpdateCode::default())
-            .expect("serialize submit update code params");
-        assert_params_cover_abi("submitUpdateCode", &v);
-    }
-
-    #[test]
-    fn confirm_update_code_params_match_abi() {
-        let v = serde_json::to_value(ParamsOfConfirmUpdateCode::default())
-            .expect("serialize confirm update code params");
-        assert_params_cover_abi("confirmUpdateCode", &v);
-    }
-
-    /// The bundled ABI must be the v2 build, not the older flat `Multisig`:
-    /// the two share all 17 other functions, so only the code-update pair and
-    /// the two extra storage fields tell them apart.
-    #[test]
-    fn bundled_abi_is_update_custodian_v2() {
+    fn bundled_abi_is_update_custodian_v2_4() {
         let abi = abi_json();
+
+        assert_eq!(abi["version"].as_str(), Some("2.4"), "unexpected ABI version");
 
         let functions: Vec<&str> = abi["functions"]
             .as_array()
@@ -809,14 +1335,26 @@ mod tests {
             .iter()
             .map(|f| f["name"].as_str().unwrap())
             .collect();
-        for name in ["submitUpdateCode", "confirmUpdateCode"] {
-            assert!(functions.contains(&name), "ABI is missing v2 function `{name}`");
+        for name in [
+            "submitUpdateCode",
+            "confirmUpdateCode",
+            "submitConfigUpdate",
+            "confirmConfigUpdate",
+            "getBalanceConfig",
+            "getUpdateCode",
+            "getUpdateCodes",
+            "getConfigUpdates",
+            "getMaxCleanupOperations",
+        ] {
+            assert!(functions.contains(&name), "ABI is missing v2.4 function `{name}`");
         }
 
         let fields: Vec<&str> =
             abi["fields"].as_array().unwrap().iter().map(|f| f["name"].as_str().unwrap()).collect();
-        for name in ["m_requestsMaskCode", "m_code"] {
-            assert!(fields.contains(&name), "ABI is missing v2 storage field `{name}`");
+        for name in
+            ["m_requestsMaskCode", "m_code", "m_requestsMaskConfig", "m_config", "m_balanceConfig"]
+        {
+            assert!(fields.contains(&name), "ABI is missing v2.4 storage field `{name}`");
         }
     }
 
@@ -871,7 +1409,17 @@ mod tests {
         // Pre-constructor state init: no custodians, nothing queued.
         assert!(account_data.custodians.is_empty());
         assert!(account_data.transactions.is_empty());
+        assert!(account_data.data_updates.is_empty());
         assert!(account_data.code_updates.is_empty());
+        assert!(account_data.config_updates.is_empty());
+
+        // The balance config is a plain struct field, so this is also what
+        // proves the nested decode into `BalanceConfig` holds.
+        assert_eq!(account_data.balance_config.min_balance, "0");
+        assert_eq!(account_data.balance_config.target_balance, "0");
+
+        // `uint256` fields decode as `0x` + 64 hex, unlike the narrower ints.
+        assert_eq!(account_data.max_cleanup_operations, format!("0x{:064x}", 0));
     }
 
     #[test]
@@ -879,5 +1427,50 @@ mod tests {
         let mut ids = ["10".to_string(), "9".to_string(), "100".to_string(), "11".to_string()];
         ids.sort_by(|a, b| numeric_id_cmp(a, b));
         assert_eq!(ids, ["9", "10", "11", "100"]);
+    }
+
+    /// The bound must match `_getExpirationBound()`, and ids are compared
+    /// against it the way the listing get-methods do (`id > bound` survives).
+    #[test]
+    fn expired_requests_are_dropped_from_listings() {
+        let now = 1_800_000_000;
+        let bound = expiration_bound(now);
+        assert_eq!(bound, (now - EXPIRATION_TIME - ZERO_TIME) << 32);
+
+        // Ids embed their submission second in the high 32 bits.
+        let id_at = |submitted_at: u64| ((submitted_at - ZERO_TIME) << 32) | 7;
+
+        let fresh = id_at(now - 60);
+        let expired = id_at(now - EXPIRATION_TIME - 60);
+        assert!(!is_expired(&fresh.to_string(), bound));
+        assert!(is_expired(&expired.to_string(), bound));
+
+        // An unparsable key is kept rather than dropped.
+        assert!(!is_expired("0x2a", bound));
+    }
+
+    #[test]
+    fn live_ids_are_ordered_and_filtered() {
+        let now = now_secs();
+        let id_at = |submitted_at: u64| (((submitted_at - ZERO_TIME) << 32) | 1).to_string();
+
+        let queue = std::collections::BTreeMap::from([
+            (id_at(now - 30), ()),
+            (id_at(now - 120), ()),
+            (id_at(now - EXPIRATION_TIME - 600), ()),
+        ]);
+
+        let ids = live_ids(queue);
+        assert_eq!(ids, [id_at(now - 120), id_at(now - 30)]);
+    }
+
+    #[test]
+    fn confirmation_mask_is_read_per_custodian() {
+        let mask = (1 << 0) | (1 << 5);
+        assert!(is_confirmed(mask, 0));
+        assert!(is_confirmed(mask, 5));
+        assert!(!is_confirmed(mask, 1));
+        // Out-of-range index cannot shift past the mask width.
+        assert!(!is_confirmed(u32::MAX, 32));
     }
 }
