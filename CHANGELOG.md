@@ -4,6 +4,14 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [5.1.1]
+
+### Fixed
+- `Account::balance` now decodes the GraphQL hexadecimal representation of TVM
+  `Grams` as an unsigned magnitude. The public type remains `Option<BigInt>`,
+  but values whose most-significant byte starts with bit `1` are no longer
+  misreported as negative two's-complement numbers.
+
 ## [5.1.0]
 
 The `multisig` binding now targets `UpdateCustodianMultisigWallet_v2` **v2.4.0**.
