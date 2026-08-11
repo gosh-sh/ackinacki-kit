@@ -4,6 +4,76 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [5.1.0]
+
+The `multisig` binding now targets `UpdateCustodianMultisigWallet_v2` **v2.4.0**.
+The bundled ABI/TVC under `contracts/abi/multisig/` are re-vendored verbatim from
+`gosh-sh/acki-nacki` (`dev`, commit `44fe02ea`,
+`contracts/0.81.0_compiled/updatecustodianmultisigwallet_v2/`), replacing the
+`6ad89549` build shipped in `5.0.0`. Nothing older is supported: the wallet
+gained a fourth request queue and a stored balance config, so storage layout,
+constructor and event set all differ. Wallets whose code hash is not `CODE_HASH`
+must be driven by a binding that matches them.
+
+### Added
+- Balance config (gas self-management) — the wallet converts SHELL to vmshell
+  when its balance drops below `minBalance`, up to `targetBalance`;
+  `minBalance == 0` disables it, and the config survives custodian changes.
+  Bound as `submit_config_update` / `confirm_config_update` (with
+  `ParamsOfSubmitConfigUpdate`, `ResultOfSubmitConfigUpdate`,
+  `ParamsOfConfirmConfigUpdate`) plus `get_balance_config`, `get_config_update`,
+  `get_config_updates` and `get_config_update_ids`. New `BalanceConfig` and
+  `ConfigUpdate` types.
+- Custodian-set updates — `submit_data_update` / `confirm_data_update` and the
+  queue reads `get_update_data`, `get_update_datas`, `get_update_data_ids`.
+  Applying one now clears *all four* queues (transfers, data, code, config).
+- Code-update queue reads — `get_update_code` (with the pending cells),
+  `get_update_codes` (each pending code identified by hash, as the contract's
+  listing get-method does; the hashes are computed from the stored cells) and
+  `get_update_code_ids`. New `CodeUpdateInfo` type.
+- `set_max_cleanup_operations` and `get_max_cleanup_operations` — the
+  expired-request cleanup budget, with `MIN_CLEANUP_OPERATIONS` /
+  `DEFAULT_CLEANUP_OPERATIONS` mirrored from the contract.
+- `is_confirmed(mask, index)` — the contract's `isConfirmed`, as a pure
+  function; and `expiration_bound(now)` + `ZERO_TIME`, the request-id expiry
+  arithmetic behind the list-shaped reads.
+- `AccountData` gains the v2.4 fields `requests_mask_config`, `config_updates`
+  and `balance_config`.
+
+### Changed
+- `CODE_HASH` is now
+  `cfcaac10d43c8dc062298cb48df097be67cddec52b9cfd558309a7549f01c1f1`, `VERSION`
+  is `2.4.0`, and the vendored TVC's sha256 changed. Deploys must pair this TVC
+  with this ABI (on ABI ≥ 2.3 the address depends on the ABI's `fields` list).
+- The v2.4 constructor takes two more arguments (`minBalance`, `targetBalance`).
+  Deploy stays out of scope here, but a deployer's call has to grow with it.
+- The list-shaped reads (`get_transactions`, `get_transaction_ids`, and the new
+  `get_update_datas` / `get_update_codes` / `get_config_updates` and their id
+  forms) drop expired requests, the way the contract's listing get-methods do.
+  Since expiry is derived from the request id and there is no block clock
+  off-chain, the bound is computed from the *client's* clock. The by-id reads
+  still return an expired request, also matching the contract, and
+  `account_data()` exposes every queue unfiltered.
+- `get_custodians` is ordered by the stored `hash(pubkey, address)` map key —
+  which is what the on-chain dictionary is keyed by, and what its iteration
+  order follows. The `5.0.0` entry described this as ordering by
+  `owner_pubkey`; the order itself is unchanged.
+- Constant docs: `MAX_QUEUED_TRANSACTIONS` (contract `MAX_QUEUED_REQUESTS`) caps
+  unconfirmed requests per custodian *per queue*, all four queues separately.
+
+### Unchanged
+- `submit_transaction`, `send_transaction`, `confirm_transaction`,
+  `submit_update_code`, `confirm_update_code` and their params, including
+  `dapp_id` (still stored for off-chain use and not used to address the
+  outbound message).
+- Reads still decode the account's data cell instead of executing get-methods:
+  a get-method call still fails in `run_tvm` with `code 404 TVM internal error:
+  can not parse actions: 0`, because `tvm_block`'s action-list parser does not
+  recognise a tag emitted by `sol 0.81.0` output. This build comes from the same
+  compiler as the one that was verified on shellnet.
+- Events are still not bound. The wallet's lifecycle events (now 15, ids
+  `1100`–`1116`) can be decoded through `crate::event` with this ABI.
+
 ## [5.0.0]
 
 The `multisig` binding now targets `UpdateCustodianMultisigWallet_v2`
