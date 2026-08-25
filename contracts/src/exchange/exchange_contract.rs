@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -10,9 +8,9 @@ use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::error::ExchangeModule;
 use crate::error::KitModule;
 use crate::traits::AccountAccessor;
@@ -133,7 +131,7 @@ impl Exchange {
 
     /// Create wrapper for deployed `Exchange` contract.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -143,7 +141,7 @@ impl Exchange {
     /// Create wrapper bound to the default zerostate `Exchange` address, under
     /// the all-zero system dApp (verified on mainnet). Pass an explicit
     /// [`ParamsOfNewContract`](crate::account::ParamsOfNewContract) to `new` to override.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

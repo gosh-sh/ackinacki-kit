@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::error::ExchangeModule;
 use crate::error::KitModule;
 use crate::traits::AccountAccessor;
@@ -61,7 +59,7 @@ impl AsyncGuardedMut<Account> for DepositVoucher {
 impl DepositVoucher {
     /// Create wrapper for a deployed `DepositVoucher` contract.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -69,7 +67,7 @@ impl DepositVoucher {
     }
 
     /// Wrapper bound to `address`, under the all-zero system dApp.
-    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>, address: impl AsRef<str>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

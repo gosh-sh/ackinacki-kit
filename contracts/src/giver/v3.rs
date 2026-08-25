@@ -16,6 +16,7 @@ use tvm_client::processing::ResultOfSendMessage;
 use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u32;
 use crate::error::GiverModule;
 use crate::error::KitError;
@@ -196,7 +197,7 @@ impl GiverV3 {
 
     /// Creates wrapper for a deployed giver with a caller-supplied dApp ID.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -204,7 +205,7 @@ impl GiverV3 {
     }
 
     /// Creates wrapper for the default shellnet giver, under the all-zero system dApp.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(
@@ -361,9 +362,10 @@ fn is_duplicate_message_error(err: &KitError) -> bool {
             .unwrap_or(false)
 }
 
-/// Sends funds from default giver and ignores duplicate-message race on retries.
+/// Sends funds through the caller's delivery context and treats the node's
+/// structured duplicate-message response as success.
 pub async fn send_currency_with_flag_from_default_giver(
-    context: Arc<ClientContext>,
+    context: impl Into<ContractContext>,
     dest: &str,
     native_value: u64,
     ecc: HashMap<u32, u64>,

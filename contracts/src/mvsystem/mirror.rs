@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
@@ -8,28 +7,28 @@ use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
 use crate::error::MvSystemModule;
 use crate::mvsystem::miner::contract::Miner;
 use crate::mvsystem::PopitMedia;
-use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
+use crate::traits::AutoContract;
 use crate::traits::ContextAccessor;
+use crate::traits::ContractBase;
 use crate::traits::EncodeMessage;
-use crate::traits::Executor;
 use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
 use crate::KitResult;
@@ -38,58 +37,28 @@ const ABI: &str = include_str!("../../abi/mvsystem/Mirror.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct Mirror {
-    context: Arc<ClientContext>,
-    address: String,
-    dapp_id: String,
+    base: ContractBase,
     index: u128,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
 }
 
 impl ModuleAccessor for Mirror {
     const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Mirror);
 }
 
-impl AccountAccessor for Mirror {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
+impl HasContractBase for Mirror {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
-impl AbiAccessor for Mirror {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for Mirror {
-    fn address(&self) -> &str {
-        &self.address
-    }
-
-    fn dapp_id(&self) -> &str {
-        &self.dapp_id
-    }
-}
-
-impl ContextAccessor for Mirror {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
-    }
-}
-
-impl EncodeMessage for Mirror {}
-
-impl Executor for Mirror {}
-
-impl SendMessage for Mirror {}
+impl AutoContract for Mirror {}
 
 impl AsyncGuarded<Account> for Mirror {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -100,7 +69,7 @@ impl AsyncGuardedMut<Account> for Mirror {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -154,7 +123,7 @@ pub struct ResultOfGetMinerAddress {
 
 impl Mirror {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         public: impl AsRef<str>,
         dapp_id: impl Into<String>,
     ) -> KitResult<Self> {
@@ -181,19 +150,15 @@ impl Mirror {
         };
         let address = format!("0:2{index:063x}");
 
-        let dapp_id = dapp_id.into();
-        Ok(Self {
-            context: context.clone(),
-            address: address.clone(),
-            dapp_id: dapp_id.clone(),
-            index,
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, address, dapp_id))),
-        })
+        let params = crate::account::ParamsOfNewContract::new(address, dapp_id);
+        Ok(Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())), index })
     }
 
     /// Wrapper for the mirror of `public`, under the Mobile Verifiers dApp.
-    pub fn new_default(context: Arc<ClientContext>, public: impl AsRef<str>) -> KitResult<Self> {
+    pub fn new_default(
+        context: impl Into<ContractContext>,
+        public: impl AsRef<str>,
+    ) -> KitResult<Self> {
         Self::new(context, public, crate::dapp::SystemDapp::MobileVerifiers)
     }
 
@@ -213,7 +178,7 @@ impl Mirror {
             .await?;
 
         Ok(Miner::new(
-            self.context.clone(),
+            self.contract_context(),
             crate::account::ParamsOfNewContract::new(res_of_get_addr.address, self.dapp_id()),
         ))
     }

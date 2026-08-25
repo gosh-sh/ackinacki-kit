@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use shared::traits::guarded::AsyncGuarded;
@@ -9,10 +7,10 @@ use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
 use crate::accumulator::events::DecodedSellOrderLotEvent;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u16;
 use crate::deserialize::deserialize_u64;
 use crate::error::AccumulatorModule;
@@ -104,7 +102,7 @@ impl Default for ParamsOfQuerySellOrderLotEvents {
 impl ShellSellOrderLot {
     /// Create a wrapper for a deployed `ShellSellOrderLot`.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -112,7 +110,7 @@ impl ShellSellOrderLot {
     }
 
     /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
-    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>, address: impl AsRef<str>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

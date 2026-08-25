@@ -3,6 +3,7 @@ pub mod accumulator;
 pub mod authservice;
 pub mod bksystem;
 pub mod dapp;
+pub mod delivery;
 pub mod deserialize;
 pub mod error;
 pub mod event;

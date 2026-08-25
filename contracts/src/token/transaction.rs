@@ -1,88 +1,49 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u64;
 use crate::error::KitModule;
 use crate::error::TokenModule;
 use crate::token::wallet::TransactionType;
-use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
-use crate::traits::AddressAccessor;
-use crate::traits::ContextAccessor;
-use crate::traits::DecodeMessage;
-use crate::traits::EncodeMessage;
-use crate::traits::Executor;
+use crate::traits::AutoContract;
+use crate::traits::ContractBase;
 use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
-use crate::traits::SendMessage;
 use crate::KitResult;
 
 const ABI: &str = include_str!("../../abi/token/Transaction.abi.json");
 
 #[derive(Debug, Clone)]
 pub struct TokenTransaction {
-    context: Arc<ClientContext>,
-    address: String,
-    dapp_id: String,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
+    base: ContractBase,
 }
 
 impl ModuleAccessor for TokenTransaction {
     const MODULE: KitModule = KitModule::Token(TokenModule::Transaction);
 }
 
-impl AccountAccessor for TokenTransaction {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
+impl HasContractBase for TokenTransaction {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
-impl AbiAccessor for TokenTransaction {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for TokenTransaction {
-    fn address(&self) -> &str {
-        &self.address
-    }
-
-    fn dapp_id(&self) -> &str {
-        &self.dapp_id
-    }
-}
-
-impl ContextAccessor for TokenTransaction {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
-    }
-}
-
-impl EncodeMessage for TokenTransaction {}
-
-impl DecodeMessage for TokenTransaction {}
-
-impl Executor for TokenTransaction {}
-
-impl SendMessage for TokenTransaction {}
+impl AutoContract for TokenTransaction {}
 
 impl AsyncGuarded<Account> for TokenTransaction {
     async fn async_guarded<F, T>(&self, action: F) -> T
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -93,7 +54,7 @@ impl AsyncGuardedMut<Account> for TokenTransaction {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -114,17 +75,10 @@ pub struct ResultOfGetDetails {
 
 impl TokenTransaction {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
-        let params = params.into();
-        Self {
-            context: context.clone(),
-            address: params.address.clone(),
-            dapp_id: params.dapp_id.clone(),
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
-        }
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     pub async fn get_details(&self) -> KitResult<ResultOfGetDetails> {
