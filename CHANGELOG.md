@@ -4,6 +4,26 @@ All notable changes to `ackinacki-kit` are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); the workspace is
 versioned as a whole (`package.version` in the root `Cargo.toml`).
 
+## [Unreleased]
+
+## [6.0.0]
+
+### Added
+- Prepared-message delivery: contract writes can now be encoded and signed once,
+  then submitted through an injected `PreparedMessageSender`. The default
+  `Arc<ClientContext>` constructors preserve direct-send behavior for existing
+  consumers.
+
+### Changed
+- Chain-backed contract wrapper constructors now accept `impl Into<ContractContext>`,
+  allowing callers to provide either the existing `Arc<ClientContext>` or an
+  injected delivery context. Ordinary constructor calls remain source-compatible,
+  but the public function signature change requires a new major version. The local
+  `ReputationCoefficientCalculator` intentionally remains on `Arc<ClientContext>`.
+- `SendMessage` prepares a message before submission and exposes the prepared
+  message for exact-BOC resubmission policies. The default sender still submits
+  once through `tvm_client::processing::send_message`.
+
 ## [5.1.1]
 
 ### Fixed

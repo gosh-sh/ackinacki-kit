@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -15,10 +13,10 @@ use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::account_id_from_address;
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -231,7 +229,7 @@ const GQL_PROFILE_EVENTS_QUERY: &str = r#"
 
 impl AuthProfile {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -239,7 +237,7 @@ impl AuthProfile {
     }
 
     /// Wrapper bound to `address`, under the AuthService dApp.
-    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>, address: impl AsRef<str>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

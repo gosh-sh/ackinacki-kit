@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -10,9 +8,9 @@ use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u64;
 use crate::error::ExchangeModule;
@@ -213,7 +211,7 @@ pub struct ResultOfGetNonces {
 impl UsdcBridge {
     /// Create wrapper for deployed `USDCBridge` contract.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -221,7 +219,7 @@ impl UsdcBridge {
     }
 
     /// Wrapper bound to `address`, under the all-zero system dApp.
-    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>, address: impl AsRef<str>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

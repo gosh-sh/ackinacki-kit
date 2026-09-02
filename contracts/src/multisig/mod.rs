@@ -51,8 +51,8 @@
 //! `sol 0.81.0` output (`tvm_block/src/out_actions.rs`; identical in tvm-sdk
 //! 3.0.2 and 3.0.4, so bumping the SDK does not help). Verified on shellnet for
 //! every read method of the previous `sol 0.81.0` build; this build comes from
-//! the same compiler. Writes are unaffected — they go through `process_message`,
-//! not `run_tvm`.
+//! the same compiler. Writes are unaffected — prepared messages are submitted
+//! directly rather than executed through `run_tvm`.
 //!
 //! Three consequences of reading storage:
 //!
@@ -82,7 +82,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use chrono::Utc;
 use serde::Deserialize;
@@ -90,28 +89,28 @@ use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::boc::ParamsOfGetBocHash;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u64;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
-use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
 use crate::traits::AddressAccessor;
 use crate::traits::ContextAccessor;
+use crate::traits::ContractBase;
 use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 use crate::traits::ResultOfGetVersion;
 use crate::traits::SendMessage;
@@ -350,42 +349,16 @@ pub struct ConfigUpdate {
 
 #[derive(Debug, Clone)]
 pub struct Multisig {
-    context: Arc<ClientContext>,
-    address: String,
-    dapp_id: String,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
+    base: ContractBase,
 }
 
 impl ModuleAccessor for Multisig {
     const MODULE: KitModule = KitModule::Multisig;
 }
 
-impl AccountAccessor for Multisig {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
-    }
-}
-
-impl AbiAccessor for Multisig {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for Multisig {
-    fn address(&self) -> &str {
-        &self.address
-    }
-
-    fn dapp_id(&self) -> &str {
-        &self.dapp_id
-    }
-}
-
-impl ContextAccessor for Multisig {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
+impl HasContractBase for Multisig {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
@@ -404,7 +377,7 @@ impl AsyncGuarded<Account> for Multisig {
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -415,7 +388,7 @@ impl AsyncGuardedMut<Account> for Multisig {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -719,17 +692,10 @@ pub struct ResultOfGetMaxCleanupOperations {
 
 impl Multisig {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
-        let params = params.into();
-        Self {
-            context: context.clone(),
-            address: params.address.clone(),
-            dapp_id: params.dapp_id.clone(),
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
-        }
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// # Submit transaction

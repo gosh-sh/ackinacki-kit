@@ -1,33 +1,30 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use shared::traits::guarded::AsyncGuarded;
 use shared::traits::guarded::AsyncGuardedMut;
-use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::Signer;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::Account;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u64;
 use crate::error::KitModule;
 use crate::error::MvSystemModule;
 use crate::mvsystem::ContractIndex;
-use crate::traits::AbiAccessor;
 use crate::traits::AccountAccessor;
-use crate::traits::AddressAccessor;
-use crate::traits::ContextAccessor;
+use crate::traits::ContractBase;
 use crate::traits::DecodeAccountData;
 use crate::traits::DecodeMessage;
 use crate::traits::EncodeMessage;
 use crate::traits::Executor;
 use crate::traits::GetMethodAccessor;
+use crate::traits::HasContractBase;
 use crate::traits::ModuleAccessor;
 use crate::traits::SendMessage;
 use crate::KitResult;
@@ -108,42 +105,16 @@ pub struct JwkData {
 
 #[derive(Debug, Clone)]
 pub struct Multifactor {
-    context: Arc<ClientContext>,
-    address: String,
-    dapp_id: String,
-    abi: Abi,
-    account: Arc<Mutex<Account>>,
+    base: ContractBase,
 }
 
 impl ModuleAccessor for Multifactor {
     const MODULE: KitModule = KitModule::MvSystem(MvSystemModule::Multifactor);
 }
 
-impl AccountAccessor for Multifactor {
-    fn account(&self) -> &Arc<Mutex<Account>> {
-        &self.account
-    }
-}
-
-impl AbiAccessor for Multifactor {
-    fn abi(&self) -> &Abi {
-        &self.abi
-    }
-}
-
-impl AddressAccessor for Multifactor {
-    fn address(&self) -> &str {
-        &self.address
-    }
-
-    fn dapp_id(&self) -> &str {
-        &self.dapp_id
-    }
-}
-
-impl ContextAccessor for Multifactor {
-    fn context(&self) -> &Arc<ClientContext> {
-        &self.context
+impl HasContractBase for Multifactor {
+    fn base(&self) -> &ContractBase {
+        &self.base
     }
 }
 
@@ -162,7 +133,7 @@ impl AsyncGuarded<Account> for Multifactor {
     where
         F: FnOnce(&Account) -> T,
     {
-        let guard = self.account.lock().await;
+        let guard = self.account().lock().await;
         action(&guard)
     }
 }
@@ -173,7 +144,7 @@ impl AsyncGuardedMut<Account> for Multifactor {
         F: FnOnce(OwnedMutexGuard<Account>) -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let guard = self.account.clone().lock_owned().await;
+        let guard = self.account().clone().lock_owned().await;
         action(guard).await
     }
 }
@@ -364,21 +335,14 @@ pub struct ParamsOfSetWasmHash {
 
 impl Multifactor {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
-        let params = params.into();
-        Self {
-            context: context.clone(),
-            address: params.address.clone(),
-            dapp_id: params.dapp_id.clone(),
-            abi: Abi::Json(ABI.to_string()),
-            account: Arc::new(Mutex::new(Account::new(context, &params.address, params.dapp_id))),
-        }
+        Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// Wrapper bound to `address`, under the Mobile Verifiers dApp.
-    pub fn new_default(context: Arc<ClientContext>, address: impl AsRef<str>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>, address: impl AsRef<str>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(

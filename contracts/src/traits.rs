@@ -11,6 +11,7 @@ use tvm_client::abi::Abi;
 use tvm_client::abi::CallSet;
 use tvm_client::abi::DecodedMessageBody;
 use tvm_client::abi::DeploySet;
+use tvm_client::abi::FunctionHeader;
 use tvm_client::abi::ParamsOfDecodeAccountData;
 use tvm_client::abi::ParamsOfDecodeMessage;
 use tvm_client::abi::ParamsOfDecodeMessageBody;
@@ -20,7 +21,6 @@ use tvm_client::abi::ResultOfEncodeMessage;
 use tvm_client::abi::ResultOfEncodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::abi::{self};
-use tvm_client::processing;
 use tvm_client::processing::ParamsOfSendMessage;
 use tvm_client::processing::ProcessingEvent;
 use tvm_client::processing::ResultOfSendMessage;
@@ -32,6 +32,8 @@ use tvm_client::ClientContext;
 use crate::account::Account;
 use crate::account::ParamsOfNewContract;
 use crate::account::ParamsOfWaitAccount;
+use crate::delivery::ContractContext;
+use crate::delivery::PreparedMessage;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
 use crate::error::KitModule;
@@ -54,7 +56,7 @@ pub trait ModuleAccessor {
 /// This allows reducing boilerplate without forcing a repo-wide refactor.
 #[derive(Debug, Clone)]
 pub struct ContractBase {
-    context: Arc<ClientContext>,
+    context: ContractContext,
     address: String,
     dapp_id: String,
     abi: Abi,
@@ -63,13 +65,18 @@ pub struct ContractBase {
 
 impl ContractBase {
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<ParamsOfNewContract>,
         abi: Abi,
     ) -> Self {
+        let context = context.into();
         let ParamsOfNewContract { address, dapp_id } = params.into();
         Self {
-            account: Arc::new(Mutex::new(Account::new(context.clone(), &address, dapp_id.clone()))),
+            account: Arc::new(Mutex::new(Account::new(
+                context.client().clone(),
+                &address,
+                dapp_id.clone(),
+            ))),
             context,
             address,
             dapp_id,
@@ -183,6 +190,10 @@ where
 
 pub trait ContextAccessor {
     fn context(&self) -> &Arc<ClientContext>;
+
+    fn contract_context(&self) -> ContractContext {
+        self.context().clone().into()
+    }
 }
 
 impl<T> ContextAccessor for T
@@ -190,13 +201,16 @@ where
     T: HasContractBase,
 {
     fn context(&self) -> &Arc<ClientContext> {
-        &self.base().context
+        self.base().context.client()
+    }
+
+    fn contract_context(&self) -> ContractContext {
+        self.base().context.clone()
     }
 }
 
 /// Opt-in marker for gradual migration to blanket impls (`EncodeMessage`,
-/// `DecodeMessage`, `Executor`, `SendMessage`, `VersionAccessor`,
-/// `DecodeAccountData`) without conflicting with existing explicit impls
+/// `DecodeMessage`, `Executor`, `SendMessage`, `VersionAccessor`) without conflicting with existing explicit impls
 /// in modules that have not been migrated yet.
 pub trait AutoContract:
     ModuleAccessor + ContextAccessor + AbiAccessor + AddressAccessor + AccountAccessor
@@ -334,13 +348,26 @@ pub trait EncodeMessage: ModuleAccessor + ContextAccessor + AbiAccessor + Addres
 impl<C> EncodeMessage for C where C: AutoContract {}
 
 pub trait SendMessage: ModuleAccessor + EncodeMessage {
-    fn send_message(
+    fn prepare_message(
         &self,
-        call_set: Option<CallSet>,
+        mut call_set: Option<CallSet>,
         deploy_set: Option<DeploySet>,
         signer: Signer,
-    ) -> impl Future<Output = KitResult<ResultOfSendMessage>> {
-        async {
+    ) -> impl Future<Output = KitResult<PreparedMessage>> {
+        async move {
+            let contract_context = self.contract_context();
+            let expires_at = contract_context
+                .message_lifetime()
+                .map(|lifetime| {
+                    message_expiration(Self::MODULE, contract_context.client().now_ms(), lifetime)
+                })
+                .transpose()?;
+
+            if let (Some(call_set), Some(expires_at)) = (&mut call_set, expires_at) {
+                call_set.header.get_or_insert_with(FunctionHeader::default).expire =
+                    Some(expires_at);
+            }
+
             let encode_message_result = self.encode_message(call_set, deploy_set, signer).await?;
             let params = ParamsOfSendMessage {
                 message: encode_message_result.message,
@@ -350,17 +377,50 @@ pub trait SendMessage: ModuleAccessor + EncodeMessage {
                 dapp_id: self.dapp_id().to_string(),
             };
 
-            processing::send_message(self.context().clone(), params, process_message_callback)
-                .await
-                .map_err(|e| {
-                    KitError::new(Self::MODULE, KitErrorCode::None, "Send message")
-                        .with_tvm_error(e)
-                })
+            Ok(PreparedMessage::new(params, encode_message_result.message_id, expires_at))
+        }
+    }
+
+    fn send_prepared_message(
+        &self,
+        message: &PreparedMessage,
+    ) -> impl Future<Output = KitResult<ResultOfSendMessage>> {
+        async {
+            let contract_context = self.contract_context();
+            contract_context.sender().send(self.context().clone(), message).await.map_err(|e| {
+                KitError::new(Self::MODULE, KitErrorCode::None, "Send message").with_tvm_error(e)
+            })
+        }
+    }
+
+    fn send_message(
+        &self,
+        call_set: Option<CallSet>,
+        deploy_set: Option<DeploySet>,
+        signer: Signer,
+    ) -> impl Future<Output = KitResult<ResultOfSendMessage>> {
+        async {
+            let message = self.prepare_message(call_set, deploy_set, signer).await?;
+            self.send_prepared_message(&message).await
         }
     }
 }
 
 impl<C> SendMessage for C where C: AutoContract {}
+
+fn message_expiration(
+    module: KitModule,
+    now_millis: u64,
+    lifetime: std::time::Duration,
+) -> KitResult<u32> {
+    let lifetime_millis = u64::try_from(lifetime.as_millis())
+        .map_err(|_| KitError::new(module, KitErrorCode::None, "Message lifetime exceeds u64"))?;
+    let expires_at = now_millis
+        .checked_add(lifetime_millis)
+        .ok_or_else(|| KitError::new(module, KitErrorCode::None, "Message expiration overflow"))?;
+    u32::try_from(expires_at / 1_000)
+        .map_err(|_| KitError::new(module, KitErrorCode::None, "Message expiration exceeds u32"))
+}
 
 pub trait Executor: EncodeMessage + AccountAccessor {
     fn run_tvm(
@@ -500,6 +560,32 @@ pub trait GetMethodAccessor: ModuleAccessor + Executor {
 
 impl<T> GetMethodAccessor for T where T: ModuleAccessor + Executor {}
 
-async fn process_message_callback(event: ProcessingEvent) {
+pub(crate) async fn send_message_callback(event: ProcessingEvent) {
     tracing::debug!(target: "ackinacki_kit", "{event:?}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_expiration_uses_the_supplied_clock_and_lifetime() {
+        assert_eq!(
+            message_expiration(KitModule::Multisig, 1_234, std::time::Duration::from_secs(30))
+                .unwrap(),
+            31,
+        );
+    }
+
+    #[test]
+    fn message_expiration_rejects_values_outside_the_abi_header_range() {
+        let error = message_expiration(
+            KitModule::Multisig,
+            u64::from(u32::MAX) * 1_000,
+            std::time::Duration::from_secs(1),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("Message expiration exceeds u32"));
+    }
 }

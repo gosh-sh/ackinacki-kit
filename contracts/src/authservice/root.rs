@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -12,13 +10,13 @@ use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::account_id_from_address;
 use crate::account::Account;
 use crate::authservice::events::AuthProfileDeployedData;
 use crate::authservice::events::AuthServiceEvent;
 use crate::authservice::profile::AuthProfile;
+use crate::delivery::ContractContext;
 use crate::error::AuthServiceModule;
 use crate::error::KitError;
 use crate::error::KitErrorCode;
@@ -244,14 +242,14 @@ impl AuthServiceRoot {
 
     /// General constructor — caller supplies address + dApp ID.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         Self { base: ContractBase::new(context, params, Abi::Json(ABI.to_string())) }
     }
 
     /// Wrapper bound to the default address, under the AuthService system dApp.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(
@@ -349,7 +347,7 @@ impl AuthServiceRoot {
     pub async fn get_profile(&self, params: ParamsOfGetProfileAddress) -> KitResult<AuthProfile> {
         let profile = self.get_profile_address(params).await?;
         Ok(AuthProfile::new(
-            self.context().clone(),
+            self.contract_context(),
             crate::account::ParamsOfNewContract::new(profile.profile, self.dapp_id()),
         ))
     }
