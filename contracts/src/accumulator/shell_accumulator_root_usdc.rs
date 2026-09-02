@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use base64::Engine;
 use serde::Deserialize;
@@ -15,7 +14,6 @@ use tvm_client::abi::ParamsOfDecodeMessageBody;
 use tvm_client::abi::Signer;
 use tvm_client::net;
 use tvm_client::processing::ResultOfSendMessage;
-use tvm_client::ClientContext;
 
 use crate::account::account_id_from_address;
 use crate::account::Account;
@@ -26,6 +24,7 @@ use crate::accumulator::events::UsdcClaimedData;
 use crate::accumulator::is_valid_denom;
 use crate::accumulator::shell_sell_order_lot::ShellSellOrderLot;
 use crate::accumulator::VALID_DENOMS;
+use crate::delivery::ContractContext;
 use crate::deserialize::deserialize_u128;
 use crate::deserialize::deserialize_u32;
 use crate::deserialize::deserialize_u64;
@@ -254,7 +253,7 @@ impl ShellAccumulatorRootUsdc {
 
     /// Create a wrapper for a deployed `ShellAccumulatorRootUSDC`.
     pub fn new(
-        context: Arc<ClientContext>,
+        context: impl Into<ContractContext>,
         params: impl Into<crate::account::ParamsOfNewContract>,
     ) -> Self {
         let params = params.into();
@@ -264,7 +263,7 @@ impl ShellAccumulatorRootUsdc {
     /// Create a wrapper bound to the default zerostate accumulator root, under
     /// dApp `…0001` (verified on mainnet). Pass an explicit
     /// [`ParamsOfNewContract`](crate::account::ParamsOfNewContract) to `new` to override.
-    pub fn new_default(context: Arc<ClientContext>) -> Self {
+    pub fn new_default(context: impl Into<ContractContext>) -> Self {
         Self::new(
             context,
             crate::account::ParamsOfNewContract::new(
@@ -353,7 +352,7 @@ impl ShellAccumulatorRootUsdc {
             .await?
             .sell_order_addr;
         let sell_order_lot = ShellSellOrderLot::new(
-            self.context().clone(),
+            self.contract_context(),
             crate::account::ParamsOfNewContract::new(sell_order_addr, self.dapp_id()),
         );
         sell_order_lot.claim(signer).await
@@ -431,7 +430,7 @@ impl ShellAccumulatorRootUsdc {
                 .sell_order_addr;
 
             let sell_order_lot = ShellSellOrderLot::new(
-                self.context().clone(),
+                self.contract_context(),
                 crate::account::ParamsOfNewContract::new(
                     sell_order_address.clone(),
                     self.dapp_id(),
