@@ -6,6 +6,10 @@ versioned as a whole (`package.version` in the root `Cargo.toml`).
 
 ## [Unreleased]
 
+### Added
+- `multisig::request_created_at` decodes a queued request's UTC submission
+  timestamp from its contract-generated id.
+
 ## [6.0.0]
 
 ### Added
