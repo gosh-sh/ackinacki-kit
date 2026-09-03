@@ -1132,6 +1132,15 @@ pub fn is_confirmed(mask: u32, index: u8) -> bool {
     index < u32::BITS as u8 && mask & (1 << index) != 0
 }
 
+/// Returns the request submission time as Unix seconds.
+///
+/// The contract stores `(block.timestamp - ZERO_TIME)` in the high 32 bits of
+/// every request id and the transaction logical time in the low 32 bits.
+/// Returns `None` when `id` is not a decimal `uint64`.
+pub fn request_created_at(id: &str) -> Option<u64> {
+    id.parse::<u64>().ok().map(|id| (id >> 32) + ZERO_TIME)
+}
+
 /// Lower bound on live request ids, mirroring the contract's
 /// `_getExpirationBound()`: a request is expired once its id is `<=` the bound.
 ///
@@ -1191,6 +1200,7 @@ mod tests {
     use super::live_ids;
     use super::now_secs;
     use super::numeric_id_cmp;
+    use super::request_created_at;
     use super::AccountData;
     use super::ParamsOfConfirmConfigUpdate;
     use super::ParamsOfConfirmDataUpdate;
@@ -1393,6 +1403,15 @@ mod tests {
         let mut ids = ["10".to_string(), "9".to_string(), "100".to_string(), "11".to_string()];
         ids.sort_by(|a, b| numeric_id_cmp(a, b));
         assert_eq!(ids, ["9", "10", "11", "100"]);
+    }
+
+    #[test]
+    fn request_id_exposes_its_submission_time() {
+        let submitted_at = 1_800_000_000;
+        let id = ((submitted_at - ZERO_TIME) << 32) | 0xfeed_beef;
+
+        assert_eq!(request_created_at(&id.to_string()), Some(submitted_at));
+        assert_eq!(request_created_at("not-a-uint64"), None);
     }
 
     /// The bound must match `_getExpirationBound()`, and ids are compared
